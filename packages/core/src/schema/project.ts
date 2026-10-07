@@ -106,9 +106,16 @@ export type Person = Roles["people"][number];
 
 // --- flow.yaml
 
+export const GATE_BY = ["role", "team-leads", "other-team-leads", "contract-lead"] as const;
+
 const gate = z.strictObject({
   /** A role id, or `auto` for a gate that checks itself (tests, CI). */
   role: z.string(),
+  /**
+   * Whose entries the gate needs: anyone with the role, every lead of the feature's teams, the lead of every
+   * team except the contract team, or the contract team's lead. Leads are named in feature.yaml.
+   */
+  by: z.enum(GATE_BY).default("role"),
   text: z.string(),
   /** Where a return sends the work. Defaults to the step itself. */
   returns_to: kebab.optional(),
@@ -190,7 +197,9 @@ export const engineSchema = z.strictObject({
   returns: z
     .record(
       z.string().regex(KEBAB),
-      z.strictObject({ stage: z.string(), from: kebab, in: where, done_when: z.array(requirement).min(1) }),
+      z
+        .strictObject({ stage: z.string(), from: z.union([kebab, z.array(kebab).min(1)]), in: where, done_when: z.array(requirement).min(1) })
+        .transform(({ from, ...rest }) => ({ ...rest, from: Array.isArray(from) ? from : [from] })),
     )
     .optional(),
 });

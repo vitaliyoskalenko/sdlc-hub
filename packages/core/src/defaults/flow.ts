@@ -26,15 +26,15 @@ steps:
   - id: tech-design
     role: dev
     kind: engine
-    gate: { role: dev, text: "Architecture review by the other teams' leads" }
+    gate: { role: dev, by: other-team-leads, text: "Architecture review by the other teams' leads" }
   - id: data-model
     role: dev
     kind: engine
-    gate: { role: dev, text: "The schema and the rollback migration" }
+    gate: { role: dev, by: contract-lead, text: "The schema and the rollback migration" }
   - id: api
     role: dev
     kind: engine
-    gate: { role: dev, text: "The contract merge request, approved by the other teams' leads" }
+    gate: { role: dev, by: other-team-leads, text: "The contract, signed off by the lead of every other team" }
   - id: screens
     role: designer
     kind: engine
@@ -42,7 +42,7 @@ steps:
   - id: tasks
     role: dev
     kind: engine
-    gate: { role: dev, text: "The task split, by each team lead" }
+    gate: { role: dev, by: team-leads, text: "The task split, by each team lead" }
   - id: sprint
     role: pm
     kind: hub
@@ -59,11 +59,11 @@ steps:
   - id: review
     role: dev
     kind: engine
-    gate: { role: dev, text: "The team lead approves each merge request" }
+    gate: { role: dev, by: team-leads, text: "Each team lead signs off the review of their team's merge request" }
   - id: ship
     role: dev
     kind: engine
-    gate: { role: dev, text: "The part was run for real against its criteria" }
+    gate: { role: dev, by: team-leads, text: "The part was run for real against its criteria" }
   - id: staging
     role: ops
     kind: hub

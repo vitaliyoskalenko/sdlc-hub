@@ -22,5 +22,5 @@ steps:
   review:      { stage: review, in: teams, done_when: ["review:PASS"] }
   ship:        { stage: ship, in: teams, done_when: ["mr:open"] }
 returns:
-  fix:         { stage: fix, from: verify, in: owning-team, done_when: ["file:_fixes/*.md"] }
+  fix:         { stage: fix, from: [verify, qa-final], in: owning-team, done_when: ["file:_fixes/*.md"] }
 `;

@@ -47,6 +47,18 @@ describe("default flow.yaml", () => {
   });
 
   it("sets the watch period to 7 days", () => expect(flow.value?.release.watch_days).toBe(7));
+
+  it("says whose sign-off each Engineering gate needs", () => {
+    const by = Object.fromEntries(flow.value!.steps.filter((s) => s.gate?.role === "dev").map((s) => [s.id, s.gate!.by]));
+    expect(by).toEqual({
+      "tech-design": "other-team-leads",
+      "data-model": "contract-lead",
+      api: "other-team-leads",
+      tasks: "team-leads",
+      review: "team-leads",
+      ship: "team-leads",
+    });
+  });
 });
 
 describe("default engines/sdd.yaml", () => {
@@ -63,7 +75,7 @@ describe("default engines/sdd.yaml", () => {
 
   it("lists fix as a return from verify, apart from the steps", () => {
     expect(engine.value?.steps["fix"]).toBeUndefined();
-    expect(engine.value?.returns?.["fix"]).toMatchObject({ stage: "fix", from: "verify" });
+    expect(engine.value?.returns?.["fix"]).toMatchObject({ stage: "fix", from: ["verify", "qa-final"] });
   });
 
   it("lets the quick and standard routes skip only SDD's optional stages", () => {

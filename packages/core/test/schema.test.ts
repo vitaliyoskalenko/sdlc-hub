@@ -148,11 +148,14 @@ steps:
   - { id: specify, role: po, kind: engine }
   - { id: clarify, role: po, kind: engine, gate: { role: po, text: "the spec is ready" } }
   - { id: epic, role: pm, kind: hub, llm: false, evidence: ["signoff:epic"], gate: { role: pm, text: "size, route and leads", returns_to: clarify } }
+  - { id: tasks, role: pm, kind: hub, evidence: ["signoff:tasks"], gate: { role: pm, by: team-leads, text: "split" } }
 `;
   it("parses a flow", () => {
     const r = parseFlow(FLOW, ".hub/flow.yaml");
     expect(r.issues).toEqual([]);
-    expect(r.value?.steps.map((s) => s.id)).toEqual(["specify", "clarify", "epic"]);
+    expect(r.value?.steps.map((s) => s.id)).toEqual(["specify", "clarify", "epic", "tasks"]);
+    expect(r.value?.steps[1]?.gate?.by).toBe("role");
+    expect(r.value?.steps[3]?.gate?.by).toBe("team-leads");
   });
   it("refuses duplicate and non-kebab step ids", () => {
     const dup = parseFlow(FLOW.replace("id: clarify", "id: specify"), "f");
@@ -182,7 +185,7 @@ steps:
   tech-design: { stages: [design, sequences], in: contract, done_when: ["file:sad.md"] }
   clarify: { stage: clarify, in: specs, skippable_on: [quick, standard], done_when: ["signoff:clarify"] }
 returns:
-  fix: { stage: fix, from: verify, in: owning-team, done_when: ["file:_fixes/*.md"] }
+  fix: { stage: fix, from: [verify, qa-final], in: owning-team, done_when: ["file:_fixes/*.md"] }
 `;
   it("parses an engine adapter with stage or stages", () => {
     const r = parseEngine(ENGINE, ".hub/engines/sdd.yaml");
@@ -190,6 +193,7 @@ returns:
     expect(r.value?.steps["tech-design"]?.stages).toEqual(["design", "sequences"]);
     expect(r.value?.steps["specify"]?.stages).toEqual(["specify"]);
     expect(r.value?.steps["clarify"]?.skippable_on).toEqual(["quick", "standard"]);
+    expect(r.value?.returns?.["fix"]?.from).toEqual(["verify", "qa-final"]);
   });
   it("refuses unknown evidence", () => {
     const r = parseEngine(ENGINE.replace('"file:spec.md"', '"spec.md"'), "e");
@@ -240,7 +244,7 @@ estimate:
   decision: return
   reason: "BUG-0012 reproduces on Android"
   bugs: [BUG-0012]
-  target: fix
+  returns_to: verify
   cycle: 1
 `,
       "signoffs.yaml",
@@ -255,6 +259,11 @@ estimate:
     expect(errors(noReason).map((i) => i.message).join()).toMatch(/reason/);
     const half = parseSignoffs("- { step: clarify, user: a, at: 2026-09-19T08:40:00Z, file: spec.md }\n", "s");
     expect(errors(half).map((i) => i.message).join()).toMatch(/hash/);
+  });
+
+  it("needs the file and hash on a confirmation of no change", () => {
+    const r = parseSignoffs("- { step: screens, user: daria.l, at: 2026-09-20T08:00:00Z, decision: confirm }\n", "s");
+    expect(errors(r).map((i) => i.message).join()).toMatch(/confirmation/);
   });
 
   it("parses a bug file with front matter", () => {

@@ -15,6 +15,7 @@ export function checkEngineAgainstFlow(engine: Engine, flow: Flow, file: string)
     else if (kind.get(id) === "hub") issues.push({ level: "error", file, path: `steps.${id}`, message: `The adapter maps ${id}, which is a hub step` });
   }
   for (const [id, r] of Object.entries(engine.returns ?? {}))
-    if (!kind.has(r.from)) issues.push({ level: "error", file, path: `returns.${id}.from`, message: `Return ${id} starts at ${r.from}, which is not a step` });
+    for (const from of r.from)
+      if (!kind.has(from)) issues.push({ level: "error", file, path: `returns.${id}.from`, message: `Return ${id} starts at ${from}, which is not a step` });
   return issues;
 }

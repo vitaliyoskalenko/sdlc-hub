@@ -32,15 +32,19 @@ const signoffEntry = z
     /** The approved file and its content hash. A sign-off records a hash, not a commit. */
     file: z.string().optional(),
     hash: z.string().regex(/^sha256:[0-9a-f]+$/, "Write the hash as sha256:<hex>").optional(),
-    decision: z.enum(["pass", "return"]).default("pass"),
+    /** pass and return answer a gate; confirm is an owner's "no change needed" after a validation. */
+    decision: z.enum(["pass", "return", "confirm"]).default("pass"),
     reason: z.string().min(1).optional(),
     bugs: z.array(z.string()).optional(),
-    target: kebab.optional(),
+    /** Where a return goes, the same field as in flow.yaml. */
+    returns_to: kebab.optional(),
     cycle: z.number().int().min(1).optional(),
   })
   .superRefine((e, ctx) => {
     if ((e.file === undefined) !== (e.hash === undefined))
       ctx.addIssue({ code: "custom", message: "A sign-off names the approved file and its hash together" });
+    if (e.decision === "confirm" && e.file === undefined)
+      ctx.addIssue({ code: "custom", message: "A confirmation of no change names the file and its hash" });
     if (e.decision === "return" && !e.reason) ctx.addIssue({ code: "custom", path: ["reason"], message: "A return needs a reason" });
     if (e.decision === "return" && e.cycle === undefined) ctx.addIssue({ code: "custom", path: ["cycle"], message: "A return needs a cycle number" });
   });
