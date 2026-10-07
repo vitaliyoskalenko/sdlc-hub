@@ -37,15 +37,18 @@ export function parseBugFile(text: string, file: string): Result<BugFile> {
   return front.value ? { value: { front: front.value, body: split.body }, issues: front.issues } : { issues: front.issues };
 }
 
+/** An event with its line in events.jsonl, to ask git who added it. */
+export type HubEventLine = HubEvent & { line: number };
+
 /** Malformed lines are reported and skipped; the rest of the log is kept. */
-export function parseEventsJsonl(text: string, file: string): Result<HubEvent[]> {
+export function parseEventsJsonl(text: string, file: string): Result<HubEventLine[]> {
   const issues: Issue[] = [];
-  const events: HubEvent[] = [];
+  const events: HubEventLine[] = [];
   text.split("\n").forEach((line, i) => {
     if (!line.trim()) return;
     const r = parseJson(eventSchema, line, file, i + 1);
     issues.push(...r.issues);
-    if (r.value) events.push(r.value);
+    if (r.value) events.push({ ...r.value, line: i + 1 });
   });
   return { value: events, issues };
 }

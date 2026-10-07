@@ -19,3 +19,4 @@ export * from "./content/structure.ts";
 export * from "./access.ts";
 export * from "./source.ts";
 export * from "./sdd.ts";
+export * from "./detect.ts";
