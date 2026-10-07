@@ -32,18 +32,14 @@ State on 7 October 2026, revision 51 of the specification. Items already fixed a
 
 Claims 8 to 13 were found while planning phase 1. None of them blocks phase 1a now; claim 8 did until the source check.
 
-## Decided in code during phase 1a, to confirm
+## Decided in code during phase 1a
 
-`packages/core` settles these points, which the specification does not spell out. Each is one place in `src/detect.ts` or `src/access.ts` and can change.
+The owner confirmed three of these on 7 October 2026: the contract team per feature, CI results not counting as later evidence, and partial evidence (see `docs/decisions.md`). The rest are notes:
 
-- **The contract team per feature.** When the contract team is not one of the feature's teams in `feature.yaml`, that feature follows the no-contract rule: steps 5 and 6 come from its own teams, and `api` is skipped.
-- **CI results are not later evidence.** A green CI run does not make an earlier step skipped or missed, because it does not show that verify happened.
-- **Partial evidence.** Evidence from some teams, or sign-offs from some of the leads a gate needs, shows the step as running. When all that is missing is a person's record (a sign-off or the go), the step shows as waiting for sign-off and names the people.
 - **A gate of other teams' leads with no other team.** When a feature has only the contract team, or no contract team, each team's own lead signs `tech-design`, `data-model` and `api`.
 - **The contract merge request in phase 1a.** Without the host API, a merged contract merge request is seen as `contracts/` files on main.
-- **Not in core yet (phase 2, with `hub-guard`):** who may append which `signoffs.yaml` entry, and `release.yaml` field by field. The path rules already let each role append to `signoffs.yaml` and refuse edits to existing entries.
-
-Known gap: on the full route SDD still skips `ux-flows` and `screens` for a feature with no user interface, but the hub would show them as missed. A rule could read `target_surfaces` from `sad.md` in the contract team's snapshot.
+- **Not in core yet (phase 2, with `hub-guard`):** who may append which `signoffs.yaml` entry, and `release.yaml` field by field.
+- **Node 22 ends on 30 April 2027.** Raise the minimum to Node 24 before then.
 
 ## Hub prototype
 

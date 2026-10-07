@@ -8,7 +8,7 @@ import type { Atom, Requirement } from "./evidence.ts";
 import { parseBugFile, parseConfig, parseEngine, parseEventsJsonl, parseFeature, parseFlow, parseRelease, parseRoles, parseSignoffs, parseTeamSnapshot, parseTestRun } from "./files.ts";
 import { hasErrors, type Issue, type Result } from "./issues.ts";
 import { checkEngineAgainstFlow } from "./project-check.ts";
-import { readRoute, readSize, buildTeamSnapshot } from "./sdd.ts";
+import { buildTeamSnapshot, readRoute, readSize, readTargetSurfaces, UI_SURFACES } from "./sdd.ts";
 import type { Route, Size } from "./schema/common.ts";
 import type { BugFile, HubEventLine } from "./files.ts";
 import type { Feature, Release, Signoff, TeamSnapshot, TestRun } from "./schema/feature.ts";
@@ -419,6 +419,8 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
 
     if (ret && gateEval?.level !== "full") {
       Object.assign(state, { status: "returned", by: ret.user, reason: ret.reason, waitingOn: stepPeople(step) });
+    } else if (feature?.ui === false && (step.id === "ux-flows" || step.id === "screens")) {
+      Object.assign(state, { status: "skipped", reason: "No user interface: ui: false in feature.yaml" });
     } else if (step.id === "api" && !contractId) {
       Object.assign(state, { status: "skipped", reason: "No team of this feature publishes a contract" });
     } else if (level === "full") {
@@ -485,6 +487,20 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
   const current = released ? "released" : lastActive?.id ?? states.find((s) => s.status === "ready")?.id ?? states.find((s) => s.status === "todo")?.id ?? "released";
 
   if (routeText === undefined && feature) warnings.push("No .route: the route counts as standard");
+
+  // SDD's own no-UI signal for screens is target_surfaces in sad.md; check it against feature.yaml.
+  const specsSad = view.specs.read(`${dir}/sad.md`);
+  const surfaces =
+    (specsSad === undefined ? undefined : readTargetSurfaces(specsSad)) ??
+    (contractId ? teams.find((t) => t.id === contractId) : teams.find((t) => t.snapshot?.target_surfaces))?.snapshot?.target_surfaces ??
+    undefined;
+  if (surfaces) {
+    const hasUi = surfaces.some((s) => (UI_SURFACES as readonly string[]).includes(s));
+    if (feature?.ui === false && hasUi)
+      warnings.push(`feature.yaml says ui: false, but sad.md declares a user interface (${surfaces.join(", ")})`);
+    if (feature && feature.ui !== false && !hasUi)
+      warnings.push(`sad.md declares no user interface (${surfaces.join(", ")}): set ui: false in feature.yaml so ux-flows and screens show as skipped`);
+  }
 
   return {
     slug,

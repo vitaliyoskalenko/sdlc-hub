@@ -8,6 +8,7 @@ import {
   readReviewVerdict,
   readRoute,
   readSize,
+  readTargetSurfaces,
 } from "../src/index.ts";
 
 // SDD v2.3.0, skills/tasks/templates/tracker.md, filled in.
@@ -33,6 +34,16 @@ describe(".size and .route", () => {
   it("refuse anything else", () => {
     expect(readSize("M # medium\n").value).toBeUndefined();
     expect(readRoute("fast\n").value).toBeUndefined();
+  });
+});
+
+describe("sad.md target_surfaces", () => {
+  it("reads the list from the front matter, as SDD's design stage writes it", () => {
+    expect(readTargetSurfaces("---\nstatus: Draft\ntarget_surfaces: [backend-service, web-frontend]  # filled in §4\n---\n# SAD\n")).toEqual(["backend-service", "web-frontend"]);
+  });
+  it("is undefined when there is no list", () => {
+    expect(readTargetSurfaces("# SAD\n")).toBeUndefined();
+    expect(readTargetSurfaces("---\nstatus: Draft\n---\n")).toBeUndefined();
   });
 });
 
@@ -98,6 +109,7 @@ describe("buildTeamSnapshot", () => {
     [`${F}/tasks.json`]: JSON.stringify({ slug: "tasks-issues", tasks: [{ id: "T1", title: "List", layer: "ui", deps: [], acs: ["AC-01"] }, { id: "T2", title: "API", layer: "wiring", deps: ["T1"], acs: [] }, { id: "T3", title: "Filter", layer: "ui", deps: ["T2"], acs: [] }] }),
     [`${F}/tasks/tracker.md`]: TRACKER,
     [`${F}/_review/review-2026-10-02.md`]: "**Gate result:** CHANGES REQUESTED\n",
+    [`${F}/sad.md`]: "---\ntarget_surfaces: [web-frontend]\n---\n# SAD\n",
     "src/app.ts": "",
   });
 
@@ -109,7 +121,8 @@ describe("buildTeamSnapshot", () => {
       team: "web",
       slug: "tasks-issues",
       source_commit: "abc",
-      files: ["_review/review-2026-10-02.md", "spec.md", "tasks.json", "tasks/tracker.md"],
+      files: ["_review/review-2026-10-02.md", "sad.md", "spec.md", "tasks.json", "tasks/tracker.md"],
+      target_surfaces: ["web-frontend"],
       review: { file: "_review/review-2026-10-02.md", verdict: "CHANGES REQUESTED" },
       mr: null,
       pipeline: null,

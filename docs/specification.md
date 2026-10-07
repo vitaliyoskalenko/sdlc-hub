@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 7, 2026 · @Vitaliy · revision 52
+Oct 7, 2026 · @Vitaliy · revision 53
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -44,7 +44,7 @@ Eight answers from the kickoff fix the shape of the system.
 | Git host | GitLab, self-managed, Free tier. Asked at init, with GitHub as the other choice | No Code Owners, required approvals or push rules. Enforcement is a CI path guard plus "Pipelines must succeed", with an optional server hook. |
 | LLM runs from the site | Both ways | Copying a prompt is the default. Starting the assistant from the site is a setting only the admin turns on. |
 | Tasks and bugs | Repository first, Jira optional | Bugs, sign-offs and release state are files. Jira gets links or a one-way mirror. |
-| Stack | Node.js and TypeScript | One codebase for the CLI, server, web app and MCP server. Node 20 or newer on every machine. |
+| Stack | Node.js and TypeScript | One codebase for the CLI, server, web app and MCP server. Node 22 or newer on every machine: the oldest Node.js LTS line still supported (Node 20 reached end of life on 30 April 2026; Node 22 is supported until 30 April 2027). |
 | Autotests | GitLab CI and local runs | CI is the gate. Local runs are recorded and labelled as local. |
 | Per-person spend | Admin and PM only | Totals by feature, step and role are open. Per-person records are encrypted to the admin and PM keys. |
 | Language | English | Specification, UI and generated files are in English. `artifact_language` for SDD documents stays configurable. |
@@ -172,6 +172,7 @@ teams:                    # set at the epic step by the PM
   web:     { lead: petro.v }
   android: { lead: andrii.p }
   ios:     { lead: sofiia.h }
+ui: true                  # false for a feature with no user interface, set at epic
 links:
   jira: https://jira.example.com/browse/SHOP-412
   confluence: https://confluence.example.com/display/SHOP/Tasks+and+issues
@@ -331,7 +332,7 @@ Each step belongs to one role, except `accept`, where the PO accepts and then th
 | --- | --- | --- | --- | --- | --- |
 | 1 | `specify` | PO / Analyst | engine `specify` | `spec.md`, `.size`, `.route` | None |
 | 2 | `clarify` | PO / Analyst | engine `clarify`, skippable | `spec.md`, `CONTEXT.md` | PO / Analyst: the spec is ready: every open question closed or deferred |
-| 3 | `epic` | PM | hub, no LLM | `hub/feature.yaml` (teams and leads), `hub/signoffs.yaml` | PM: size, route and the team leads; or `return` to the PO with a reason |
+| 3 | `epic` | PM | hub, no LLM | `hub/feature.yaml` (teams, leads, `ui`), `hub/signoffs.yaml` | PM: size, route and the team leads; or `return` to the PO with a reason |
 | 4 | `ux-flows` | Designer | engine `ux-flows`, skippable | `ux-flows.md` | PO / Analyst: the flows match the user stories |
 | 5 | `tech-design` | Engineering | engine `design`, then `sequences` | `sad.md`, `adr/*`, in the contract team's repository | Engineering: architecture review, signed off by the lead of every other team |
 | 6 | `data-model` | Engineering | engine `data-model`, skippable | `data-model.md`, staged `migrations/`, `_audit/`, in the contract team's repository | Engineering: the contract team's lead, for the schema and the rollback migration |
@@ -387,9 +388,10 @@ When the evidence of several steps is present, the latest step wins. The hub che
 7. The test plan (plan-tests), the sprint sign-off (sprint) and the teams' `tasks.json` (tasks).
 8. The specification files, the contract team's snapshot and the epic sign-off, in flow order back to specify.
 
-The statuses are: done, running, waiting for sign-off, returned, blocked, ready (the steps before it are done or skipped and nothing has started), to do, skipped and missed. Five refinements sit on top:
+The statuses are: done, running, waiting for sign-off, returned, blocked, ready (the steps before it are done or skipped and nothing has started), to do, skipped and missed. Six refinements sit on top:
 
 - **Skipped.** SDD leaves no marker when it skips a stage by route. A step with no evidence while a later step has evidence shows as skipped when the feature's route is in the step's `skippable_on` list.
+- **No user interface.** When `feature.yaml` says `ui: false`, ux-flows and screens show as skipped on every route. SDD records no signal of its own before ux-flows: its "no human-facing UI" condition is judged in a stage's handoff, and only screens has a recorded signal, `target_surfaces` in the front matter of `sad.md` (none of `web-frontend`, `mobile-app`, `desktop-app`), which appears at step 5. The hub compares the two and warns when they disagree.
 - **Missed.** The same case on a route that requires the step shows as missed, with a warning that names the step and the route. A missed step is never counted as done. A step with no evidence and no later evidence is still to do.
 - **Sign-off.** A step whose evidence holds but whose sign-off is missing, or whose content hash no longer matches, shows as waiting for sign-off, with the person's name.
 - **Running.** A started event without a finished event shows the step as running.
@@ -599,7 +601,7 @@ Setup is a web page with five screens, and every field except the sign-in has a 
 | 4 Assistants and engine | Whether the site may start the assistant | Off | `headless.enabled` |
 | 5 Review and install | Install |  | Nothing; it starts the write |
 
-The person who runs setup becomes the admin, and no second admin is asked for at this stage. Before starting, that person needs Owner rights on the group or organization, git and Node.js 20 or newer, and the repository names.
+The person who runs setup becomes the admin, and no second admin is asked for at this stage. Before starting, that person needs Owner rights on the group or organization, git and Node.js 22 or newer, and the repository names.
 
 The list of team repositories is free: one row for a single-repository product, two for backend and web, or more. The flow, the task graph and the `hub-report` jobs follow this list. The examples in this document use four teams.
 
@@ -655,7 +657,7 @@ WORK="$HOME/work/shop"
 
 ### What the script does
 
-1. Checks git, Node 20 or newer and the assistant. For anything missing it prints the install command for the person's system and stops.
+1. Checks git, Node 22 or newer and the assistant. For anything missing it prints the install command for the person's system and stops.
 2. Signs in to GitLab through the git credential manager or an SSH key. The credential stays in the operating system's keychain.
 3. Clones `product-specs` and the team repositories of the role into the work folder.
 4. Runs `hub setup`. It confirms on `main` that the username really has the roles named in the script, and stops if it does not.

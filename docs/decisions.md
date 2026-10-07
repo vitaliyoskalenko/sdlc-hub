@@ -2,6 +2,25 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-07: Revision 53
+
+### A feature with no user interface: ui: false in feature.yaml
+- **Decision:** The PM sets `ui: false` in `feature.yaml` at epic for a feature with no user interface. ux-flows and screens then show as skipped on every route. The hub warns when `target_surfaces` in `sad.md` disagrees.
+- **Why:** On the full route the hub showed these steps as missed, while SDD skips them for backend-only work. SDD records no signal for ux-flows. Its "no human-facing UI" condition (`skills/_shared/size-matrix.md`) is judged from the spec's actors in a stage's handoff and is not written down. For screens it uses `sad.md` `target_surfaces`, which exists only from step 5.
+- **By:** Owner (the rule if SDD records no signal); the SDD behaviour was checked at v2.3.0.
+
+### Node 22 is the minimum
+- **Decision:** Node 22 or newer, in the specification, the setup checks, the setup script and `CLAUDE.md`.
+- **Why:** The Node.js release schedule (nodejs/Release `schedule.json`, read on 7 October 2026) gives Node 20 an end of life of 30 April 2026. Node 22 is the oldest supported LTS line, until 30 April 2027, so this minimum must be raised again before then.
+- **By:** Owner.
+
+### Three detection rules confirmed
+- **Decision:** These rules from phase 1a are confirmed:
+  - When the contract team is not one of a feature's teams, that feature follows the no-contract rule.
+  - CI results are not later evidence.
+  - Partial evidence shows as running, or as waiting for sign-off when only a person's record is missing.
+- **By:** Owner.
+
 ## 2026-10-07: Revision 52, owner review of revision 51
 
 ### Skipped or missed depends on the route

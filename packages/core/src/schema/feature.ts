@@ -21,6 +21,11 @@ export const featureSchema = z.strictObject({
   estimate: z
     .strictObject({ days: z.number().positive().optional(), tokens_m: z.tuple([z.number(), z.number()]).optional() })
     .optional(),
+  /**
+   * Set at the epic step. False for a feature with no user interface: ux-flows and screens are then skipped on
+   * every route. SDD records no such signal before ux-flows, so the hub keeps it here.
+   */
+  ui: z.boolean().optional(),
 });
 export type Feature = z.output<typeof featureSchema>;
 
@@ -138,6 +143,8 @@ export const teamSnapshotSchema = z.strictObject({
   generated_at: isoTime,
   /** SDD artifacts present in docs/features/<slug>/, relative to it. */
   files: z.array(z.string()),
+  /** `target_surfaces` from the front matter of the team's sad.md, when it has one. */
+  target_surfaces: z.array(z.string()).nullable().optional(),
   tasks: z.array(sddTaskSchema).nullable(),
   tracker: z.array(trackerRowSchema).nullable(),
   review: z.strictObject({ file: z.string(), verdict: z.enum(["PASS", "CHANGES REQUESTED"]) }).nullable(),

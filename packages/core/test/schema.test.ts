@@ -218,11 +218,13 @@ links:
 estimate:
   days: 15
   tokens_m: [52, 118]
+ui: false
 `,
       "feature.yaml",
     );
     expect(r.issues).toEqual([]);
     expect(r.value?.teams?.["web"]?.lead).toBe("petro.v");
+    expect(r.value?.ui).toBe(false);
   });
 
   it("parses signoffs.yaml from the specification", () => {

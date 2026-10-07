@@ -1,9 +1,12 @@
 // Readers for what genkovich/sdd 2.3 writes, and the team snapshot that hub-report publishes.
-// Formats checked against SDD v2.3.0 (see docs/decisions.md). Where SDD fixes no format, the code says so.
+// Formats checked against the SDD v2.3.0 skill files and templates (see docs/decisions.md), not yet against a
+// real run. Every assumption about real output is tagged @assumed-sdd-format here and nowhere else, so a real
+// run can replace them in one place.
 
+import { parse as parseYamlText } from "yaml";
 import { z } from "zod";
 import type { Issue, Result } from "./issues.ts";
-import { parseJson } from "./parse.ts";
+import { parseJson, splitFrontMatter } from "./parse.ts";
 import { ROUTES, SIZES, type Route, type Size } from "./schema/common.ts";
 import { sddTaskSchema, TRACKER_STATUSES, type SddTask, type TeamSnapshot, type TrackerRow } from "./schema/feature.ts";
 import type { FileSource } from "./source.ts";
@@ -18,6 +21,21 @@ export function readSize(text: string): { value?: Size } {
 export function readRoute(text: string): { value?: Route } {
   const word = text.trim();
   return (ROUTES as readonly string[]).includes(word) ? { value: word as Route } : {};
+}
+
+// --- sad.md: target_surfaces in the front matter, written by SDD's design stage
+
+export const UI_SURFACES = ["web-frontend", "mobile-app", "desktop-app"] as const;
+
+export function readTargetSurfaces(sad: string): string[] | undefined {
+  const front = splitFrontMatter(sad)?.front;
+  if (front === undefined) return undefined;
+  try {
+    const list = (parseYamlText(front) as { target_surfaces?: unknown } | null)?.target_surfaces;
+    return Array.isArray(list) && list.every((x) => typeof x === "string") ? list : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // --- tasks.json
@@ -43,6 +61,7 @@ export function parseTasksJson(text: string, file: string): Result<{ slug: strin
 }
 
 // --- tasks/tracker.md: the status table
+// @assumed-sdd-format: the column names and states of skills/tasks/templates/tracker.md, one table per file.
 
 const CELL_SPLIT = /(?<!\\)\|/;
 const TASK_REF = /\b(?:[a-z][a-z0-9]*(?:-[a-z0-9]+)*:)?T\d+\b/g;
@@ -83,6 +102,7 @@ function cells(line: string): string[] {
 }
 
 // --- _review/review-<date>.md
+// @assumed-sdd-format: <date> is YYYY-MM-DD, so the newest record sorts last.
 
 export function latestReviewFile(featureFiles: string[]): string | undefined {
   return featureFiles.filter((f) => /^_review\/review-\d{4}-\d{2}-\d{2}[^/]*\.md$/.test(f)).sort().at(-1);
@@ -92,6 +112,7 @@ const VERDICTS = ["CHANGES REQUESTED", "PASS"] as const;
 const hasVerdict = (s: string, v: string) => new RegExp(`\\b${v}\\b`).test(s);
 
 /**
+ * @assumed-sdd-format
  * SDD 2.3 writes the gate result in prose with no fixed line. Prefer a line that names the gate result or
  * verdict and carries exactly one literal; otherwise accept the only literal in the record.
  */
@@ -147,6 +168,8 @@ export function buildTeamSnapshot(input: SnapshotInput): Result<TeamSnapshot> {
     else warnings.push(`${reviewFile}: no single PASS or CHANGES REQUESTED found`);
   }
 
+  const sad = input.source.read(`${dir}/sad.md`);
+
   return {
     value: {
       schema_version: 1,
@@ -155,6 +178,7 @@ export function buildTeamSnapshot(input: SnapshotInput): Result<TeamSnapshot> {
       source_commit: input.commit,
       generated_at: input.now,
       files,
+      target_surfaces: sad === undefined ? null : (readTargetSurfaces(sad) ?? null),
       tasks,
       tracker,
       review,

@@ -201,6 +201,41 @@ function routeFeature(slug: string, route: string, main: Record<string, string>)
   };
 }
 
+// --- a feature with no user interface
+
+{
+  const main = base();
+  const backendOnly = (slug: string, ui: boolean | undefined) => {
+    Object.assign(main, specFiles(slug, "M", "full"), featureYaml(slug, { backend: "taras.m" }));
+    if (ui === false) main[`${dir(slug)}/hub/feature.yaml`] += "ui: false\n";
+    Object.assign(main, signoffs(slug, [{ step: "clarify", user: "olena.k", at: "2026-09-18T10:00:00Z" }, { step: "epic", user: "maksym.d", at: "2026-09-19T10:00:00Z" }], main));
+  };
+  backendOnly("api-only", false);
+  backendOnly("api-unmarked", undefined);
+  const sad = "---\nstatus: Draft\nfeature_size: M\ntarget_surfaces: [backend-service]\n---\n\n# SAD\n";
+  const files = (slug: string) => teamFiles(slug, { "sad.md": sad, "adr/0001-x.md": "# ADR\n" });
+  fixtures["no-user-interface"] = {
+    description: "ui: false in feature.yaml skips ux-flows and screens on every route. Without it, a sad.md that declares no UI surface gives a warning.",
+    now: NOW,
+    main,
+    teams: { backend: { ...files("api-only"), ...files("api-unmarked") } },
+    expected: {
+      "api-only": {
+        current: "tech-design",
+        steps: { specify: "done", clarify: "done", epic: "done", "ux-flows": "skipped", "tech-design": "signoff", screens: "skipped" },
+        reasons: { "ux-flows": /ui: false/, screens: /ui: false/ },
+        onlyWarnings: true,
+        warnings: [],
+      },
+      "api-unmarked": {
+        current: "tech-design",
+        steps: { specify: "done", clarify: "done", epic: "done", "ux-flows": "missed", "tech-design": "signoff" },
+        warnings: [/declares no user interface.*ui: false/, /Missed step: ux-flows/],
+      },
+    },
+  };
+}
+
 // --- returns at a gate
 
 {
