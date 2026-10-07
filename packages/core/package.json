@@ -1,0 +1,15 @@
+{
+  "name": "@sdlc-hub/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Data model, validators, engine adapter, roles and step detection. Pure: reads data only through the view interfaces.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "picomatch": "^4.0.7",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.5"
+  }
+}
