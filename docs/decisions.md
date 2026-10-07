@@ -2,6 +2,55 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-07: Revision 52, owner review of revision 51
+
+### Skipped or missed depends on the route
+- **Decision:** Each skippable step lists the routes that allow a skip (`skippable_on`, from SDD's route table: `quick` and `standard`; `full` runs every stage; a missing `.route` counts as `standard`). A step with no evidence while a later step has evidence shows as skipped when the route allows it, and as missed with a warning when the route requires it.
+- **Why:** Revision 51 showed every such step as skipped on any route, which hid a stage that should have run.
+- **By:** Owner. Supersedes the skip rule under "Smaller resolutions" in revision 51.
+
+### Only sad.md, data-model.md and contracts/** of steps 5 to 7 live in product-specs
+- **Decision:** The contract merge request copies `sad.md`, `data-model.md` and `contracts/**` to product-specs, and only the contract team's lead may write those there (the PO keeps the `feature_size:` field of `sad.md`). `adr/**`, `migrations/**` and `_audit/**` stay in the contract team's repository. With no contract team, steps 5 and 6 run in every team repository, step 7 is skipped, nothing is copied to product-specs, and each team's lead signs its own tech-design gate.
+- **Why:** The AI-SDLC map (`prototypes/map/v2_data_over.js`, the api step and the files table) lists exactly these three for the merge request. Revision 51 restricted paths that never reach product-specs and had no rule for a project without a contract team.
+- **By:** Owner (restrict only what lives there, add the no-contract rule); the file list is from the map.
+
+### Rules below the file level are a structural check
+- **Decision:** The guard parses both versions of the file into front matter keys and ATX sections (ignoring fenced code). It cuts the allowed region out of both, requires the rest to be byte-identical, and requires the region to keep its place. A renamed or moved heading is refused. `packages/core` implements this with tests for a renamed heading, a moved section, a captured heading and a duplicate heading.
+- **Why:** A text search would let a renamed or moved heading through. SDD v2.3.0 `plan-tests` writes the plan into `spec.md` under `## Test plan` (not into `test-plan.md`) for XS or S and on the quick route (`skills/plan-tests/SKILL.md`, steps 2 and 10), so QA needs this one section of the PO's file.
+- **By:** Owner (structural check); the SDD behaviour was confirmed from source.
+
+### decide is for the QA final check only; return sends a step back
+- **Decision:** `decide <slug>` stays the QA final check. A new command, `return <step> <slug> <reason>`, lets any gate owner send a step back. `flow.yaml` names where each gate returns to (`returns_to`, by default the step itself). The PM uses `return epic` to send the size and route back to the PO at clarify (`returns_to: clarify`, because a return must land on a step with a human gate that can answer it), and `signoff epic` to pass.
+- **Why:** A general return keeps `decide` simple and gives every gate the same way back.
+- **By:** Owner. Supersedes `decide epic` from revision 51.
+
+### Fixes from a fresh-context review
+- **Decision:** A reviewer with no prior context read the draft for contradictions. Its 21 findings were fixed:
+  - Each person may add their own key file under `.hub/keys/`.
+  - `release.yaml` is checked field by field, not append-only.
+  - "No change needed" is a `confirm` entry by the owner of the step.
+  - Engineering gates are signed off by people named through `feature.yaml` and `roles.yaml` (`by` in `flow.yaml`), because Free has no required approvals.
+  - `fix` starts from verify and from a return at `qa-final`.
+  - A return entry names `returns_to`, the same field as `flow.yaml`.
+  - `api` is skipped on every route when there is no contract team.
+  - The validation report is written by the local server with a timestamp.
+  - `verify` writes test runs.
+  - The setup script carries `HUB_ROLES`.
+  - The key used for usage records is per machine.
+  - `HUB_STATE_TOKEN` can push to any unprotected branch until phase 2 (an accepted risk).
+  - One list of fanned-out files.
+  - A blocking bug is any bug of high severity or above that is not closed or rejected.
+  - The detection order lists every step.
+  - One status list.
+  - `decide` is in phase 3.
+- **Why:** Each pair of places said different things, and some would have refused valid changes at the guard.
+- **By:** Review; the owner asked for the review and the fixes.
+
+### Commits carry no AI attribution
+- **Decision:** Commits in this repository have no `Co-Authored-By` line and no AI attribution, and nothing is pushed unless the owner asks. The rule is in `CLAUDE.md`.
+- **Why:** Owner's preference.
+- **By:** Owner.
+
 ## 2026-10-07: Revision 51, after planning phase 1
 
 ### The specification in this repository is the source of truth
@@ -47,7 +96,7 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
 - **By:** Owner.
 
 ### Steps 5 to 7 happen in the contract team's repository
-- **Decision:** tech-design, data-model and api run in the repository of the team that publishes the API contract. Detection reads them from that team's `hub-report` snapshot, plus the contract merge request in product-specs. Only that team's lead writes `sad.md`, `adr/**`, `data-model.md`, `migrations/**`, `_audit/**` and `contracts/**` in product-specs.
+- **Decision:** tech-design, data-model and api run in the repository of the team that publishes the API contract. Detection reads them from that team's `hub-report` snapshot, plus the contract merge request in product-specs. Only that team's lead writes `sad.md`, `adr/**`, `data-model.md`, `migrations/**`, `_audit/**` and `contracts/**` in product-specs (narrowed in revision 52 to the three that live there).
 - **Why:** This is how the AI-SDLC map runs the backend-first steps. Otherwise the steps would look not started while the backend works on them. It is also why `hub-report` is in phase 1.
 - **By:** Owner (repository and detection); proposed (the lead's paths).
 
@@ -57,7 +106,7 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
 - **By:** Owner.
 
 ### The adapter maps every engine step; step id and engine stage are separate
-- **Decision:** Each entry is keyed by the hub step id and names the engine `stage` (or `stages`), where the evidence is (`in`), whether the stage is `optional`, and the evidence (`done_when`). For example, `tech-design` runs `design`, then `sequences`.
+- **Decision:** Each entry is keyed by the hub step id and names the engine `stage` (or `stages`), where the evidence is (`in`), whether the stage is `optional` (replaced in revision 52 by `skippable_on`), and the evidence (`done_when`). For example, `tech-design` runs `design`, then `sequences`.
 - **Why:** Revision 50 mapped 9 of the steps under names that differed from the step table.
 - **By:** Owner.
 
@@ -67,7 +116,7 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
 - **By:** Owner.
 
 ### Epic is a hub step with no LLM
-- **Decision:** At epic the PM names the teams and their leads in `feature.yaml` and records pass or return with `/hub:decide epic <slug>`. If the PM disagrees with the size or the route, the PM does not edit them: the step goes back to the PO with a reason, the same way QA returns a feature, and the PO runs `classify-size` again. Epic costs no tokens.
+- **Decision:** At epic the PM names the teams and their leads in `feature.yaml` and records pass or return with `/hub:decide epic <slug>` (changed in revision 52: `signoff epic` and `return epic`). If the PM disagrees with the size or the route, the PM does not edit them: the step goes back to the PO with a reason, the same way QA returns a feature, and the PO runs `classify-size` again. Epic costs no tokens.
 - **Why:** `classify-size` writes only `.size` and `.route`, which `specify` already wrote at step 1. It does not write `roadmap.md` or `feature.yaml`. Letting the PM rerun it would give the PM write access to the PO's files.
 - **By:** Owner.
 
@@ -103,7 +152,7 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
   - `CONTEXT.md` is writable by the PO at both levels.
   - The watch period defaults to 7 days (`release.watch_days` in `flow.yaml`).
   - The review gate is the team lead.
-  - An optional step with no evidence shows as skipped when a later step has evidence.
+  - An optional step with no evidence shows as skipped when a later step has evidence (changed in revision 52: skipped or missed by route).
   - `feature.yaml` no longer repeats size and route.
 - **Why:** Each settles a small contradiction found in the review of revision 50.
 - **By:** Proposed.

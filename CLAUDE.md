@@ -6,16 +6,16 @@ Write everything (code, comments, docs, UI text) in English. Talk to the owner i
 
 ## Read first
 
-1. `docs/specification.md` — the specification, revision 51. The copy in this repository is the source of truth; the published copy is a snapshot. The two diagrams are missing from the export (placeholders in the text).
+1. `docs/specification.md` — the specification, revision 52. The copy in this repository is the source of truth; the published copy is a snapshot. The two diagrams are missing from the export (placeholders in the text).
 2. `docs/decisions.md` — a dated log of what was decided and why. Add an entry whenever a decision changes the specification.
 3. `docs/open-items.md` — what is still not done or not verified, with the phase each unverified claim blocks.
-4. `prototypes/` — what every screen looks like and how it behaves. Treat them as the UI reference, not as code to keep. They predate revision 51; where they differ, the specification wins.
+4. `prototypes/` — what every screen looks like and how it behaves. Treat them as the UI reference, not as code to keep. They predate revision 51 and 52; where they differ, the specification wins.
 
 ## The product in ten lines
 
 - Git is the only database. Human edits reach `main` through merge requests that merge by themselves when the `hub-guard` CI job passes. Machine data (test runs, team snapshots, usage) goes to a `hub-state` branch, which is a display cache and is never trusted for a gate.
 - Four parts: `hub` CLI, local server (`node hub/cli.js serve`, loopback only, port 4173), web app, assistant plugin with an MCP server. One TypeScript codebase, Node 20+.
-- The plugin gives the commands `start, status, next, run, new, validate, signoff, bug, verify, test, decide, release, sync, doctor` as `/hub:x` (Claude Code), `$hub-x` (Codex), `/hub-x` (Cursor).
+- The plugin gives the commands `start, status, next, run, new, validate, signoff, return, bug, verify, test, decide, release, sync, doctor` as `/hub:x` (Claude Code), `$hub-x` (Codex), `/hub-x` (Cursor).
 - Stages are proxied to an engine through one adapter file. Default engine: `genkovich/sdd` 2.3.x. The engine must stay replaceable.
 - A feature moves through 20 steps in six role lanes (PO/analyst, PM, designer, engineering, QA, Ops). The current step is derived from files, never typed. The table is in the specification, "The twenty steps".
 - Roles decide which paths a person may change. Enforcement is the CI guard, because GitLab Free has no Code Owners.
@@ -80,3 +80,4 @@ Open the generated `preview.html` (or `setup-preview.html`) in a browser to clic
 - Mono type for anything typed or stored (commands, paths, file names).
 - Words on GitLab: merge request, pipeline, group. On GitHub: pull request, workflow run, organization. Keep host words in one adapter.
 - Never put a token, key or password in the repository, a setup script or the site.
+- Commits carry no `Co-Authored-By` line and no AI attribution. Never push unless the owner asks.

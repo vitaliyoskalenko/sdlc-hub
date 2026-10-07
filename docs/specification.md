@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 7, 2026 · @Vitaliy · revision 51
+Oct 7, 2026 · @Vitaliy · revision 52
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -55,7 +55,7 @@ Five components share one Node.js codebase, and none of them is a hosted service
 
 | Component | Where it runs | Responsibility |
 | --- | --- | --- |
-| `hub` CLI | Each person's machine | `init`, `setup`, `serve`, `sync`, `guard`, `doctor`, `script`, `usage`. Every plugin command ends in a CLI or server call. |
+| `hub` CLI | Each person's machine | `init`, `setup`, `serve`, `sync`, `report`, `guard`, `doctor`, `script`, `usage`, `upgrade`. Every plugin command ends in a CLI or server call. |
 | Local server | `127.0.0.1:4173`, started by `hub serve` | Reads the working tree and the `hub-state` branch, watches files, serves the web app with a REST and SSE API, makes git and GitLab API calls, starts the assistant headless when allowed. |
 | Web app | The browser, served by the local server | Dashboards, flow map, documents, tasks graph, QA, release, costs and admin screens. |
 | Assistant plugin | Inside Claude Code, Codex or Cursor | Commands, hooks that record stage start, finish and usage, and an MCP server through which the assistant asks the local server what to do next. |
@@ -83,15 +83,14 @@ product-specs/                             branch: main (human edits, through me
 │  └─ features/<slug>/
 │     ├─ spec.md  .size  .route             written by specify; .size and .route are one bare word each
 │     ├─ CONTEXT.md                         feature glossary (SDD glossary, feature level)
-│     ├─ ux-flows.md  screens.md  test-plan.md     test-plan.md for size M and up only
-│     ├─ sad.md  adr/  data-model.md  migrations/  _audit/  contracts/
-│     │                                     published by merge request from the contract team's repository
+│     ├─ ux-flows.md  screens.md  test-plan.md     test-plan.md for size M and up, except on the quick route
+│     ├─ sad.md  data-model.md  contracts/  published by the contract merge request from the contract team's repository
 │     └─ hub/
 │        ├─ feature.yaml                    title, owner, teams and leads, links, estimates
 │        ├─ signoffs.yaml                   gates passed or returned: who, when, content hash
 │        ├─ bugs/BUG-0012.md                one file per bug
 │        ├─ release.yaml                    staging, checklist, go or no-go, versions, rollout
-│        └─ validation/2026-10-07.md        reports from /hub:validate
+│        └─ validation/<timestamp>.md       reports from /hub:validate, written by the local server
 ├─ .hub/
 │  ├─ config.yaml                           project, repositories, assistants, integrations, prices
 │  ├─ roles.yaml                            people, roles, path rules
@@ -112,13 +111,14 @@ product-specs/                             branch: main (human edits, through me
 └─ AGENTS.md  CLAUDE.md
 
 each team repository, docs/features/<slug>/ (written by the SDD stages there)
-├─ spec.md  ux-flows.md  screens.md  test-plan.md  contracts/   read-only copies from hub-fanout
+├─ spec.md  ux-flows.md  screens.md  test-plan.md  contracts/   read-only copies from hub-fanout, with the handoff block
 ├─ sad.md  adr/                             the team's own design (client teams at the tasks step)
 ├─ tasks.json  tasks/_epic.md  tasks/tracker.md  tasks/<task>.md
 ├─ _review/review-<date>.md                 review record with the verdict PASS or CHANGES REQUESTED
 ├─ _fixes/<date>-<short-slug>.md            fix records
-└─ in the contract team only: sad.md, adr/, data-model.md, migrations/, _audit/, contracts/
-   for steps 5 to 7, before the contract merge request carries them to product-specs
+└─ in the contract team only, for steps 5 to 7: sad.md, adr/, data-model.md, migrations/, _audit/, contracts/.
+   The contract merge request copies sad.md, data-model.md and contracts/ to product-specs;
+   adr/, migrations/ and _audit/ stay in the contract team's repository
 
 branch: hub-state (machine-written, never merged into main)
 ├─ features/<slug>/teams/<team>.json        tasks, tracker statuses, cross-team references, review verdict, merge request, pipeline
@@ -136,20 +136,20 @@ Two choices in this tree matter:
 
 ## Data model
 
-State is kept in small text files: one per bug, per test run and per person-month of usage, so two people rarely write the same file. `signoffs.yaml` and `release.yaml` are shared and append-only; when two saves meet there, the local server rebases and retries once before asking the person.
+State is kept in small text files: one per bug, per test run and per person-month of usage, so two people rarely write the same file. `signoffs.yaml` is shared and append-only. `release.yaml` is shared and checked field by field (see "Guard rules"). When two saves meet in either file, the local server rebases and retries once before asking the person.
 
 | File | Branch | Written by | Holds |
 | --- | --- | --- | --- |
 | `.hub/config.yaml` | main | Admin | Project name, GitLab host, repositories, allowed assistants, engine, integrations, price table, headless switch |
-| `.hub/roles.yaml` | main | Admin | People (GitLab username, name, role, team, lead flag) and the path rules of each role |
+| `.hub/roles.yaml` | main | Admin | People (GitLab username, name, role or roles, team, lead flag) and the path rules of each role |
 | `.hub/flow.yaml` | main | Admin | Steps, role lanes, sign-off gates, return paths, token estimate per step |
 | `docs/features/<slug>/hub/feature.yaml` | main | PO, PM | Title, owner, teams involved and the lead of each, Jira, Confluence and Figma links, estimates |
 | `.../hub/signoffs.yaml` | main | The role named in the gate | One entry per gate passed or returned: step, person, time, content hash of the approved file; for a return also the reason, the bugs and the cycle |
-| `.../hub/bugs/BUG-NNNN.md` | main | QA; the owning team changes the status | Front matter (AC, platform, team, severity, status) and the steps as text |
+| `.../hub/bugs/BUG-NNNN.md` | main | QA; the owning team changes the status | Front matter (AC, platforms, team, severity, status) and the steps as text |
 | `.../hub/release.yaml` | main | Ops; the PM for the go or no-go | Staging state, ordered checklist, the go or no-go, versions, rollout stage |
-| `.../hub/validation/<date>.md` | main | The local server, for the PO or a team lead | Validation report from a read-only run |
+| `.../hub/validation/<timestamp>.md` | main | The local server, for the PO or a team lead | Validation report from a read-only run |
 | `features/<slug>/teams/<team>.json` | hub-state | `hub-report` CI job in the team repository | The team's `tasks.json`, statuses and cross-team references from `tasks/tracker.md`, the latest review verdict, the SDD artifacts present, merge request and latest pipeline |
-| `features/<slug>/tests/<run>.json` | hub-state | CI job or `/hub:test` | Source (ci or local), platform, passed, failed, link |
+| `features/<slug>/tests/<run>.json` | hub-state | CI job, `/hub:verify` or `/hub:test` | Source (ci or local), team, platform, passed, failed, link |
 | `features/<slug>/events.jsonl` | hub-state | Plugin hooks | Stage started, finished or returned, with role and assistant. No username and no token counts: the site names the person from the git author of the commit that added the event |
 | `metrics/<yyyy-mm>/usage.jsonl` | hub-state | The admin's or PM's machine at sync | Open totals by feature, step, role, team, model and assistant |
 | `metrics/<yyyy-mm>/<user>.jsonl.age` | hub-state | `hub usage`, at sync | One person's usage for the month, encrypted |
@@ -206,16 +206,17 @@ Steps, expected result, actual result and evidence follow as plain text.
 - step: epic
   user: maksym.d
   at: 2026-09-19T08:40:00Z
-  decision: return              # a gate that can return: epic (PM to PO) and qa-final (QA to the team)
+  decision: return              # written by /hub:return epic: the PM sends the size and route back to the PO
   reason: "Size M is too small: the iOS offline mode adds a second module"
+  returns_to: clarify
   cycle: 1
-- step: qa-final
+- step: qa-final               # written by /hub:decide
   user: iryna.s
   at: 2026-10-06T15:02:00Z
   decision: return
   reason: "BUG-0012 reproduces on Android"
   bugs: [BUG-0012]
-  target: fix
+  returns_to: verify            # the owning team runs fix, then QA retests
   cycle: 1
 ```
 
@@ -250,7 +251,8 @@ The same commands exist in all three assistants: `/hub:name` in Claude Code, `$h
 | `bug <slug>` | QA | Files a bug with AC, platform, team and severity | Optional |
 | `verify <slug>` | QA | AI-assisted check on staging through Playwright and Maestro, recorded as a test run | Yes |
 | `test <slug>` | QA, developers | Runs the autotests locally and records the result | No |
-| `decide <step> <slug>` | QA, PM | At a gate that can return, records pass or return with a reason: `qa-final` (QA: pass to release or return to development) and `epic` (PM: pass, or return to the PO) | No |
+| `decide <slug>` | QA | Final check (`qa-final`): pass to release, or return to development with a reason and the bugs | No |
+| `return <step> <slug> <reason>` | Gate owner | Sends a step back instead of signing it off. `<step>` is the step whose gate the person owns; `flow.yaml` names where it goes back to (by default the step itself) | No |
 | `release <slug>` | Ops | Walks the release checklist. Never starts a production job itself | Yes |
 | `sync` | Everyone | Pulls both branches and publishes your usage | No |
 | `doctor` | Everyone | Checks the engine, MCP servers, git identity, role and GitLab token | No |
@@ -277,28 +279,29 @@ invoke:
   cursor: "/sdd-{stage} {slug}"
 steps:                      # hub step id -> engine stage(s), where the evidence is, and the evidence that it ran
   specify:     { stage: specify,                  in: specs,    done_when: ["file:spec.md", "file:.size", "file:.route"] }
-  clarify:     { stage: clarify,                  in: specs,    optional: true, done_when: ["signoff:clarify"] }
-  ux-flows:    { stage: ux-flows,                 in: specs,    optional: true, done_when: ["file:ux-flows.md"] }
+  clarify:     { stage: clarify,                  in: specs,    skippable_on: [quick, standard], done_when: ["signoff:clarify"] }
+  ux-flows:    { stage: ux-flows,                 in: specs,    skippable_on: [quick, standard], done_when: ["file:ux-flows.md"] }
   tech-design: { stages: [design, sequences],     in: contract, done_when: ["file:sad.md", "file:adr/*.md"] }
-  data-model:  { stage: data-model,               in: contract, optional: true, done_when: ["file:data-model.md"] }
-  api:         { stage: api,                      in: contract, optional: true, done_when: ["file:contracts/*", "mr:contract"] }
-  screens:     { stage: screens,                  in: specs,    optional: true, done_when: ["file:screens.md"] }
+  data-model:  { stage: data-model,               in: contract, skippable_on: [quick, standard], done_when: ["file:data-model.md"] }
+  api:         { stage: api,                      in: contract, skippable_on: [quick, standard], done_when: ["file:contracts/*", "mr:contract"] }
+  screens:     { stage: screens,                  in: specs,    skippable_on: [quick, standard], done_when: ["file:screens.md"] }
   tasks:       { stage: tasks,                    in: teams,    done_when: ["file:tasks.json", "file:tasks/tracker.md"] }
-  plan-tests:  { stage: plan-tests,               in: specs,    optional: true, done_when: ["file:test-plan.md | section:spec.md#Test plan"] }
+  plan-tests:  { stage: plan-tests,               in: specs,    skippable_on: [quick, standard], done_when: ["file:test-plan.md | section:spec.md#Test plan"] }
   implement:   { stage: implement,                in: teams,    done_when: ["tracker:all-done"] }
   review:      { stage: review,                   in: teams,    done_when: ["review:PASS"] }
   ship:        { stage: ship,                     in: teams,    done_when: ["mr:open"] }
 returns:                    # return paths, not steps
-  fix:         { stage: fix, from: verify,        in: owning-team, done_when: ["file:_fixes/*.md"] }
+  fix:         { stage: fix, from: [verify, qa-final], in: owning-team, done_when: ["file:_fixes/*.md"] }
 ```
 
 Rules of the adapter:
 
 - The key is the hub's step id and `stage` is the engine's own name, so the two can differ (`tech-design` runs `design`). Every engine step of the flow has an entry. The hub steps (`epic`, `sprint`, `staging`, `verify`, `autotests`, `qa-final`, `accept` and `release`) have none, because they belong to the hub and stay the same with any engine.
-- `in` says where the evidence is: `specs` is `main` of product-specs, `contract` is the snapshot of the team that publishes the API contract, `teams` is the snapshot of every team of the feature, and `owning-team` is the team that owns the bug.
+- `in` says where the evidence is: `specs` is `main` of product-specs, `contract` is the snapshot of the team that publishes the API contract (every team's snapshot when there is no contract team), `teams` is the snapshot of every team of the feature, and `owning-team` is the team that owns the bug.
 - `done_when` lists evidence that must all hold. `file:<glob>` means a file exists, and `a | b` means either is enough. `signoff:<step>` means the gate entry is recorded and its hash is current. `section:<file>#<heading>` means the heading exists in that file. `tracker:all-done` means every row of `tasks/tracker.md` is `done`. `review:PASS` means the latest `_review/review-<date>.md` gives `PASS`. `mr:open` means the snapshot shows an open merge request for the feature branch. `mr:contract` means the contract merge request in product-specs.
-- `optional: true` marks a stage that SDD may skip by route. SDD leaves no marker on disk when it skips a stage, so the hub infers a skip (see "How the current step is detected").
-- `fix` is a return path from verify and is listed under `returns`, apart from the twenty steps.
+- `skippable_on` lists the routes on which SDD may skip the stage. It follows SDD's route table: on `quick` the stage skips itself when it does not apply, on `standard` the person chooses, and on `full` every stage runs. A missing `.route` counts as `standard`. A step without `skippable_on` is required on every route. SDD leaves no marker on disk when it skips a stage, so the hub infers a skip (see "How the current step is detected").
+- `fix` is a return path from verify and from a return at `qa-final`, and is listed under `returns`, apart from the twenty steps.
+- One rule belongs to the hub, not to the adapter: when no team publishes a contract, `api` is skipped on every route, whatever its `skippable_on` says, because there is no shared contract.
 
 Replacing the engine means adding another file under `.hub/engines/` and changing `engine: sdd` in `config.yaml`.
 
@@ -312,7 +315,7 @@ Replacing the engine means adding another file under `.hub/engines/` and changin
 | MCP server config | The plugin's `.mcp.json` | `.codex/config.toml` | `.cursor/mcp.json` |
 | Hooks used | `SessionStart`, `PostToolUse` on Skill, `Stop` | `SessionStart`, `Stop`, `SessionEnd` | `sessionStart`, `stop`, `sessionEnd` |
 | Headless run | `claude -p ... --output-format json` | `codex exec ... --json` | `agent -p ... --output-format json` |
-| Path rules for edits | `permissions` in `.claude/settings.local.json` | Permission profile in `config.toml` | `.cursor/cli.json` |
+| Path rules for edits (local, never committed) | `permissions` in `.claude/settings.local.json` | A permission profile in the person's own `~/.codex/config.toml` | The person's own Cursor CLI permissions file |
 
 Claude Code is the reference assistant and gets every feature first. Codex and Cursor read the same files, so a team can mix assistants on one feature.
 
@@ -322,37 +325,46 @@ A feature moves through 20 steps, the 18 of the AI-SDLC map plus Autotests and t
 
 ### The twenty steps
 
-Each step belongs to one role. An engine step is passed to the engine; a hub step is run or recorded by the hub. The first column is the step id used in `flow.yaml`, `signoffs.yaml` and commands such as `/hub:run tech-design <slug>`. Fix is not a step: it is the return path from verify, run by the team that owns the bug.
+Each step belongs to one role, except `accept`, where the PO accepts and then the PM gives the go or the no-go. An engine step is passed to the engine; a hub step is run or recorded by the hub. The first column is the step id used in `flow.yaml`, `signoffs.yaml` and commands such as `/hub:run tech-design <slug>`. Fix is not a step: it is the return path from verify, run by the team that owns the bug.
 
 | # | Step id | Role | Kind | Writes (where) | Gate before the next step |
 | --- | --- | --- | --- | --- | --- |
 | 1 | `specify` | PO / Analyst | engine `specify` | `spec.md`, `.size`, `.route` | None |
-| 2 | `clarify` | PO / Analyst | engine `clarify`, optional | `spec.md`, `CONTEXT.md` | PO / Analyst: the spec is ready: every open question closed or deferred |
-| 3 | `epic` | PM | hub, no LLM | `hub/feature.yaml` (teams and leads), `hub/signoffs.yaml` | PM: size, route and the team leads, or a return to the PO with a reason |
-| 4 | `ux-flows` | Designer | engine `ux-flows`, optional | `ux-flows.md` | PO / Analyst: the flows match the user stories |
-| 5 | `tech-design` | Engineering | engine `design`, then `sequences` | `sad.md`, `adr/*`, in the contract team's repository | Engineering: architecture review by the other teams' leads |
-| 6 | `data-model` | Engineering | engine `data-model`, optional | `data-model.md`, staged `migrations/`, `_audit/`, in the contract team's repository | Engineering: the schema and the rollback migration |
-| 7 | `api` | Engineering | engine `api`, optional | `contracts/*` in the contract team's repository, then the contract merge request to product-specs | Engineering: the contract merge request, approved by the other teams' leads |
-| 8 | `screens` | Designer | engine `screens`, optional | `screens.md` | PO / Analyst: every state can be built on each platform |
-| 9 | `tasks` | Engineering | engine `tasks` | `tasks.json`, `tasks/`, in each team repository | Engineering: the task split, by each team lead |
+| 2 | `clarify` | PO / Analyst | engine `clarify`, skippable | `spec.md`, `CONTEXT.md` | PO / Analyst: the spec is ready: every open question closed or deferred |
+| 3 | `epic` | PM | hub, no LLM | `hub/feature.yaml` (teams and leads), `hub/signoffs.yaml` | PM: size, route and the team leads; or `return` to the PO with a reason |
+| 4 | `ux-flows` | Designer | engine `ux-flows`, skippable | `ux-flows.md` | PO / Analyst: the flows match the user stories |
+| 5 | `tech-design` | Engineering | engine `design`, then `sequences` | `sad.md`, `adr/*`, in the contract team's repository | Engineering: architecture review, signed off by the lead of every other team |
+| 6 | `data-model` | Engineering | engine `data-model`, skippable | `data-model.md`, staged `migrations/`, `_audit/`, in the contract team's repository | Engineering: the contract team's lead, for the schema and the rollback migration |
+| 7 | `api` | Engineering | engine `api`, skippable | `contracts/*` in the contract team's repository, then the contract merge request to product-specs | Engineering: the contract, signed off by the lead of every other team |
+| 8 | `screens` | Designer | engine `screens`, skippable | `screens.md` | PO / Analyst: every state can be built on each platform |
+| 9 | `tasks` | Engineering | engine `tasks` | `tasks.json`, `tasks/`, in each team repository | Engineering: the task split, signed off by each team lead |
 | 10 | `sprint` | PM | hub | `hub/feature.yaml` | PM: sprint contents, and confirms the order between teams that the hub derives from the cross-team references |
-| 11 | `plan-tests` | QA | engine `plan-tests`, optional | `test-plan.md`, or a `## Test plan` section in `spec.md` for size XS or S and on the quick route | QA: every criterion is covered on every platform |
+| 11 | `plan-tests` | QA | engine `plan-tests`, skippable | `test-plan.md`, or a `## Test plan` section in `spec.md` for size XS or S and on the quick route | QA: every criterion is covered on every platform |
 | 12 | `implement` | Engineering | engine `implement` | `tasks/tracker.md`, in each team repository | Automatic: tests and lint on every task |
-| 13 | `review` | Engineering | engine `review` | `_review/review-<date>.md`, in each team repository | Engineering: the team lead approves each merge request |
-| 14 | `ship` | Engineering | engine `ship` | changelog and merge request, in each team repository | Engineering: the part was run for real against its criteria |
+| 13 | `review` | Engineering | engine `review` | `_review/review-<date>.md`, in each team repository | Engineering: each team lead signs off the review of their team's merge request |
+| 14 | `ship` | Engineering | engine `ship` | changelog and merge request, in each team repository | Engineering: each team lead, for the part run for real against its criteria |
 | 15 | `staging` | Ops | hub | `hub/release.yaml` | Ops: the smoke check passed on every client |
-| 16 | `verify` | QA | hub | `hub/bugs/`, `test-plan.md` | QA: every criterion passes or is not applicable on every platform |
+| 16 | `verify` | QA | hub | `hub/bugs/`, `test-plan.md` (a verdict per criterion), `tests/<run>.json` on `hub-state` | QA: every criterion passes or is not applicable on every platform |
 | 17 | `autotests` | QA | hub, no LLM | `tests/<run>.json` | Automatic: the latest CI run is green in every team repository |
-| 18 | `qa-final` (final check) | QA | hub, no LLM | `hub/signoffs.yaml` | QA: pass to release, or return to development with a reason |
+| 18 | `qa-final` | QA | hub, no LLM | `hub/signoffs.yaml` | QA: pass to release, or return to development with a reason |
 | 19 | `accept` | PO / Analyst, then PM | hub, no LLM | `hub/signoffs.yaml` (PO acceptance), `hub/release.yaml` (PM go or no-go) | PO accepts, then the PM gives the go or the no-go |
 | 20 | `release` | Ops | hub | `hub/release.yaml` | Ops: every production deploy and every rollout stage, then the watch period |
 
-The contract team is the team with `api_contract: true` in `config.yaml`. Steps 5 to 7 run in its repository. The site reads them from that team's `hub-report` snapshot, and the contract merge request in product-specs completes step 7. When no team publishes a contract, steps 5 and 6 run in the single team repository and step 7 is skipped. Client teams write their own short `sad.md` at step 9; it stays in their repositories.
+The contract team is the team with `api_contract: true` in `config.yaml`. Steps 5 to 7 run in its repository. The site reads them from that team's `hub-report` snapshot, and the contract merge request in product-specs completes step 7. That merge request copies `sad.md`, `data-model.md` and `contracts/**` into the feature folder of product-specs, so the other teams and `hub-fanout` can use them. `adr/**`, `migrations/**` and `_audit/**` stay in the contract team's repository; the ADR index in `sad.md` links to them there. Client teams write their own short `sad.md` at step 9; it stays in their repositories.
 
-A gate that can return keeps every decision as an entry in `signoffs.yaml` with the decision (pass or return), the reason and a cycle number. The QA entry also lists the bugs it returns and the target step. A return opens the next cycle and earlier entries stay as history. Two gates can return:
+When no team publishes a contract (one repository, or several with no shared API):
 
-- **qa-final.** QA returns the feature to the team that owns the bugs, which runs the fix stage. QA then retests.
-- **epic.** If the PM disagrees with the size or the route, the PM does not edit `.size` or `.route`. The PM returns the step to the PO with a reason, the PO runs `classify-size` again, and the PM decides again. Epic therefore uses no LLM: the PM names the teams and their leads in `feature.yaml` and records the decision with `/hub:decide epic <slug>`.
+- Steps 5 and 6 run in every team repository of the feature, and their evidence is read from every team's snapshot.
+- Step 7 shows as skipped on every route, because there is no shared contract to publish.
+- Nothing from steps 5 to 7 is copied to product-specs, and no role may write `sad.md`, `data-model.md` or `contracts/**` there; the default-deny rule refuses them.
+- The tech-design gate is signed by each team's own lead.
+
+A gate of Engineering is signed by people, not approved on the host, because GitLab Free has no required approvals: `flow.yaml` says whose entries the gate needs (`by`: the role, every team lead, the lead of every team except the contract team, or the contract team's lead). The leads of a feature are the ones named in its `feature.yaml`; each must be a developer of that team with `lead: true` in `roles.yaml`, and the site warns when one is not. `roles.yaml` decides what a person may write; `feature.yaml` decides whose sign-off a gate of that feature waits for.
+
+Every gate owner can send a step back instead of signing it off, with `/hub:return <step> <slug> "<reason>"`. A return is an entry in `signoffs.yaml` with `decision: return`, the reason and a cycle number. A return opens the next cycle and earlier entries stay as history. `flow.yaml` names, for each gate, the step and the role it goes back to (`returns_to`); by default it is the step itself and the role that runs it. The QA final check keeps its own command:
+
+- **qa-final.** `/hub:decide <slug>` records pass, or return with a reason and the bugs; a return goes back to verify (`returns_to: verify`). The team that owns each bug runs the fix stage, and QA then retests.
+- **epic.** If the PM disagrees with the size or the route, the PM does not edit `.size` or `.route`. The PM runs `/hub:return epic <slug> "<reason>"`; `flow.yaml` sends it back to the PO at clarify (`returns_to: clarify`), the PO runs `classify-size` again and signs off clarify again, and the PM signs off or returns again. A return can only go to a step with a human gate, because that sign-off is what answers it. Epic therefore uses no LLM: the PM names the teams and their leads in `feature.yaml` and signs off with `/hub:signoff epic <slug>`.
 
 The go or no-go lives in `release.yaml` only. `signoffs.yaml` keeps the PO acceptance and every other gate.
 
@@ -366,15 +378,19 @@ Each step's evidence comes from the engine adapter for engine steps and from `fl
 
 When the evidence of several steps is present, the latest step wins. The hub checks from the end of the flow backwards and stops at the first match:
 
-1. `release.yaml` says the rollout finished and the watch period is over: released.
-2. The QA decision in `signoffs.yaml`: passed to release, or returned.
-3. Bugs on main and test runs on `hub-state`: verification and autotests.
-4. Team snapshots: an open merge request (ship), the latest review verdict (review), the tracker (implement), a `tasks.json` (tasks).
-5. The specification files and the contract team's snapshot, in flow order.
+1. `release.yaml`: the rollout reached 100% and the watch period is over (release), or a rollout stage is recorded (release running).
+2. `signoffs.yaml` and `release.yaml`: the PO acceptance and the go or no-go (accept).
+3. The QA decision in `signoffs.yaml`: passed to release, or returned (qa-final).
+4. Test runs on `hub-state` and bugs on main (autotests, verify).
+5. The staging section of `release.yaml` (staging).
+6. Team snapshots: an open merge request (ship), the latest review verdict (review), the tracker (implement).
+7. The test plan (plan-tests), the sprint sign-off (sprint) and the teams' `tasks.json` (tasks).
+8. The specification files, the contract team's snapshot and the epic sign-off, in flow order back to specify.
 
-Four refinements sit on top:
+The statuses are: done, running, waiting for sign-off, returned, blocked, ready (the steps before it are done or skipped and nothing has started), to do, skipped and missed. Five refinements sit on top:
 
-- **Skipped.** SDD leaves no marker when it skips an optional stage by route. An optional step with no evidence shows as skipped when a later step has evidence, on any route. Without later evidence it is still to do. `.route` only explains the skip.
+- **Skipped.** SDD leaves no marker when it skips a stage by route. A step with no evidence while a later step has evidence shows as skipped when the feature's route is in the step's `skippable_on` list.
+- **Missed.** The same case on a route that requires the step shows as missed, with a warning that names the step and the route. A missed step is never counted as done. A step with no evidence and no later evidence is still to do.
 - **Sign-off.** A step whose evidence holds but whose sign-off is missing, or whose content hash no longer matches, shows as waiting for sign-off, with the person's name.
 - **Running.** A started event without a finished event shows the step as running.
 - **Returned.** The latest return entry of a gate shows that step as returned, with the reason, until the next decision.
@@ -390,8 +406,8 @@ Bugs found during verification and a "return" at the final check both go to the 
 | Stage | Who | Recorded in | Moves on when |
 | --- | --- | --- | --- |
 | Staging ready | Ops | `release.yaml`, staging section | The smoke check passed on every client |
-| AI-assisted verification | QA | One test run per platform, a verdict per criterion | Every criterion has a verdict |
-| Bugs | QA files, the owning team fixes | `bugs/BUG-NNNN.md` | No open bug of severity high or above |
+| AI-assisted verification | QA | One test run per platform on `hub-state`, a verdict per criterion in `test-plan.md` | Every criterion has a verdict |
+| Bugs | QA files, the owning team fixes | `bugs/BUG-NNNN.md` | No bug of severity high or above that is not `closed` or `rejected` |
 | Autotests | CI in each repository, plus local runs | `tests/<run>.json` | The latest CI run is green in every team repository of the feature, read from the host when the decision is made |
 | Final check | QA | `signoffs.yaml`, entry `qa-final` | QA records pass or return |
 | Return to development | QA | The decision, the bugs and the target step | The owning team runs the fix stage and QA retests |
@@ -410,7 +426,7 @@ There is one site for everyone; the role decides the home page and which buttons
 | --- | --- | --- |
 | Home | Project statistics first, then the next actions for your role beside the role's numbers, then the features in progress | Open an action as a task page over the screen, copy a command, sign off, open a feature |
 | Features | Every feature in two views. List: stage, progress, what it waits on, cost. Graph: the role-lane flow with one track per feature | Switch between list and graph, open a feature at a chosen step |
-| Feature: Flow | The role-lane map with a live status per step: done, running, waiting for sign-off, blocked, skipped | Open a step for its files, the prompt for your assistant and the sign-off |
+| Feature: Flow | The role-lane map with a live status per step: done, running, waiting for sign-off, returned, blocked, skipped, missed (with a warning) | Open a step for its files, the prompt for your assistant and the sign-off |
 | Feature: Documents | Rendered documents with "needs validation" and "changed since sign-off" badges | Light edits, start a validation |
 | Feature: Tasks | Dependency graph and list per team, with cross-team waits from the `<team-id>:<task-id>` references. An unknown reference shows as a warning | Filter by team, open the task file |
 | Feature: QA | Criterion by platform matrix, bugs, test runs, the final decision | Add a bug, change its status, record the decision |
@@ -449,7 +465,7 @@ Several things help a first-time user. Each feature page starts with a Now strip
 | Feature title, links, owner, estimates | PO, PM |
 | Wording of a story or criterion, when its meaning stays the same | PO |
 | A bug: create, edit, assign a team, change status | QA; the owning team for status |
-| Sign-offs and the decisions at `epic` and `qa-final` | The owner of that gate |
+| Sign-offs, returns and the QA decision at `qa-final` | The owner of that gate |
 | Release checklist and rollout stage | Ops |
 | The go or no-go | PM |
 | People, roles, settings | Admin |
@@ -462,8 +478,8 @@ Everything else, such as a new criterion, changed behaviour, the contract or the
 2. A wording-only edit is saved and nothing else is touched.
 3. After a change of meaning, every document that references the changed ids is marked "needs validation": flows, screens, contract, each team's tasks and the test plan. References are found by id, such as `AC-4`, `US-2` or `SCR-02`.
 4. The site offers `/hub:validate tasks-issues` to copy. When the admin has enabled headless runs, a Validate button starts the assistant in read-only mode instead.
-5. The assistant writes `validation/<date>.md`: for each document, either consistent or a list of conflicts with a proposed fix. It edits nothing.
-6. Each owner clears their badge by running their stage again, or by confirming "no change needed", which is recorded as a sign-off.
+5. The assistant reports, for each document, either consistent or a list of conflicts with a proposed fix. It edits nothing. The local server writes the report to `hub/validation/<timestamp>.md`.
+6. Each owner clears their badge by running their stage again, or by confirming "no change needed", which is recorded in `signoffs.yaml` as an entry with `decision: confirm` for their own step, with the file and its hash.
 
 ## Roles and access
 
@@ -474,12 +490,12 @@ The admin assigns roles in `roles.yaml`, and a CI job on protected `main` is wha
 | Role | May change |
 | --- | --- |
 | Admin | Everything, including `.hub/roles.yaml`, `.hub/config.yaml` and `.hub/flow.yaml` |
-| PO / analyst | `docs/features/*/spec.md`, `.size`, `.route`, `CONTEXT.md` at the root and in each feature folder, `hub/feature.yaml`, `hub/validation/**`, own sign-offs |
-| PM | `docs/roadmap.md`, `hub/feature.yaml`, the go or no-go in `hub/release.yaml`, own sign-offs and the decision at `epic` |
-| Designer | `docs/design-system.md`, `ux-flows.md`, `screens.md`, own sign-offs |
-| Developer | Own sign-offs and the status of bugs on their team |
-| Team lead (a developer with `lead: true`) | Also `hub/validation/**`. The lead of the contract team also `sad.md`, `adr/**`, `data-model.md`, `migrations/**`, `_audit/**` and `contracts/**`, which arrive by the contract merge request |
-| QA | `test-plan.md`, the `## Test plan` section of `spec.md`, `hub/bugs/**`, the decision at `qa-final` |
+| PO / analyst | `docs/features/*/spec.md`, `.size`, `.route`, `CONTEXT.md` at the root and in each feature folder, `hub/feature.yaml`, `hub/validation/**`, the `feature_size:` field in `sad.md` front matter; sign-offs and returns at clarify, ux-flows, screens and accept |
+| PM | `docs/roadmap.md`, `hub/feature.yaml`, the go or no-go in `hub/release.yaml`; sign-offs and returns at epic and sprint |
+| Designer | `docs/design-system.md`, `ux-flows.md`, `screens.md`; confirmations on their own steps |
+| Developer | The status of bugs on their team; confirmations on their team's steps |
+| Team lead (a developer with `lead: true`) | Also `hub/validation/**`. The lead of the contract team also `docs/features/*/sad.md`, `docs/features/*/data-model.md` and `docs/features/*/contracts/**`, the only files of steps 5 to 7 that live in product-specs (the PO also keeps `feature_size:` in `sad.md`). With no contract team, no one but the admin may write them. Leads sign off and return at the Engineering gates of the steps of their feature (see "The twenty steps") |
+| QA | `test-plan.md`, the `## Test plan` section of `spec.md`, `hub/bugs/**`; sign-offs and returns at plan-tests and verify, and the decision at `qa-final` |
 | Ops | `hub/release.yaml` except the go or no-go and, by merge request to the admin, the `hub-ci` project |
 
 Everyone can read everything in the repository. The rules restrict writing only. A person may hold several roles; `roles.yaml` takes `role` for one and `roles` for a list.
@@ -497,12 +513,15 @@ roles:
       - docs/features/*/hub/feature.yaml
       - CONTEXT.md
       - docs/features/*/CONTEXT.md
+      - docs/features/*/sad.md#front:feature_size   # one front matter key only
   qa:
     write:
       - docs/features/*/test-plan.md
       - docs/features/*/spec.md#Test plan     # one section only, checked by the guard
       - docs/features/*/hub/bugs/**
 ```
+
+A rule is a glob. `<glob>#<heading text>` allows one section of the file and `<glob>#front:<key>` one front matter key; the guard checks both structurally (see "Guard rules").
 
 ### Enforcement on self-managed GitLab Free
 
@@ -594,13 +613,13 @@ After Install the page lists what it did and what is left for people:
 
 - Each team lead merges the merge request that adds `hub-report` to their repository.
 - On a self-managed server, the optional pre-receive hook needs someone with access to the server.
-- On GitHub, someone creates the `HUB_STATE_TOKEN` secret by hand, because a fine-grained token cannot be created through the API.
+- On GitHub, once its install is built (phase 5), someone creates the `HUB_STATE_TOKEN` secret by hand, because a fine-grained token cannot be created through the API.
 
 The SDLC Hub Setup prototype plays these screens for both hosts.
 
 ### Admin: add people and generate scripts
 
-1. Add each person: GitLab username, name, role, team, team-lead flag, operating system and assistant.
+1. Add each person: GitLab username, name, role or roles, team, team-lead flag, operating system and assistant.
 2. Saving writes `roles.yaml` through a merge request that only the admin role can pass.
 3. Choose a person and press Generate script. The site shows it for macOS and Linux (bash) or for Windows (PowerShell), to copy or download.
 4. Send the script to the person through any channel.
@@ -626,7 +645,7 @@ HUB_GIT_PROVIDER="gitlab"
 HUB_GIT_HOST="https://gitlab.example.com"
 HUB_REPO="shop/product-specs"
 HUB_USER="iryna.s"
-HUB_ROLE="qa"
+HUB_ROLES="qa"            # one role, or several separated by spaces
 HUB_TEAM_REPOS="shop/web-admin shop/android-app shop/ios-app"
 HUB_ASSISTANT="claude"
 HUB_RELEASE="v1.0.0"
@@ -639,7 +658,7 @@ WORK="$HOME/work/shop"
 1. Checks git, Node 20 or newer and the assistant. For anything missing it prints the install command for the person's system and stops.
 2. Signs in to GitLab through the git credential manager or an SSH key. The credential stays in the operating system's keychain.
 3. Clones `product-specs` and the team repositories of the role into the work folder.
-4. Runs `hub setup`. It confirms on `main` that the username really has the role named in the script, and stops if it does not.
+4. Runs `hub setup`. It confirms on `main` that the username really has the roles named in the script, and stops if it does not.
 5. Writes the role's local files: path rules for the assistant, the MCP entry and, for Codex or Cursor, the engine's skills.
 6. Runs `hub doctor`, starts the server and opens Your guide for the role.
 
@@ -682,7 +701,7 @@ On Team seats the work is not billed per step. The cost shows what the same work
 
 The privacy rule covers spend only: no per-person totals, tables or rankings of tokens or cost outside the admin and the PM, and usage records stay encrypted per person. Names on steps, sign-offs, bugs and merge requests are work records that the team already sees in git; the event log carries no username and no token counts, so it cannot be joined to spend.
 
-Usage records are encrypted with `age` before they are committed, each to three public keys: the person's own, the admin's and the PM's. `hub setup` creates the key pair on the person's machine, keeps the private key in the system keychain and adds the public key to `.hub/keys/` through a merge request. Usage is one file per person and month, published at sync and not after every turn.
+Usage records are encrypted with `age` before they are committed, each to every public key of the person, the admin and the PM (one key per machine). `hub setup` creates the key pair on the person's machine, keeps the private key in the system keychain and adds the public key to `.hub/keys/` through a merge request. Usage is one file per person and month, published at sync and not after every turn.
 
 Open totals are published by the admin's or the PM's machine during sync. A group of fewer than three people is merged into "other", so a total never shows one person, and the event log carries no username. When the PM changes, `hub usage rekey` re-encrypts the records for the new key. The former PM can still read what was encrypted before; that is accepted.
 
@@ -704,7 +723,7 @@ The hub stores no Jira, Confluence or Figma credential. Those connections belong
 
 The design keeps secrets off the repository and treats the local machine as untrusted for anything that affects other people.
 
-- **Secrets.** None in the repository, the setup script or the site. Host credentials stay in the operating system's keychain. CI holds two kinds of token as masked, protected variables: `HUB_STATE_TOKEN`, which can only push to `hub-state`, and one fan-out token per team repository. Neither grants more than a Developer already has.
+- **Secrets.** None in the repository, the setup script or the site. Host credentials stay in the operating system's keychain. CI holds two kinds of token as masked, protected variables: `HUB_STATE_TOKEN`, meant for `hub-state` only, and one fan-out token per team repository. Neither grants more than a Developer already has. On GitLab Free a Developer token can push to any unprotected branch, so until `main` is protected in phase 2 this is an accepted risk (`docs/open-items.md`, claim 13).
 - **Local server.** It listens on the loopback address only and rejects any request whose Host or Origin is not its own address, so another site in the browser cannot call it. The session token is created at each start, kept in an HttpOnly cookie for the page and in a file only the person can read for the assistant's MCP server. The port is 4173 by default, can be changed, and falls back to a free one. Assistants are started with an argument list, never through a shell.
 - **Roles.** They are checked at merge against `roles.yaml` on `main`. Editing a local file changes only what that person's own site shows.
 - **Headless runs.** Off by default. In version 1 the only headless run is validation: read-only tools, a turn limit, the person's own seat, and the result shown before anything is saved. Stages stay copy-and-run. Running a stage from the site is a later step behind a second admin switch.
@@ -721,8 +740,8 @@ Seven phases, each usable on its own; the first needs no hub at all. Phase 1 is 
 | 0. Pilot by hand | The hub-and-sync repository layout from the map and SDD on one feature, without the hub | One feature has shipped through all the steps |
 | 1a. Core and read-only site | Data model and validators, the engine adapter, step detection, `hub serve`, and `hub report`, which builds a team snapshot from a team repository. The read-only site: Home, Features list and graph, Feature Flow, Documents and Tasks, Your guide, command help and copy-prompt. It reads product-specs, `hub-state` snapshots and local clones of the team repositories, and runs on fixture repositories | Every screen shows the correct state of every fixture feature, and of a pilot checkout when one exists |
 | 1b. Setup site and GitLab install | `npx sdlc-hub init` and the five-screen setup site. The GitLab install: files, the vendored hub, `hub-state`, `HUB_STATE_TOKEN` and the `hub-report` merge requests in the team repositories. On GitHub the site says that install is not available yet and stops before Install | The admin installs on the team's GitLab, and every role sees the real state of the pilot feature on their machine |
-| 2. Plugin and writing | The `hub` plugin for Claude Code with `next`, `status`, `signoff`, `decide` and `bug`; saves through merge requests; `hub-guard`; a second Install run that protects `main` and points the CI configuration at `hub-ci`; People, roles and setup scripts | A new person is working 15 minutes after receiving a script, and an edit outside a role is refused at merge |
-| 3. QA and release | Test runs from CI and local, bugs, the QA decision, the release checklist | A feature goes from staging to released with the site as the only tracker |
+| 2. Plugin and writing | The `hub` plugin for Claude Code with `next`, `status`, `signoff`, `return` and `bug`; saves through merge requests; `hub-guard`; a second Install run that protects `main` and points the CI configuration at `hub-ci`; People, roles and setup scripts | A new person is working 15 minutes after receiving a script, and an edit outside a role is refused at merge |
+| 3. QA and release | Test runs from CI and local, bugs, the QA decision (`decide`), the release checklist | A feature goes from staging to released with the site as the only tracker |
 | 4. Metrics | Usage hooks, the Costs screen, estimates against actuals, encrypted per-person records | Cost per feature is within 10% of the provider's report for the same period |
 | 5. Other assistants, GitHub and headless | Codex and Cursor skills, the GitHub install, headless validation, a second engine adapter as proof | The same step of one feature runs from all three assistants |
 
@@ -736,10 +755,17 @@ This section closes gaps found in a review of the design: what the guard checks 
 
 - The default is deny. A path that no role is allowed to change can be changed only by the admin. That covers `hub/**`, `.hub/**`, the assistant folders (`.claude/**`, `.agents/**`, `.codex/**`, `.cursor/**`, `CLAUDE.md`, `AGENTS.md`) and CI files, because they run on every machine.
 - The guard script and its tests live in the `hub-ci` project on GitLab, or come from the default branch on GitHub. The merge request is only data: the list of changed files and their contents.
-- `signoffs.yaml` is append-only. A new entry must name the merge request author as the person, and its step must be a gate of the author's role. Existing entries cannot be edited or removed.
+- `signoffs.yaml` is append-only. A new entry must name the merge request author as the person. A pass or a return must be at a gate the author owns (see "Roles and the paths they may change"); a `confirm` entry must be for a step of the author's role, or of the author's team. Existing entries cannot be edited or removed.
+- Each person may add their own public key files, `.hub/keys/<own user>-<machine>.pub`, and nothing else under `.hub/`. An existing key file is changed only by the admin.
 - A sign-off records the content hash of the file it approves, not a commit. It stays current while the hash matches; a wording-only edit carries it forward and is logged.
 - `release.yaml` and bug files are checked field by field: the PM writes the go or no-go, Ops the checklist and the rollout, a developer the status of a bug on their own team, QA everything in a bug.
-- Two rules work below the file level. QA may change only the `## Test plan` section of `spec.md`, which `plan-tests` writes for small features. The PO may change only the `feature_size:` field in the front matter of `sad.md`, which `classify-size` keeps in step with `.size`. The guard compares the rest of the file with `main`.
+- Two rules work below the file level. QA may change only the `## Test plan` section of `spec.md`: SDD's `plan-tests` writes the plan there, not into `test-plan.md`, for size XS or S and on the quick route. The PO may change only the `feature_size:` field in the front matter of `sad.md`, which `classify-size` keeps in step with `.size`.
+- Such a rule is a structural check, not a text search. The guard parses both versions of the file (the one on `main` and the one in the merge request) into front matter and sections:
+  - The front matter is the block between the first two `---` lines, split into top-level keys. A section runs from an ATX heading to the next heading of the same or a higher level. Headings inside fenced code blocks do not count.
+  - The allowed region is either one front matter key or one section, matched by the exact heading text (`## Test plan`). A heading that appears more than once is refused as ambiguous.
+  - With the allowed region cut out of both versions, the rest must be byte-identical.
+  - The region must keep its place. An existing section keeps the heading it follows; a new section is allowed only as a whole new section between two existing ones or at the end; a front matter key keeps its order.
+  - So a renamed heading (`## Test Plan`, `## 9. Test plan`), a section moved elsewhere in the file, an edit to any other section or key, and a heading renamed to `## Test plan` to capture its body are all refused, with the line that differs.
 - Renames, deletions and symbolic links count as changes to both paths.
 - Forking of `product-specs` is turned off, and `hub-ci` has its own protected `main` that only the admin merges into.
 
@@ -754,7 +780,7 @@ This section closes gaps found in a review of the design: what the guard checks 
 
 ### Team repositories and fan-out
 
-- `hub-fanout` runs on `main` of `product-specs`. For each team in `config.yaml` it opens a merge request in the team repository with the shared files of the features that team takes part in: the API contract, the handoff block of the feature and the hub command files of the assistants. It uses one token per team repository, stored as a protected variable.
+- `hub-fanout` runs on `main` of `product-specs`. For each team in `config.yaml` it opens a merge request in the team repository with the shared files of the features that team takes part in: `spec.md`, `ux-flows.md`, `screens.md`, `test-plan.md` and `contracts/`, the handoff block of the feature and the hub command files of the assistants. It uses one token per team repository, stored as a protected variable.
 - In a team repository the assistant finds the feature from the slug argument, or from the branch name `feat/<slug>`.
 - `hub-report` in a team repository writes the team snapshot to `hub-state` with `HUB_STATE_TOKEN`: a project access token with the Developer role and write access to the repository only.
 - The validation report is written by the local server to `docs/features/<slug>/hub/validation/<timestamp>.md` from the output of the read-only run. The PO and the team leads may add these files.
