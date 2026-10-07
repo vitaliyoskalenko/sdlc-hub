@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Synthetic fixture repositories for tests and the demo. Replaced by snapshots of a real SDD run when one exists.",
+  "description": "Synthetic fixture repositories for tests and the demo. Replaced by snapshots of a real SDD run when one exists. materialize() writes a fixture as real git repositories, for tests and the demo.",
   "exports": {
     ".": "./src/index.ts"
   },

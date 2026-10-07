@@ -1,0 +1,16 @@
+{
+  "name": "@sdlc-hub/git",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Read-only access to product-specs and the team clones: the working tree, the hub-state branch and git authors.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@sdlc-hub/core": "*"
+  },
+  "devDependencies": {
+    "@sdlc-hub/fixtures": "*"
+  }
+}
