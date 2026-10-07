@@ -1,0 +1,16 @@
+{
+  "name": "@sdlc-hub/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The local server: loopback only, Host and Origin checked, a read-only REST API and SSE, and the web app.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@sdlc-hub/core": "*"
+  },
+  "devDependencies": {
+    "@sdlc-hub/fixtures": "*"
+  }
+}
