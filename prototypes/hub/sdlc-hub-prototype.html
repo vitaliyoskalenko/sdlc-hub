@@ -1,0 +1,1409 @@
+<title>SDLC Hub Prototype</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Onest:wght@400;500;600&family=Unbounded:wght@500;600&display=swap">
+<style>
+/* Layout: an app shell. A slim top bar with the viewer controls, a left rail of screens, and one working area. Same visual language as the AI-SDLC map this product grows out of: role colours, mono for anything typed or stored. */
+:root{
+  --bg:#EDF0F3; --surface:#FFFFFF; --sunk:#E2E7EC; --ink:#17212B; --muted:#566472; --line:#CDD5DD; --wire:#8492A0; --accent:#0C6B73;
+  --po:#A65F00; --pm:#6247CF; --des:#B82C78; --dev:#1C68C4; --qa:#127A52; --ops:#66700F; --admin:#17212B;
+  --ok:#1B7A4B; --warn:#9A6200; --bad:#C2352B; --on:#FFFFFF; --scrim:rgba(16,22,30,.45);
+  --f-display:'Unbounded','Arial Black',system-ui,sans-serif;
+  --f-body:'Onest','Segoe UI',system-ui,-apple-system,sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F141A; --surface:#171E27; --sunk:#1F2833; --ink:#E4EAF0; --muted:#94A2B1; --line:#2B3644; --wire:#6C7A8A; --accent:#56C5CE;
+    --po:#F2B24C; --pm:#AC9BFF; --des:#F47DB9; --dev:#74B4FF; --qa:#55D3A0; --ops:#C5CF5A; --admin:#E4EAF0;
+    --ok:#5FD39A; --warn:#F0B95A; --bad:#FF8073; --on:#0F141A; --scrim:rgba(0,0,0,.6);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F141A; --surface:#171E27; --sunk:#1F2833; --ink:#E4EAF0; --muted:#94A2B1; --line:#2B3644; --wire:#6C7A8A; --accent:#56C5CE;
+  --po:#F2B24C; --pm:#AC9BFF; --des:#F47DB9; --dev:#74B4FF; --qa:#55D3A0; --ops:#C5CF5A; --admin:#E4EAF0;
+  --ok:#5FD39A; --warn:#F0B95A; --bad:#FF8073; --on:#0F141A; --scrim:rgba(0,0,0,.6);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 14.5px/1.5 var(--f-body)}
+h1,h2,h3,p,ul,ol,pre,figure{margin:0}
+ul,ol{padding-left:1.15em}
+button,input,select,textarea{font:inherit;color:inherit}
+code,pre,.mono{font-family:var(--f-mono);font-size:.86em}
+code{background:var(--sunk);padding:.08em .36em;border-radius:4px;overflow-wrap:anywhere}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.role-po{--rc:var(--po)} .role-pm{--rc:var(--pm)} .role-des{--rc:var(--des)} .role-dev{--rc:var(--dev)} .role-qa{--rc:var(--qa)} .role-ops{--rc:var(--ops)} .role-admin{--rc:var(--admin)}
+.muted{color:var(--muted)}
+
+.app{max-width:1500px;margin-inline:auto;padding-inline:clamp(16px,2vw,26px);padding-block:12px 28px;display:flex;flex-direction:column;gap:14px}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 18px}
+.brand{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;min-width:0}
+.brand b{font:600 1.08rem/1.2 var(--f-display);letter-spacing:-.01em}
+.proto{font:600 .72rem/1.5 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--on);background:var(--accent);border-radius:99px;padding:1px 10px}
+.brand .proj{color:var(--muted);font-size:.9rem}
+.ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;min-width:0;max-width:100%}
+.ctl label{min-width:0;max-width:100%}
+.ctl select{min-width:0;max-width:min(270px,100%);font-family:var(--f-body);font-weight:500}
+.ctl label{display:inline-flex;align-items:center;gap:6px;font:500 .68rem/1.3 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+select,input[type=text],input[type=url],textarea{background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:5px 9px;font-size:.9rem;letter-spacing:0;text-transform:none;max-width:100%}
+textarea{width:100%;min-height:70px;resize:vertical}
+.sync{display:inline-flex;align-items:center;gap:7px;font-size:.84rem;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
+
+.shell{display:grid;grid-template-columns:200px minmax(0,1fr);gap:18px;align-items:start}
+.side{display:flex;flex-direction:column;gap:2px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 10px)}
+.side .grp{font:500 .66rem/1.3 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:12px 10px 4px}
+.nb{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;border:0;background:transparent;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:500;color:var(--ink)}
+.nb:hover{background:var(--sunk)}
+a.nb{text-decoration:none}
+.nb[aria-current="page"]{background:var(--ink);color:var(--bg)}
+.nb .lock{font:500 .62rem/1.4 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;opacity:.7}
+main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.ph{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 16px}
+.ph h1{font:600 1.5rem/1.2 var(--f-body);text-wrap:balance}
+.ph .sub{color:var(--muted);font-size:.92rem}
+section{display:flex;flex-direction:column;gap:9px;min-width:0}
+h2{font:500 .7rem/1.3 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+h3{font:600 1rem/1.3 var(--f-body)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.row{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.sp{justify-content:space-between}
+
+.rc{display:inline-block;padding:0 8px;border-radius:99px;border:1.5px solid var(--rc);color:var(--rc);font-weight:600;font-size:.76rem;line-height:1.55;background:color-mix(in srgb,var(--rc) 9%,var(--surface));white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:0 8px;border-radius:6px;font:600 .74rem/1.6 var(--f-body);white-space:nowrap;border:1.5px solid var(--pc,var(--line));color:var(--pc,var(--muted));background:color-mix(in srgb,var(--pc,var(--muted)) 10%,var(--surface))}
+.pill.ok{--pc:var(--ok)} .pill.warn{--pc:var(--warn)} .pill.bad{--pc:var(--bad)} .pill.info{--pc:var(--accent)} .pill.mute{--pc:var(--muted)}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.plain::before{display:none}
+.tag{font:500 .7rem/1 var(--f-mono);border:1px solid var(--line);border-radius:99px;padding:3px 8px;color:var(--muted);white-space:nowrap}
+.rl{display:inline-flex;align-items:baseline;gap:5px;border:1.5px solid var(--ink);border-radius:6px;padding:0 8px;font:600 .78rem/1.6 var(--f-mono);white-space:nowrap;background:var(--surface)}
+.rl.ro{border-style:dashed;border-color:var(--muted);color:var(--muted);font-weight:500}
+.k{font:500 .68rem/1.3 var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+
+.btn{border:1.5px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 12px;cursor:pointer;font-weight:500;font-size:.9rem;white-space:nowrap}
+.btn:hover:not(:disabled){border-color:var(--ink)}
+.btn.pri{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.btn.sm{padding:2px 9px;font-size:.8rem}
+.btn.danger{border-color:var(--bad);color:var(--bad)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.sim{border-style:dashed;color:var(--muted)}
+.btn.sim[aria-pressed="true"]{border-style:solid;border-color:var(--ink);color:var(--ink)}
+.cmd{display:flex;align-items:center;gap:8px;background:var(--sunk);border-radius:8px;padding:5px 6px 5px 10px;min-width:0;max-width:100%}
+.cmd code{background:transparent;padding:0;font-size:.86rem;font-weight:500;flex:1;min-width:0;overflow-wrap:anywhere}
+.copy{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:1px 8px;font-size:.76rem;color:var(--muted);cursor:pointer;white-space:nowrap;flex:none}
+.copy:hover{color:var(--ink);border-color:var(--ink)}
+pre{background:var(--sunk);border-radius:8px;padding:10px 12px;overflow-x:auto;line-height:1.5;white-space:pre;max-width:100%}
+pre.wrap{white-space:pre-wrap;overflow-wrap:anywhere}
+details.more>summary{cursor:pointer;color:var(--muted);font-size:.86rem;list-style:none}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary::before{content:"+ ";font-family:var(--f-mono)}
+details.more[open]>summary::before{content:"\2013 "}
+details.more>div{padding-top:8px;display:flex;flex-direction:column;gap:8px}
+.note{border-left:3px solid var(--accent);padding:2px 0 2px 12px;color:var(--muted);font-size:.9rem;max-width:80ch}
+.note.warn{border-color:var(--warn)} .note.bad{border-color:var(--bad)}
+.lockbox{border:1.5px dashed var(--line);border-radius:10px;padding:14px 16px;color:var(--muted)}
+
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:7px 10px;vertical-align:top;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+th{font:500 .66rem/1.3 var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+td.nw,th.nw{white-space:nowrap}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.click{cursor:pointer}
+.ftbl td:first-child{min-width:210px}
+tr.click:hover td{background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+
+/* home */
+.acts{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.act{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.act.bad{border-color:color-mix(in srgb,var(--bad) 55%,var(--line))}
+.act-t{flex:1}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi b{font:600 1.5rem/1.2 var(--f-body);font-variant-numeric:tabular-nums}
+.kpi b.bad{color:var(--bad)} .kpi b.ok{color:var(--ok)} .kpi b.warn{color:var(--warn)}
+.kpi span{color:var(--muted);font-size:.84rem}
+.prog{display:flex;align-items:center;gap:8px;min-width:110px}
+.prog i{flex:1;height:6px;border-radius:3px;background:var(--sunk);overflow:hidden;display:block}
+.prog i::after{content:"";display:block;height:100%;width:var(--p);background:var(--accent);border-radius:3px}
+.prog span{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* feature */
+.fhead{display:flex;flex-direction:column;gap:8px}
+.fpick{display:flex;flex-wrap:wrap;gap:6px}
+.chipbtn{border:1.5px solid var(--line);background:var(--surface);border-radius:99px;padding:2px 12px;cursor:pointer;font-size:.86rem;font-weight:500;white-space:nowrap}
+.chipbtn[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{border:0;background:transparent;padding:7px 12px 6px;border-bottom:2px solid transparent;font-weight:500;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.flowgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.mapwrap{overflow-x:auto}
+svg.flow{display:block;width:100%;min-width:430px;max-width:620px;height:auto;margin-inline:auto}
+.band{fill:var(--rc);fill-opacity:.07}
+.lanehead{fill:var(--rc);font:600 11px var(--f-body)}
+.rownum{fill:var(--muted);font:400 9.5px var(--f-mono)}
+.wire{fill:none;stroke:var(--wire);stroke-width:1.2}
+.wire.done{stroke:var(--ink);stroke-width:1.5}
+.loopw{fill:none;stroke:var(--bad);stroke-width:1.3;stroke-dasharray:4 3}
+.node{cursor:pointer}
+.node rect.b{fill:var(--surface);stroke:var(--rc);stroke-width:1.5}
+.node text{fill:var(--ink);font:500 11.5px var(--f-mono)}
+.node.st-done rect.b{fill:color-mix(in srgb,var(--rc) 20%,var(--surface))}
+.node.st-running rect.b{fill:var(--rc)} .node.st-running text{fill:var(--on);font-weight:600}
+.node.st-signoff rect.b{stroke:var(--warn);stroke-dasharray:4 2.5;stroke-width:2;fill:color-mix(in srgb,var(--warn) 14%,var(--surface))}
+.node.st-blocked rect.b{stroke:var(--bad);stroke-width:2;fill:color-mix(in srgb,var(--bad) 14%,var(--surface))}
+.node.st-ready rect.b{stroke-width:2.2}
+.node.st-todo rect.b{stroke:var(--line)} .node.st-todo text{fill:var(--muted)}
+.node.st-skipped rect.b{stroke:var(--line);stroke-dasharray:2 3} .node.st-skipped text{fill:var(--muted);text-decoration:line-through}
+.node rect.sel{fill:none;stroke:var(--ink);stroke-width:2}
+.node:focus{outline:none} .node:focus-visible rect.b{stroke:var(--ink);stroke-width:3}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:.8rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.lg{width:20px;height:12px;border-radius:3px;border:1.5px solid var(--dev);background:var(--surface);flex:none}
+.lg.done{background:color-mix(in srgb,var(--dev) 20%,var(--surface))} .lg.running{background:var(--dev)} .lg.signoff{border-color:var(--warn);border-style:dashed;background:color-mix(in srgb,var(--warn) 14%,var(--surface))}
+.lg.blocked{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,var(--surface))} .lg.todo{border-color:var(--line)} .lg.skipped{border-color:var(--line);border-style:dotted}
+.sd{border-left:3px solid var(--rc,var(--ink));padding-left:12px;display:flex;flex-direction:column;gap:6px}
+.kv{display:grid;grid-template-columns:8.6em minmax(0,1fr);gap:6px 12px;align-items:baseline}
+.kv>.k{padding-top:3px}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.filechip{border:0;background:var(--sunk);border-radius:5px;padding:1px 8px;font:500 .8rem/1.6 var(--f-mono);cursor:pointer;color:var(--ink)}
+.filechip:hover{outline:1.5px solid var(--ink)}
+
+/* documents */
+.docgrid{display:grid;grid-template-columns:260px minmax(0,1fr);gap:16px;align-items:start}
+.doclist{display:flex;flex-direction:column;gap:4px}
+.docbtn{display:flex;flex-direction:column;gap:3px;text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:9px;padding:7px 10px;cursor:pointer;min-width:0}
+.docbtn[aria-pressed="true"]{border-color:var(--ink)}
+.docbtn .fn{font:500 .84rem/1.4 var(--f-mono);overflow-wrap:anywhere}
+.ac{display:grid;grid-template-columns:4.2em minmax(0,1fr) auto;gap:4px 10px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line)}
+.ac:last-child{border-bottom:0}
+.ac .id{font:600 .84rem/1.5 var(--f-mono)}
+.editbox{grid-column:1/-1;display:flex;flex-direction:column;gap:8px;background:var(--sunk);border-radius:9px;padding:10px}
+.radio{display:flex;flex-direction:column;gap:4px}
+.radio label{display:flex;gap:8px;align-items:baseline}
+
+/* tasks */
+.dag{display:block;height:auto}
+.tnode rect{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.tnode.s-done rect{fill:color-mix(in srgb,var(--ok) 13%,var(--surface));stroke:var(--ok)}
+.tnode.s-in_progress rect{stroke:var(--dev);stroke-width:2.2}
+.tnode.s-waiting rect{stroke:var(--bad);stroke-dasharray:4 3}
+.tnode text{fill:var(--ink);font:500 11px var(--f-body)}
+.tnode text.id{font:600 11px var(--f-mono)}
+.tnode text.st{fill:var(--muted);font-size:10px}
+.edge{fill:none;stroke:var(--wire);stroke-width:1.3}
+.edge.x{stroke:var(--bad);stroke-dasharray:5 3;stroke-width:1.6}
+.lanelab{fill:var(--muted);font:600 11px var(--f-mono);letter-spacing:.06em}
+.laneband{fill:var(--sunk);fill-opacity:.5}
+
+/* QA */
+.stepper{display:flex;flex-wrap:wrap;gap:6px;align-items:stretch}
+.sstep{flex:1 1 130px;border:1.5px solid var(--line);border-radius:10px;padding:7px 10px;background:var(--surface);display:flex;flex-direction:column;gap:2px;min-width:0}
+.sstep b{font-size:.9rem}
+.sstep span{font-size:.8rem;color:var(--muted)}
+.sstep.ok{border-color:var(--ok)} .sstep.bad{border-color:var(--bad)} .sstep.cur{border-color:var(--ink);border-width:2px}
+.mx td,.mx th{text-align:center} .mx td:first-child,.mx th:first-child{text-align:left}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
+.form .full{grid-column:1/-1}
+.fld{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fld>span{font:500 .68rem/1.3 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.checks{display:flex;flex-wrap:wrap;gap:4px 14px}
+.checks label{display:inline-flex;gap:6px;align-items:center}
+.gates{list-style:none;padding:0;display:flex;flex-direction:column;gap:5px}
+.gates li{display:flex;gap:8px;align-items:baseline}
+
+/* costs */
+.rngrow{display:grid;grid-template-columns:9.5em minmax(120px,1fr) 5.2em 5.6em;gap:4px 12px;align-items:center;padding:4px 0;font-size:.88rem}
+.rngrow .lbl{display:flex;gap:6px;align-items:center;min-width:0}
+.rngrow .v{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.track{position:relative;height:16px}
+.track .grid{position:absolute;top:0;bottom:0;width:1px;background:var(--line)}
+.track .band{position:absolute;top:5px;height:6px;border-radius:3px;background:color-mix(in srgb,var(--accent) 30%,var(--surface))}
+.track .pt{position:absolute;top:2px;width:12px;height:12px;border-radius:50%;margin-left:-6px;background:var(--accent);border:2px solid var(--surface)}
+.track .pt.over{background:var(--bad)}
+.axis{display:grid;grid-template-columns:9.5em minmax(120px,1fr) 5.2em 5.6em;gap:4px 12px;font:400 .72rem/1.3 var(--f-mono);color:var(--muted)}
+.axis .ticks{position:relative;height:14px}
+.axis .ticks span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.bars{display:flex;flex-direction:column;gap:6px}
+.bar{display:grid;grid-template-columns:8.5em minmax(60px,1fr) 4.6em;gap:10px;align-items:center;font-size:.88rem}
+.bar i{display:block;height:10px;border-radius:0 4px 4px 0;background:var(--accent);min-width:2px}
+.bar .v{text-align:right;font-variant-numeric:tabular-nums}
+#tip{position:fixed;z-index:20;pointer-events:none;background:var(--ink);color:var(--bg);border-radius:7px;padding:4px 9px;font-size:.8rem;max-width:260px}
+
+/* admin */
+.steps{display:flex;flex-wrap:wrap;gap:6px}
+.wz{border:1.5px solid var(--line);background:var(--surface);border-radius:99px;padding:2px 12px;font-size:.84rem;font-weight:500;cursor:pointer}
+.wz[aria-current="step"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.wz.done{border-color:var(--ok)}
+.cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.list{list-style:none;padding:0;display:flex;flex-direction:column;gap:7px}
+.list li{display:flex;flex-direction:column;gap:3px}
+.switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+/* navigation, breadcrumbs, view switch */
+.nb .cnt{font:500 .72rem/1.5 var(--f-mono);color:var(--muted);background:var(--sunk);border-radius:99px;padding:0 7px}
+.nb[aria-current="page"] .cnt{background:transparent;color:inherit;opacity:.75}
+.nb .ext{color:var(--muted)}
+.crumb{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:.9rem;color:var(--muted)}
+.crumb button{border:0;background:transparent;padding:0;color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.crumb select{max-width:min(340px,100%)}
+.seg{display:inline-flex;border:1.5px solid var(--line);border-radius:9px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:transparent;padding:5px 16px;cursor:pointer;font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+/* home */
+.kpis.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+.kpis.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.homegrid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
+.alist{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.arow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;align-items:center;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;padding:11px 14px;cursor:pointer;width:100%}
+.arow:last-child{border-bottom:0}
+.arow:hover{background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.arow:focus-visible{outline-offset:-2px}
+.arow>*{grid-column:1}
+.arow .a-top{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
+.arow .muted{font-size:.9rem}
+.arow .chev{grid-column:2;grid-row:1 / span 3;color:var(--muted);font-size:1.3rem}
+.arow.bad{box-shadow:inset 3px 0 0 var(--bad)}
+/* task page over the screen */
+#sheet{position:fixed;inset:0;z-index:40;background:var(--scrim);display:flex;justify-content:flex-end}
+.sheet{background:var(--bg);width:min(820px,100%);height:100%;overflow-y:auto;padding:calc(env(safe-area-inset-top,0px) + 14px) clamp(16px,2.4vw,26px) calc(env(safe-area-inset-bottom,0px) + 28px);display:flex;flex-direction:column;gap:14px;box-shadow:-10px 0 34px rgba(10,14,20,.28)}
+.sheet-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+.sheet h1{font:600 1.4rem/1.25 var(--f-body);text-wrap:balance}
+/* features graph */
+svg.fgraph{display:block;width:100%;min-width:900px;max-width:1180px;height:auto;margin-inline:auto}
+.fgraph .rowband{fill:var(--sunk);fill-opacity:.7}
+.gnode rect{fill:var(--surface);stroke:var(--rc);stroke-width:1.3}
+.gnode text{fill:var(--ink);font:500 11.5px var(--f-mono)}
+.gnode.on rect{fill:color-mix(in srgb,var(--rc) 20%,var(--surface));stroke-width:2}
+.fgraph .trk{stroke:var(--line);stroke-width:1.5}
+.fgraph .trk.done{stroke:var(--ink);stroke-width:2.4}
+.fm,.fhd{cursor:pointer}
+.fm .hit,.fhd .hit{fill:transparent}
+.fm:hover .hit,.fhd:hover .hit{fill:color-mix(in srgb,var(--accent) 12%,transparent)}
+.fm circle{fill:var(--surface);stroke:var(--wire);stroke-width:1.5}
+.fm line{stroke:var(--wire);stroke-width:1.5}
+.fm.m-done circle{fill:var(--ink);stroke:var(--ink)}
+.fm.m-running circle{fill:var(--accent);stroke:var(--surface);stroke-width:2}
+.fm.m-ready circle{fill:var(--surface);stroke:var(--accent);stroke-width:3}
+.fm.m-signoff circle{fill:var(--warn);stroke:var(--surface);stroke-width:2}
+.fm.m-blocked circle{fill:var(--bad);stroke:var(--surface);stroke-width:2}
+.fm:focus,.fhd:focus{outline:none}
+.fm:focus-visible .hit,.fhd:focus-visible .hit{stroke:var(--accent);stroke-width:2}
+.fhd text{fill:var(--ink);font:600 10.5px var(--f-mono)}
+.fhd text.pc{fill:var(--muted);font-weight:400}
+.ld{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--wire);background:var(--surface);flex:none}
+.ld.done{background:var(--ink);border-color:var(--ink);transform:scale(.75)} .ld.running{background:var(--accent);border-color:var(--accent)} .ld.signoff{background:var(--warn);border-color:var(--warn)}
+.ld.blocked{background:var(--bad);border-color:var(--bad)} .ld.todo{transform:scale(.6)} .ld.skipped{border:0;border-top:1.5px solid var(--wire);border-radius:0;height:0;background:transparent}
+/* top bar */
+.btn.guide{display:inline-flex;align-items:center;gap:6px}
+.btn.guide .q{width:1.25em;height:1.25em;border-radius:50%;background:var(--accent);color:var(--on);font:600 .78em/1.25em var(--f-mono);text-align:center}
+.btn.guide[aria-current="page"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.protoctl{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px 10px;border:1.5px dashed var(--wire);border-radius:9px;padding:3px 6px 3px 9px;min-width:0;max-width:100%}
+.protoctl .pk{font:600 .68rem/1.3 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.linkbtn{border:0;background:transparent;padding:0;text-align:left;cursor:pointer;color:inherit;font:inherit}
+.linkbtn:hover b{text-decoration:underline}
+.scrollhint{display:none;color:var(--muted);font-size:.84rem}
+td.wide{min-width:190px}
+.reason{color:var(--muted);font-size:.88rem}
+/* command help */
+.ibtn{flex:none;width:1.45rem;height:1.45rem;border-radius:50%;border:1.5px solid var(--wire);background:var(--surface);color:var(--muted);font:600 .8rem/1 var(--f-mono);font-style:italic;cursor:pointer;padding:0}
+.ibtn:hover{border-color:var(--accent);color:var(--accent)}
+#dlg{position:fixed;inset:0;z-index:50;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 4vh) 16px 16px;overflow-y:auto}
+.dlg{background:var(--surface);border:1px solid var(--line);border-radius:14px;width:min(700px,100%);padding:16px 20px 20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 14px 44px rgba(10,14,20,.3);min-width:0}
+.dlg-h{font:600 1.25rem/1.25 var(--f-body);letter-spacing:0;text-transform:none;color:var(--ink)}
+.dsec{display:flex;flex-direction:column;gap:6px;min-width:0}
+pre.out{white-space:pre;overflow-x:auto;border-left:3px solid var(--accent);border-radius:0 8px 8px 0}
+/* feature: who has it now */
+.now{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.now.mine{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.now-m{display:flex;flex-direction:column;gap:3px;min-width:0}
+.tab .cnt{font:500 .7rem/1.5 var(--f-mono);background:var(--sunk);border-radius:99px;padding:0 6px;margin-left:5px;color:var(--ink)}
+button.kpi{text-align:left;cursor:pointer;font:inherit;color:inherit;position:relative}
+button.kpi:hover{border-color:var(--ink)}
+button.kpi::after{content:"\203A";position:absolute;right:12px;top:8px;color:var(--muted);font-size:1.1rem}
+.gloss{display:grid;grid-template-columns:10em minmax(0,1fr);gap:6px 14px}
+.gloss dt{font-weight:600} .gloss dd{margin:0;color:var(--muted)}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translateX(-50%);z-index:30;background:var(--ink);color:var(--bg);border-radius:10px;padding:9px 14px;font-size:.9rem;max-width:min(560px,calc(100vw - 32px));box-shadow:0 6px 20px rgba(10,14,20,.25)}
+
+@media (max-width:980px){
+  .flowgrid,.docgrid,.grid2,.grid3,.cols3,.homegrid{grid-template-columns:minmax(0,1fr)}
+  .scrollhint{display:block}
+  .kpis.four{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:860px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .side{position:static;flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:4px}
+  .side .grp{display:none}
+  .nb{width:auto;white-space:nowrap;border:1.5px solid var(--line);background:var(--surface)}
+  .form{grid-template-columns:minmax(0,1fr)}
+  .rngrow,.axis{grid-template-columns:6.4em minmax(90px,1fr) 4.4em}
+  .rngrow .c2,.axis .c2{display:none}
+  .kv{grid-template-columns:minmax(0,1fr)}
+  .gloss{grid-template-columns:minmax(0,1fr)}
+  .axis .t2{display:none}
+  .gloss dd{margin-bottom:6px}
+}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand"><b>SDLC Hub</b><span class="proto">Prototype · sample data</span><span class="proj" id="proj"></span></div>
+    <div class="ctl">
+      <span class="sync" id="sync"></span>
+      <button type="button" class="btn sm guide" id="guidebtn" data-page="guide"><span class="q" aria-hidden="true">?</span> Your guide</button>
+      <span class="protoctl"><span class="pk">Prototype</span><label for="persona">view as <select id="persona"></select></label><label for="asst">assistant <select id="asst"><option value="claude">Claude Code</option><option value="codex">Codex</option><option value="cursor">Cursor</option></select></label></span>
+    </div>
+  </header>
+  <div class="shell">
+    <nav class="side" id="nav" aria-label="Screens"></nav>
+    <main id="main"></main>
+  </div>
+</div>
+<div id="toast" role="status" hidden></div>
+<div id="tip" hidden></div>
+<div id="sheet" hidden></div>
+<div id="dlg" hidden></div>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const md=s=>esc(s).replace(/`([^`]+)`/g,"<code>$1</code>");
+
+/* ---------- sample data ---------- */
+const ROLES={po:{n:"PO / Analyst",s:"PO"},pm:{n:"Project manager",s:"PM"},des:{n:"Designer",s:"Design"},dev:{n:"Engineering",s:"Dev"},qa:{n:"QA",s:"QA"},ops:{n:"Ops / Release",s:"Ops"},admin:{n:"Admin",s:"Admin"}};
+const LANES=["po","pm","des","dev","qa","ops"];
+const TEAMS={backend:"Backend",web:"Web",android:"Android",ios:"iOS"};
+const TEAMREPO={backend:"backend",web:"web-admin",android:"android-app",ios:"ios-app"};
+const PEOPLE=[
+ {id:"olena",user:"olena.k",name:"Olena K.",role:"po",asst:"claude",os:"macOS",setup:"ok",seen:"5 min ago"},
+ {id:"maksym",user:"maksym.d",name:"Maksym D.",role:"pm",asst:"claude",os:"Windows",setup:"ok",seen:"20 min ago"},
+ {id:"daria",user:"daria.l",name:"Daria L.",role:"des",asst:"claude",os:"macOS",setup:"ok",seen:"1 h ago"},
+ {id:"taras",user:"taras.m",name:"Taras M.",role:"dev",team:"backend",lead:true,asst:"claude",os:"Linux",setup:"ok",seen:"2 min ago"},
+ {id:"petro",user:"petro.v",name:"Petro V.",role:"dev",team:"web",lead:true,asst:"cursor",os:"macOS",setup:"script",seen:"never"},
+ {id:"andrii",user:"andrii.p",name:"Andrii P.",role:"dev",team:"android",lead:false,asst:"codex",os:"Windows",setup:"ok",seen:"9 min ago"},
+ {id:"sofiia",user:"sofiia.h",name:"Sofiia H.",role:"dev",team:"ios",lead:true,asst:"claude",os:"macOS",setup:"script",seen:"never"},
+ {id:"iryna",user:"iryna.s",name:"Iryna S.",role:"qa",asst:"claude",os:"Windows",setup:"ok",seen:"1 min ago"},
+ {id:"bohdan",user:"bohdan.r",name:"Bohdan R.",role:"ops",asst:"claude",os:"Linux",setup:"ok",seen:"40 min ago"},
+ {id:"nazar",user:"nazar.t",name:"Nazar T.",role:"admin",asst:"claude",os:"Linux",setup:"ok",seen:"now"}
+];
+const PB={}; PEOPLE.forEach(p=>PB[p.id]=p);
+const firstOf=(role,team)=>PEOPLE.find(p=>p.role===role&&(!team||p.team===team));
+
+/* the flow: the 18 steps of the map plus autotests and the final check */
+const STEPS=[
+ {id:"specify",label:"specify",role:"po",title:"Spec from an interview",eng:"specify",est:[0.8,1.5,"opus"],files:["spec.md",".size, .route"],repos:[["product-specs"]],gate:null,what:"The assistant interviews the analyst and writes the spec: user stories and acceptance criteria.",hint:"Read the linked research page and the tickets first. Ask me one question at a time."},
+ {id:"clarify",label:"clarify",role:"po",title:"Closing ambiguities",eng:"clarify",est:[0.5,1,"opus"],files:["spec.md","CONTEXT.md"],repos:[["product-specs"]],gate:["po","the spec is ready: every open question closed or deferred"],what:"A devil's-advocate pass finds the gaps; the analyst closes or defers each one.",hint:"Walk me through every open question one at a time and challenge my answers."},
+ {id:"epic",label:"epic",role:"pm",title:"Size, route and team leads",eng:"classify-size",est:[0.1,0.3,"haiku"],files:["docs/roadmap.md","hub/feature.yaml"],repos:[["product-specs"]],gate:["pm","size, route and the team leads"],what:"The PM confirms size and route, places the feature in the roadmap and assigns the leads.",hint:"Check that the size and route still fit the clarified spec, then update the roadmap."},
+ {id:"uxflows",label:"ux-flows",role:"des",title:"User flows",eng:"ux-flows",est:[0.8,1.5,"sonnet"],files:["ux-flows.md"],repos:[["product-specs"]],gate:["po","the flows match the user stories"],what:"One flow per user story and the list of screens, for web, Android and iOS.",hint:"Use components from our Figma library and name each screen SCR-NN."},
+ {id:"design",label:"tech-design",role:"dev",title:"Backend technical design",eng:"design",est:[1.5,3,"opus"],files:["sad.md","adr/*"],repos:[["backend"]],gate:["dev","architecture review by the Web, Android and iOS leads"],what:"The backend lead fits the feature into the existing architecture; client leads review it.",hint:"This is the backend repository. Keep every API change backward compatible."},
+ {id:"datamodel",label:"data-model",role:"dev",title:"Data schema and migrations",eng:"data-model",est:[0.6,1.2,"sonnet"],files:["data-model.md","migrations/"],repos:[["backend"]],gate:["dev","the schema and the rollback migration"],what:"Backend only: schema plus forward and rollback migrations. The client teams wait here.",hint:"Write forward and rollback migrations and keep them staged in the feature folder."},
+ {id:"api",label:"api",role:"dev",title:"API contract agreed with the clients",eng:"api",est:[0.6,1.2,"sonnet"],files:["contracts/openapi.yaml"],repos:[["backend"],["product-specs"]],gate:["dev","the contract merge request, approved by three client leads"],what:"Backend derives the contract; Web, Android and iOS leads approve it. After that the clients stop waiting.",hint:"List every error response. Then open the contract merge request in product-specs."},
+ {id:"screens",label:"screens",role:"des",title:"Screens in every state",eng:"screens",est:[1.5,3,"sonnet"],files:["screens.md"],repos:[["product-specs"]],gate:["po","every state can be built on each platform"],what:"Every screen in every state for web, Android and iOS, linked to the Figma frames.",hint:"Every screen needs default, loading, empty and error states."},
+ {id:"tasks",label:"tasks",role:"dev",title:"Tasks in each team repository",eng:"tasks",est:[2,4,"sonnet"],files:["tasks.json","tasks/tracker.md"],repos:[["backend"],["web-admin"],["android-app"],["ios-app"]],gate:["dev","the task split, by each team lead"],what:"Each of the four teams splits its own work into tasks of a day or less.",hint:"UI tasks first on the mock. Put switching to the staging API in a separate last task."},
+ {id:"sprint",label:"sprint",role:"pm",title:"Stories and the sprint plan",eng:null,hub:"run sprint",est:[0.4,0.8,"haiku"],files:["hub/feature.yaml"],repos:[["backend",1],["web-admin",1],["android-app",1],["ios-app",1]],gate:["pm","sprint contents and the order between teams"],what:"The four task lists become stories; the PM orders the sprint around the backend dependency.",hint:"List what each team can start today and what waits for the backend."},
+ {id:"plantests",label:"plan-tests",role:"qa",title:"Test plan from the criteria",eng:"plan-tests",est:[0.6,1.2,"sonnet"],files:["test-plan.md"],repos:[["product-specs"]],gate:["qa","every criterion is covered on every platform"],what:"QA maps every acceptance criterion to at least one test on each platform.",hint:"List the test accounts and the seed data staging needs."},
+ {id:"implement",label:"implement",role:"dev",title:"Implementation through TDD",eng:"implement",est:[26,60,"sonnet"],files:["tasks/tracker.md"],repos:[["backend"],["web-admin"],["android-app"],["ios-app"]],gate:["auto","tests and lint on every task"],what:"Backend builds the real API through TDD while the clients build against a mock of the contract.",hint:"Stop and ask me if a test cannot pass without changing the contract or the spec."},
+ {id:"review",label:"review",role:"dev",title:"Independent review",eng:"review",est:[4,9,"opus"],files:["_review/review-*.md"],repos:[["backend"],["web-admin"],["android-app"],["ios-app"]],gate:["dev","the team lead approves each merge request"],what:"A clean-context reviewer checks each change against the spec; a person approves the merge request.",hint:"For every criterion name the test that proves it, or say that none does."},
+ {id:"ship",label:"ship",role:"dev",title:"Changelog and merge request",eng:"ship",est:[2.5,5,"sonnet"],files:["CHANGELOG"],repos:[["backend"],["web-admin"],["android-app"],["ios-app"]],gate:["dev","the part was run for real against its criteria"],what:"Each team runs its part for real, writes the changelog and opens a merge request.",hint:"Open the merge request and do not merge it."},
+ {id:"staging",label:"staging",role:"ops",title:"Deploy to staging",eng:null,hub:"run staging",est:[0.3,0.8,"sonnet"],files:["hub/release.yaml"],repos:[["backend"],["web-admin"],["android-app"],["ios-app"]],gate:["ops","the smoke check passed on all three clients"],what:"Backend goes to staging first, the clients switch off the mock, and QA gets a web address and two test builds.",hint:"Do not deploy anything to production."},
+ {id:"verify",label:"verify",role:"qa",title:"AI-assisted verification",eng:null,hub:"verify",est:[8,20,"sonnet"],files:["hub/bugs/","test-plan.md"],repos:[["product-specs",1],["web-admin"],["android-app"],["ios-app"]],gate:["qa","every criterion has a verdict on every platform"],site:"qa",what:"QA and the assistant walk staging in a browser and on emulators and file bugs traced to criteria.",hint:"Give a verdict per criterion with a screenshot. Show me the list before creating bugs."},
+ {id:"autotests",label:"autotests",role:"qa",title:"Autotests in CI",eng:null,hub:"test",noLLM:true,est:[0,0,"none"],files:["tests/<run>.json"],repos:[["backend",1],["web-admin",1],["android-app",1],["ios-app",1]],gate:["auto","the latest CI run is green in all four repositories"],site:"qa",what:"Pipelines in the four repositories run the automated tests. Local runs are recorded but never open this gate.",hint:""},
+ {id:"qafinal",label:"final check",role:"qa",title:"Final check: return or release",eng:null,hub:"decide",noLLM:true,est:[0,0,"none"],files:["hub/signoffs.yaml"],repos:[["product-specs"]],gate:["qa","pass to release, or return to development"],site:"qa",what:"QA looks at the criteria, the bugs and the test runs and decides: pass to release or return to development.",hint:""},
+ {id:"accept",label:"accept",role:"po",title:"Acceptance and go / no-go",eng:null,hub:"signoff accept",noLLM:true,est:[0.1,0.3,"haiku"],files:["hub/signoffs.yaml"],repos:[["product-specs"]],gate:["po","PO accepts, then the PM gives the go"],site:"release",what:"The analyst accepts the feature on staging and the PM gives the go or no-go.",hint:""},
+ {id:"release",label:"release",role:"ops",title:"Release and watch",eng:null,hub:"release",est:[0.3,0.8,"sonnet"],files:["hub/release.yaml"],repos:[["backend"],["web-admin"],["android-app"],["ios-app"]],gate:["ops","every production deploy and every rollout stage"],site:"release",what:"Backend, then web, then the mobile apps as a staged rollout, watched for seven days.",hint:"Do not start any production job yourself. A person presses every button."}
+];
+const FIX={id:"fix",label:"fix",role:"dev",title:"Fix by the owning team",eng:"fix",est:[1.5,3,"sonnet"],files:["_fixes/"],repos:[["*"]],gate:["qa","the retest passed"],what:"The team that owns the bug reproduces it, pins it with a failing test and fixes it.",hint:"Reproduce it and tell me which criterion it breaks before you fix it."};
+const FLOW=STEPS.map(s=>s.id), SB={fix:FIX}; STEPS.forEach(s=>SB[s.id]=s);
+const RATE={opus:0.90,sonnet:0.54,haiku:0.27,none:0};
+
+function mk(at,cur,skipped){const st={};FLOW.forEach((id,i)=>{st[id]=i<at?"done":i===at?cur:"todo";});(skipped||[]).forEach(id=>st[id]="skipped");st.fix="todo";return st;}
+const FEATS=[
+ {slug:"tasks-issues",title:"Tasks & issues in the Marketplace admin",size:"M",route:"standard",owner:"olena",jira:"SHOP-412",estDays:15,days:13,updated:"12 min ago",st:mk(15,"running"),detail:true,
+  actual:{specify:1.1,clarify:0.7,epic:0.2,uxflows:1.3,design:2.4,datamodel:0.9,api:1.0,screens:2.6,tasks:3.1,sprint:0.5,plantests:0.9,implement:71,review:6.2,ship:3.8,staging:0.5,verify:9.4,fix:2.1}},
+ {slug:"bulk-order-export",title:"Bulk order export",size:"M",route:"standard",owner:"olena",jira:"SHOP-431",estDays:12,days:7,updated:"2 min ago",st:mk(11,"running"),wait:"Backend T-02: three client teams wait",blocked:true,detail:true,
+  actual:{implement:19}},
+ {slug:"returns-portal",title:"Returns portal for customers",size:"L",route:"full",owner:"olena",jira:"SHOP-440",estDays:30,days:2,updated:"1 h ago",st:mk(1,"signoff"),wait:"PO sign-off of the spec"},
+ {slug:"order-notes-fix",title:"Order notes lose line breaks",size:"XS",route:"quick",owner:"olena",jira:"SHOP-438",estDays:2,days:1,updated:"35 min ago",st:mk(12,"running",["clarify","uxflows","datamodel","api","screens","sprint","plantests"]),wait:"Review verdict"},
+ {slug:"staff-permissions",title:"Staff permissions",size:"M",route:"standard",owner:"olena",jira:"SHOP-398",estDays:14,days:16,updated:"12 Sep",st:mk(20,"done"),wait:"Released 12 Sep"}
+];
+const FB={}; FEATS.forEach(f=>FB[f.slug]=f);
+
+/* tasks-issues: QA and release state that the prototype lets you change */
+const TI={
+ acs:[{id:"AC-1",text:"A task is created from an order page and stays linked to that order."},{id:"AC-2",text:"A task has one assignee, a due date and a status."},{id:"AC-3",text:"The assignee gets one notification per assignment."},{id:"AC-4",text:"Only staff with access to the order see its tasks."},{id:"AC-5",text:"The order page shows a counter of its open tasks."}],
+ stories:[["US-1","A staff member creates a task from an order and assigns it to a colleague."],["US-2","The assignee sees all their tasks in one list."],["US-3","The author sees on the order when the task is done."]],
+ matrix:{"AC-1":{web:"pass",android:"pass",ios:"pass",backend:"pass"},"AC-2":{web:"pass",android:"pass",ios:"pass",backend:"pass"},"AC-3":{web:"na",android:"na",ios:"na",backend:"pass"},"AC-4":{web:"fail",android:"fail",ios:"fail",backend:"fail"},"AC-5":{web:"pass",android:"pass",ios:"pass",backend:"pass"}},
+ bugs:[
+  {id:"BUG-0012",title:"Task visible after access to the order was revoked",ac:"AC-4",platforms:["web","android","ios"],team:"backend",sev:"high",status:"retest",by:"iryna"},
+  {id:"BUG-0014",title:"Task form has no state for a 403 response",ac:"AC-4",platforms:["web"],team:"web",sev:"medium",status:"fixing",by:"iryna"},
+  {id:"BUG-0013",title:"Due date picker opens one day early on iOS",ac:"AC-2",platforms:["ios"],team:"ios",sev:"low",status:"closed",by:"iryna"}
+ ],
+ runs:[
+  {src:"ci",repo:"backend",what:"unit + integration",pass:212,fail:0,when:"25 min ago",ref:"pipeline #8841"},
+  {src:"ci",repo:"web-admin",what:"Playwright e2e",pass:31,fail:0,when:"1 h ago",ref:"pipeline #5102"},
+  {src:"ci",repo:"android-app",what:"Maestro flows",pass:13,fail:1,when:"1 h ago",ref:"pipeline #4127"},
+  {src:"ci",repo:"ios-app",what:"Maestro flows",pass:14,fail:0,when:"2 h ago",ref:"pipeline #3990"},
+  {src:"local",repo:"android-app",what:"Maestro flows, run by Andrii P.",pass:14,fail:0,when:"20 min ago",ref:"local run"}
+ ],
+ decision:null, returned:false, retReason:"", accepted:false, go:false, nogo:false,
+ rel:[{k:"backend",v:"v2.31.0",done:false},{k:"web",v:"admin build 885",done:false},{k:"android",v:"2.31.0 (4128)",done:false,roll:0},{k:"ios",v:"2.31.0 (513)",done:false,roll:0}],
+ stale:{}, report:null, mr:214
+};
+const DOCS=[
+ {id:"spec.md",owner:"po",refs:[]},
+ {id:"ux-flows.md",owner:"des",refs:["AC-1","AC-4"]},
+ {id:"screens.md",owner:"des",refs:["AC-2","AC-4","AC-5"]},
+ {id:"contracts/openapi.yaml",owner:"dev",team:"backend",refs:["AC-1","AC-2","AC-4"]},
+ {id:"test-plan.md",owner:"qa",refs:["AC-1","AC-2","AC-3","AC-4","AC-5"]},
+ {id:"backend: tasks.json",owner:"dev",team:"backend",refs:["AC-1","AC-2","AC-3"]},
+ {id:"hub/feature.yaml",owner:"po",refs:[]}
+];
+const DOCTEXT_FY=()=>{const f=FB["tasks-issues"],fc=featCost(f);return "title: "+f.title+"\nowner: olena.k\nsize: "+f.size+"\nroute: "+f.route+"\nteams: [backend, web, android, ios]\nlinks:\n  jira: "+st.cfg.jira.replace(/\/browse\/.*$/,"/browse/")+f.jira+"\n  confluence: https://confluence.example.com/display/SHOP/Tasks+and+issues\n  figma: https://www.figma.com/file/EXAMPLE\nestimate:\n  days: "+f.estDays+"\n  tokens_m: ["+Math.round(fc.lo)+", "+Math.round(fc.hi)+"]";};
+const DOCTEXT={
+ "ux-flows.md":"SCR-01  Order page: tasks block\nSCR-02  Task form\nSCR-03  My tasks\n\nUS-1 -> SCR-01 -> SCR-02 -> the task shows on the order   (AC-1)\n               `- assignee has no access to the order ->\n                  error in the form                        (AC-4)",
+ "screens.md":"SCR-02  Task form\n  default     TextField, Select, DatePicker from the design system   (AC-2)\n  validation  empty title, due date in the past (422)\n  loading     button busy\n  success     the task shows in the order's block, counter +1        (AC-5)\n  error       assignee has no access to the order (403), InlineBanner (AC-4)",
+ "contracts/openapi.yaml":"POST   /admin/tasks               201 | 403 | 422     # AC-1, AC-2, AC-4\nPATCH  /admin/tasks/{id}          200 | 403 | 409     # AC-2\nGET    /admin/orders/{id}/tasks   200                 # AC-4\nGET    /admin/tasks?assignee=me   200                 # AC-4",
+ "test-plan.md":"AC-1  e2e          web, android, ios  order page -> create task -> shows in the block\nAC-2  e2e          web, android, ios  assignee, due date and status all change\nAC-3  integration  backend            reassigning twice -> one notification each\nAC-4  integration  backend            no access to the order -> 403, not listed\nAC-5  e2e          web, android, ios  counter goes down after closing a task",
+ "backend: tasks.json":"T-01  staff_tasks migration\nT-02  POST and PATCH tasks          <- T-01     AC-1, AC-2\nT-03  notify on assignment          <- T-02     AC-3",
+ "hub/feature.yaml":"title: Tasks & issues in the Marketplace admin\nowner: olena.k\nsize: M\nroute: standard\nteams: [backend, web, android, ios]\nlinks:\n  jira: https://jira.example.com/browse/SHOP-412\n  confluence: https://confluence.example.com/display/SHOP/Tasks+and+issues\n  figma: https://www.figma.com/file/EXAMPLE\nestimate:\n  days: 15\n  tokens_m: [52, 118]"
+};
+const CONFLICT={
+ "ux-flows.md":null,
+ "screens.md":"SCR-02 and SCR-03 have no state for the changed rule. Proposed fix: add a state to each and a Figma frame.",
+ "contracts/openapi.yaml":"GET /admin/tasks?assignee=me does not describe the changed rule. Proposed fix: document the filter and add a 403 example.",
+ "test-plan.md":"No test covers the changed criterion on Android and iOS. Proposed fix: add one e2e path per platform.",
+ "backend: tasks.json":null
+};
+const TASKS={
+ "tasks-issues":{
+  backend:[["T-01","staff_tasks migration","migration",[],["AC-1"],"0.5 d","done"],["T-02","POST and PATCH tasks","app",["T-01"],["AC-1","AC-2"],"1 d","done"],["T-03","notify on assignment","app",["T-02"],["AC-3"],"0.5 d","done"]],
+  web:[["T-01","ui: task block and form on the mock","ui",[],["AC-1","AC-2"],"1 d","done"],["T-02","ui: My tasks on the mock","ui",[],["AC-4"],"1 d","done"],["T-03","switch to the staging API","wiring",["T-01","T-02","backend:T-02"],[],"0.5 d","done"]],
+  android:[["T-01","ui: task block and form on the mock","ui",[],["AC-1","AC-2"],"1 d","done"],["T-02","ui: My tasks on the mock","ui",[],["AC-4"],"1 d","done"],["T-03","switch to the staging API","wiring",["T-01","T-02","backend:T-02"],[],"0.5 d","done"]],
+  ios:[["T-01","ui: task block and form on the mock","ui",[],["AC-1","AC-2"],"1 d","done"],["T-02","ui: My tasks on the mock","ui",[],["AC-4"],"1 d","done"],["T-03","switch to the staging API","wiring",["T-01","T-02","backend:T-02"],[],"0.5 d","done"]]
+ },
+ "bulk-order-export":{
+  backend:[["T-01","export_jobs migration","migration",[],["AC-1"],"0.5 d","done"],["T-02","POST /admin/exports and job status","app",["T-01"],["AC-1","AC-2"],"1 d","in_progress"],["T-03","CSV builder in the worker","app",["T-02"],["AC-3"],"1 d","todo"],["T-04","download link with expiry","app",["T-03"],["AC-4"],"0.5 d","todo"]],
+  web:[["T-01","ui: export dialog on the mock","ui",[],["AC-1"],"1 d","done"],["T-02","ui: progress and download on the mock","ui",["T-01"],["AC-2","AC-4"],"1 d","in_progress"],["T-03","switch to the staging API","wiring",["T-02","backend:T-02"],[],"0.5 d","waiting"]],
+  android:[["T-01","ui: export sheet on the mock","ui",[],["AC-1"],"1 d","done"],["T-02","ui: progress and share on the mock","ui",["T-01"],["AC-2","AC-4"],"1 d","todo"],["T-03","switch to the staging API","wiring",["T-02","backend:T-02"],[],"0.5 d","waiting"]],
+  ios:[["T-01","ui: export sheet on the mock","ui",[],["AC-1"],"1 d","in_progress"],["T-02","ui: progress and share on the mock","ui",["T-01"],["AC-2","AC-4"],"1 d","todo"],["T-03","switch to the staging API","wiring",["T-02","backend:T-02"],[],"0.5 d","waiting"]]
+ },
+ "order-notes-fix":{
+  backend:[["T-01","keep line breaks when saving a note","app",[],["AC-1"],"0.5 d","done"]],
+  web:[["T-01","render line breaks in the notes block","ui",["backend:T-01"],["AC-1"],"0.5 d","done"]]
+ }
+};
+const ROLE_PATHS={
+ admin:["everything, including .hub/roles.yaml, .hub/config.yaml, .hub/flow.yaml"],
+ po:["docs/features/*/spec.md",".size, .route","CONTEXT.md","hub/feature.yaml","own sign-offs"],
+ pm:["docs/roadmap.md","hub/feature.yaml","go or no-go in hub/release.yaml","own sign-offs"],
+ des:["docs/design-system.md","ux-flows.md","screens.md","own sign-offs"],
+ dev:["own sign-offs","status of bugs on your team","team leads: sad.md, data-model.md","backend lead: contracts/**"],
+ qa:["test-plan.md","hub/bugs/**","the QA decision"],
+ ops:["hub/release.yaml","the hub-ci project"]
+};
+const ROLE_CMDS={
+ po:[["new","<slug>","start a feature"],["next","<slug>","run your next stage"],["validate","<slug>","check other documents after you change the spec"],["signoff","clarify <slug>","record your sign-off"]],
+ pm:[["status","","where every feature is"],["next","<slug>","size, route, sprint"],["signoff","accept <slug>","give the go or no-go"]],
+ des:[["next","<slug>","user flows, then screens"],["status","<slug>","what waits for you"]],
+ dev:[["next","<slug>","run your team's next stage"],["run","fix <slug>","fix a bug on your team"],["test","<slug>","run the autotests locally"]],
+ qa:[["next","<slug>","write the test plan"],["verify","<slug>","walk staging with the assistant"],["bug","<slug>","file a bug"],["decide","<slug>","return or pass to release"]],
+ ops:[["run","staging <slug>","deploy to staging and hand builds to QA"],["release","<slug>","walk the release checklist"],["doctor","","check the installation"]],
+ admin:[["doctor","","check the installation"],["sync","","pull both branches"],["status","","where every feature is"]]
+};
+const ROLE_SITE={
+ po:["Sign off the spec and the flows","Fix wording in a criterion","Accept the feature on staging","Answer questions from QA"],
+ pm:["See progress, blocked tasks and cost per feature","Adjust estimates and links","Give the go or no-go","See spend per person"],
+ des:["See which screens and states are waiting","Open design bugs and the Figma frames"],
+ dev:["See your team's tasks and what they wait for","Follow the merge request and pipeline","Move bugs on your team to fixing and retest"],
+ qa:["Add bugs and change their status","See the criterion by platform matrix and every test run","Decide: return to development or pass to release"],
+ ops:["See staging and the pipelines of four repositories","Tick the release checklist and set the rollout stage"],
+ admin:["Add people and assign roles","Generate a setup script per person","Change the engine, assistants, integrations and prices"]
+};
+
+/* ---------- state ---------- */
+const st={page:"home",feat:"tasks-issues",ftab:"flow",step:null,persona:"iryna",asst:"claude",headless:false,doc:"spec.md",team:"all",edit:null,scriptUser:"iryna",scriptOs:"bash",bugForm:false,retForm:false,addForm:false,fview:"list",ffilter:"all",task:null,info:null,
+  cfg:{gitHost:"gitlab",host:"gitlab.example.com",group:"shop",repo:"product-specs",proj:"Marketplace",key:"SHOP",engine:"sdd",jira:"https://jira.example.com/browse/SHOP",conf:"https://confluence.example.com/display/SHOP",figma:"https://www.figma.com/files/project/EXAMPLE",assts:{claude:true,codex:true,cursor:true}}};
+const HOSTS={gitlab:{n:"GitLab",ns:"Group",cr:"merge request",sig:"!",cli:"glab"},github:{n:"GitHub",ns:"Organization",cr:"pull request",sig:"#",cli:"gh"}};
+const H=()=>HOSTS[st.cfg.gitHost];
+/* The sample data is written in GitLab words. On GitHub the same text is shown in GitHub words. */
+function ht(s){if(st.cfg.gitHost!=="github")return s;return s.replace(/Merge request/g,"Pull request").replace(/merge request/g,"pull request").replace(/Pipelines/g,"Workflow runs").replace(/pipelines/g,"workflow runs").replace(/Pipeline/g,"Workflow run").replace(/pipeline/g,"workflow run").replace(/GitLab/g,"GitHub").replace(/the hub-ci project/g,".github/workflows/**").replace(/([Pp]ull request )!(\d)/g,"$1#$2");}
+const me=()=>PB[st.persona];
+const feat=()=>FB[st.feat];
+function roleLabel(p){return ROLES[p.role].n+(p.team?" · "+TEAMS[p.team]+(p.lead?" lead":""):"");}
+function rchip(role,text){return `<span class="rc role-${role}">${esc(text||ROLES[role].s)}</span>`;}
+function hubCmd(cmd,rest){const r=rest?" "+rest:"";return st.asst==="claude"?"/hub:"+cmd+r:st.asst==="codex"?"$hub-"+cmd.replace(/ /g,"-")+r:"/hub-"+cmd.replace(/ /g,"-")+r;}
+function hubCmd2(full,slug){const [c,...a]=full.split(" ");return hubCmd(c,(a.concat(slug?[slug]:[])).join(" "));}
+function engCmd(stage,slug){return (st.asst==="claude"?"/sdd:":st.asst==="codex"?"$sdd-":"/sdd-")+stage+" "+slug;}
+function cmdBox(text){return `<div class="cmd"><code>${esc(text)}</code>${/^(\/hub:|\$hub-|\/hub-|node hub\/cli\.js )/.test(text)?`<button type="button" class="ibtn" data-info="${esc(text)}" aria-label="How to use this command" title="How to use this command">i</button>`:""}<button type="button" class="copy" data-copy="${esc(text)}">copy</button></div>`;}
+function pill(kind,text){return `<span class="pill ${kind}">${esc(text)}</span>`;}
+const STLAB={done:["ok","Done"],running:["info","Running"],signoff:["warn","Waiting for sign-off"],blocked:["bad","Blocked"],ready:["info","Ready to start"],todo:["mute","Not started"],skipped:["mute","Skipped on this route"]};
+function toast(t){const e=$("#toast");e.textContent=ht(t);e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{e.hidden=true;},4200);}
+function saved(path){TI.mr++;toast("Saved "+path+" · "+H().cr+" "+H().sig+TI.mr+" passed hub-guard and merged");}
+
+/* tasks-issues: derive the late steps from what QA, PO, PM and Ops recorded */
+function tiOpen(){return TI.bugs.filter(b=>b.status!=="closed"&&b.status!=="rejected");}
+function tiHigh(){return tiOpen().filter(b=>b.sev==="high"||b.sev==="critical");}
+function tiCi(){const last={};TI.runs.filter(r=>r.src==="ci").forEach(r=>{if(!(r.repo in last))last[r.repo]=r;});return ["backend","web-admin","android-app","ios-app"].map(k=>[k,last[k]&&last[k].fail===0]);}
+function tiVerdicts(){return Object.values(TI.matrix).every(r=>Object.values(r).every(v=>v!=="todo"&&v!=="fail"));}
+function tiFailing(){return Object.values(TI.matrix).filter(r=>Object.values(r).includes("fail")).length;}
+function syncTI(){
+  const s=FB["tasks-issues"].st, ci=tiCi().every(x=>x[1]), open=tiOpen().length>0;
+  s.fix=TI.bugs.some(b=>b.status==="open"||b.status==="fixing")?"running":"todo";
+  const pass=TI.decision==="pass";
+  s.verify=pass?"done":TI.returned?"blocked":(open||!tiVerdicts()?"running":"done");
+  s.autotests=ci?"done":"blocked";
+  s.qafinal=pass?"done":(!tiHigh().length&&ci&&tiVerdicts()?"signoff":"todo");
+  FB["tasks-issues"].ball=TI.returned&&!pass?"dev":null;
+  s.accept=TI.decision==="pass"?(TI.accepted&&TI.go?"done":"signoff"):"todo";
+  s.release=TI.accepted&&TI.go?(TI.rel.every(r=>r.done&&(r.roll===undefined||r.roll===100))?"done":"running"):"todo";
+  FB["tasks-issues"].wait=s.release==="done"?"Released":s.release==="running"?"Rollout in progress":s.accept==="signoff"?(TI.accepted?(TI.nogo?"No-go from the PM":"PM go or no-go"):"PO acceptance"):TI.returned?"Returned by QA: the owning teams fix the open bugs":s.qafinal==="signoff"?"QA final check":[tiFailing()&&!open?"a failing criterion":"",tiHigh().length?tiHigh().length+" high bug":"",!ci?"Android CI":"",open&&!tiHigh().length?"bugs to close":""].filter(Boolean).join(", ");
+}
+function curStep(f){const o=FLOW.find(id=>["running","signoff","blocked","ready"].includes(f.st[id]));return o||null;}
+function progress(f){const act=FLOW.filter(id=>f.st[id]!=="skipped");return Math.round(act.filter(id=>f.st[id]==="done").length/act.length*100);}
+function actualTok(f,id){if(f.actual&&id in f.actual)return f.actual[id];const s=SB[id],m=(s.est[0]+s.est[1])/2;const x=f.st[id];return x==="done"?Math.round(m*9)/10:x==="running"?Math.round(m*4)/10:0;}
+function costOf(f,id){return actualTok(f,id)*RATE[SB[id].est[2]];}
+function featCost(f){let t=0,c=0,lo=0,hi=0;FLOW.concat(["fix"]).forEach(id=>{if(f.st[id]==="skipped")return;t+=actualTok(f,id);c+=costOf(f,id);if(id!=="fix"){lo+=SB[id].est[0];hi+=SB[id].est[1];}});return {t,c,lo,hi,clo:lo*0.6,chi:hi*0.62};}
+const money=v=>"$"+(v>=100?Math.round(v):v>=10?v.toFixed(0):v.toFixed(1));
+const tok=v=>v===0?"0":(v>=10?Math.round(v):Math.round(v*10)/10)+"M";
+
+/* ---------- navigation ---------- */
+function renderNav(){
+  const p=me(),adm=p.role==="admin",cur=st.page==="feature"?"features":st.page==="script"?"people":st.page;
+  const item=n=>`<button type="button" class="nb" data-page="${n[0]}"${cur===n[0]?' aria-current="page"':""}><span>${n[1]}</span>${n[2]!=null?`<span class="cnt" title="${n[3]}">${n[2]}</span>`:""}</button>`;
+  $("#nav").innerHTML=[["home","Home",actionsFor(p.id).length,"Your next actions"],["features","Features",FEATS.length,"Features"]].map(item).join("")
+   +`<div class="grp">Admin${adm?"":" · read only"}</div>`+[["people","People and roles"],["settings","Settings"]].map(item).join("");
+  const gb=$("#guidebtn");if(st.page==="guide")gb.setAttribute("aria-current","page");else gb.removeAttribute("aria-current");
+  $("#proj").innerHTML=esc(st.cfg.proj)+" · <code>"+esc(st.cfg.group+"/"+st.cfg.repo)+"</code> <span class=\"tag\">"+H().n+"</span>";
+  $("#sync").innerHTML='<i class="dot"></i>main up to date · hub-state synced 2 min ago <button type="button" class="btn sm" data-act="sync">Sync</button>';
+}
+
+/* ---------- home ---------- */
+const ACTIONS={
+ iryna:[{f:"tasks-issues",tag:"Retest",text:"BUG-0012 is back from backend. Retest it on web, Android and iOS.",cmd:"verify",go:"qa",btn:"Open QA"},{f:"tasks-issues",tag:"CI failed",bad:1,text:"Android autotests failed in CI: 1 of 14 Maestro flows.",go:"qa",btn:"See test runs"},{f:"bulk-order-export",tag:"Before staging",text:"Add the test accounts and seed data staging needs to the test plan.",cmd:"run plan-tests",go:"docs",btn:"Open documents"}],
+ olena:[{f:"returns-portal",tag:"Sign-off",text:"The spec has no open questions left. Read it and sign off so design can start.",go:"flow",step:"clarify",btn:"Review and sign off"},{f:"tasks-issues",tag:"Question from QA",text:"What happens to open tasks when the assignee is deactivated? No criterion covers it.",cmd:"run clarify",go:"docs",btn:"Open the spec"},{f:"staff-permissions",tag:"After release",text:"The production report is in: 2 support tickets, no crashes. Use it for the next spec.",go:"release",btn:"Open release"}],
+ maksym:[{f:"bulk-order-export",tag:"Blocked",bad:1,text:"Web, Android and iOS wait for backend task T-02. This is day 2 of waiting.",go:"tasks",btn:"Open tasks"},{f:"tasks-issues",tag:"Over estimate",text:"Implement used 71M tokens against an upper estimate of 60M.",go:"costs",btn:"Open costs"},{f:"tasks-issues",tag:"Coming up",text:"The go or no-go is yours once QA passes the final check and the PO accepts.",go:"release",btn:"Open release"}],
+ daria:[{f:"tasks-issues",tag:"Design bug",text:"BUG-0014: the task form has no state for a 403 response.",cmd:"run screens",go:"qa",btn:"Open the bug"},{f:"returns-portal",tag:"Next",text:"User flows start when the PO signs off the spec.",go:"flow",step:"uxflows",btn:"Open flow"}],
+ taras:[{f:"tasks-issues",tag:"Bug on your team",bad:1,text:"BUG-0012, high: a task stays visible after access to the order was revoked.",cmd:"run fix",go:"qa",btn:"Open the bug"},{f:"bulk-order-export",tag:"In progress",text:"T-02 is the task three client teams wait for.",cmd:"next",go:"tasks",btn:"Open tasks"}],
+ andrii:[{f:"tasks-issues",tag:"CI failed",bad:1,text:"The Maestro flow my-tasks-archived-product fails on build 2.31.0 (4127).",cmd:"run fix",go:"qa",btn:"See test runs"},{f:"bulk-order-export",tag:"Waiting",text:"T-03 switches to the staging API and waits for backend T-02. Keep building T-02 on the mock.",cmd:"next",go:"tasks",btn:"Open tasks"}],
+ petro:[{f:"tasks-issues",tag:"Bug on your team",text:"BUG-0014, medium: the task form has no state for a 403 response.",cmd:"run fix",go:"qa",btn:"Open the bug"},{f:"bulk-order-export",tag:"Waiting",text:"T-03 waits for backend T-02. T-02 continues on the mock.",cmd:"next",go:"tasks",btn:"Open tasks"}],
+ sofiia:[{f:"bulk-order-export",tag:"In progress",text:"T-01 is running on the mock. T-03 waits for backend T-02.",cmd:"next",go:"tasks",btn:"Open tasks"}],
+ bohdan:[{f:"tasks-issues",tag:"Staging",text:"The backend fix for BUG-0012 is merged. Redeploy staging and rebuild the three clients.",cmd:"run staging",go:"qa",btn:"Open QA"},{f:"tasks-issues",tag:"Coming up",text:"The release checklist opens after QA passes and the PM gives the go.",go:"release",btn:"Open release"}],
+ nazar:[{tag:"Setup",text:"2 people have a script but have not installed yet: Petro V. and Sofiia H.",page:"people",btn:"Open people"},{tag:"Upgrade",text:"Hub v1.0.1 is available. The upgrade arrives as a merge request.",page:"settings",btn:"Open settings"},{tag:"Enforcement",text:"One GitLab setting is not applied yet. See which one in Settings.",page:"settings",btn:"Open settings"}]
+};
+function kpisFor(p){
+  const all=FEATS.map(featCost).reduce((a,x)=>a+x.c,0), open=tiOpen(), ci=tiCi();
+  const ver=Object.values(TI.matrix).filter(r=>!Object.values(r).includes("fail")).length;
+  switch(p.role){
+   case "po": {const so=FEATS.filter(f=>{const b=ball(f);return b&&b.stt==="signoff"&&b.role==="po";}).length;return [[String(FEATS.filter(f=>curStep(f)).length),"Features in progress"],[String(so),"Waiting for your sign-off",so?"warn":"ok"],["1","Open question from QA"],[String(Object.keys(TI.stale).length),"Documents to validate after a spec change",Object.keys(TI.stale).length?"warn":""]];}
+   case "pm": return [["3 of 4","Features on track"],["2 days","Clients waited for backend","bad"],["+18%","Implement tokens over estimate, tasks-issues","warn"],[money(all),"API-equivalent cost, all features"]];
+   case "des": return [["0","Screens waiting for you"],["14 of 15","Screen states covered"],[String(TI.bugs.filter(b=>b.id==="BUG-0014"&&b.status!=="closed").length),"Design bugs open"]];
+   case "dev": {const t=(TASKS["bulk-order-export"][p.team]||[]);const d=t.filter(x=>x[6]==="done").length;const mine=open.filter(b=>b.team===p.team).length;
+     return [[d+" of "+t.length,"Your team's tasks done, bulk-order-export"],[String(t.filter(x=>x[6]==="waiting").length),"Tasks waiting on backend",p.team!=="backend"?"warn":""],[String(mine),"Open bugs on your team",mine?"bad":"ok"],[ci.find(c=>c[0]===TEAMREPO[p.team])[1]?"green":"failed","Latest CI run, tasks-issues",ci.find(c=>c[0]===TEAMREPO[p.team])[1]?"ok":"bad"]];}
+   case "qa": return [[String(open.length),"Open bugs",open.length?"bad":"ok"],[ver+" of "+Object.keys(TI.matrix).length,"Criteria passing on every platform"],[ci.filter(c=>c[1]).length+" of 4","Repositories with green CI",ci.every(c=>c[1])?"ok":"warn"],[String(TI.bugs.filter(b=>b.status==="retest").length),"Bugs waiting for retest"]];
+   case "ops": return [["4128","Android build on staging"],[ci.filter(c=>c[1]).length+" of 4","Pipelines green",ci.every(c=>c[1])?"ok":"warn"],[TI.rel.filter(r=>r.done).length+" of 4","Release checklist, tasks-issues"],["10% → 100%","Rollout plan for mobile"]];
+   default: return [["8 of 10","People set up","warn"],["sdd 2.3.0","Engine version"],[money(all),"API-equivalent cost, all features"],[hostChecks().filter(c=>c[1]).length+" of "+hostChecks().length,"Host settings applied","warn"]];
+  }
+}
+function featTable(list){
+  return `<div class="scroll"><table class="ftbl"><thead><tr><th>Feature</th><th>Size</th><th>Current step</th><th>Progress</th><th>Waiting on</th><th class="num">Tokens</th><th class="num">Cost</th><th>Updated</th></tr></thead><tbody>${list.map(f=>{
+    const c=curStep(f),s=c?SB[c]:null,fc=featCost(f);
+    return `<tr class="click" data-go="${f.slug}|flow|"><td><button type="button" class="linkbtn" data-go="${f.slug}|flow|"><b>${esc(f.title)}</b></button><br><code>${f.slug}</code></td><td class="nw">${f.size} · ${f.route}</td><td class="nw">${s?rchip(s.role)+" "+(FLOW.indexOf(c)+1)+" · "+esc(s.label)+(["blocked","signoff"].includes(fstat(f,c))?" "+pill(STLAB[fstat(f,c)][0],fstat(f,c)==="blocked"?"blocked":"sign-off"):""):pill("ok","Released")}</td><td><div class="prog" style="--p:${progress(f)}%"><i></i><span>${progress(f)}%</span></div></td><td>${esc(f.wait||"")}</td><td class="num">${tok(fc.t)}</td><td class="num">${money(fc.c)}</td><td class="nw muted">${esc(f.updated)}</td></tr>`;}).join("")}</tbody></table></div>`;
+}
+function roleRepos(p){return p.role==="dev"?[[TEAMREPO[p.team]]].concat(p.lead?[["product-specs"]]:[]):p.role==="qa"?[["product-specs"],["web-admin"],["android-app"],["ios-app"]]:p.role==="ops"||p.role==="admin"?[["product-specs"],["backend"],["web-admin"],["android-app"],["ios-app"]]:[["product-specs"]];}
+function repoLabels(list){return `<span class="k">Repos</span>`+list.map(r=>r[0]==="*"?`<span class="rl">the owning team's repo</span>`:`<span class="rl${r[1]?" ro":""}">${r[0]}${r[1]?" · read":""}</span>`).join("");}
+
+/* ---------- home ---------- */
+const ATITLE={
+ iryna:["Retest BUG-0012 on three platforms","Android CI is red: one Maestro flow fails","Add staging test data to the test plan"],
+ olena:["Sign off the returns-portal spec","Answer a question from QA","Read the production report"],
+ maksym:["Three client teams are blocked by backend","Implement went over its token estimate","The go or no-go is coming to you"],
+ daria:["Add the missing 403 state to the task form","User flows are next for returns-portal"],
+ taras:["Fix BUG-0012: task visible after access was revoked","Finish T-02, the task three teams wait for"],
+ andrii:["Fix the failing Maestro flow","T-03 waits for backend T-02"],
+ petro:["Fix BUG-0014: the task form has no 403 state","T-03 waits for backend T-02"],
+ sofiia:["Keep T-01 going on the mock"],
+ bohdan:["Redeploy staging with the BUG-0012 fix","The release checklist opens soon"],
+ nazar:["Two people have not installed yet","Hub v1.0.1 is available","One host setting is not applied"]
+};
+Object.keys(ATITLE).forEach(k=>ACTIONS[k].forEach((a,i)=>{a.title=ATITLE[k][i];}));
+/* ---------- next actions follow the recorded state ---------- */
+ACTIONS.taras[0]={f:"tasks-issues",tag:"Waiting for QA",title:"Your BUG-0012 fix waits for the QA retest",text:"The fix is merged and on staging. QA retests it; nothing to do until the verdict.",go:"qa",btn:"Open the bug"};
+ACTIONS.bohdan[0]={f:"tasks-issues",tag:"Staging",title:"Rebuild Android after the Maestro fix",text:"The backend fix for BUG-0012 is already on staging. Android needs a new build once the failing flow is fixed.",cmd:"run staging",go:"qa",btn:"Open QA"};
+ACTIONS.daria[0].text="BUG-0014 needs a 403 state in screens.md before Web can finish the fix.";
+ACTIONS.daria[1].text="User flows start after the PO signs off the spec and the PM confirms size and route.";
+const bugSt=id=>(TI.bugs.find(b=>b.id===id)||{}).status;
+const andRed=()=>!tiCi().find(c=>c[0]==="android-app")[1];
+const b14=()=>["open","fixing"].includes(bugSt("BUG-0014"));
+const ASHOW={iryna:[()=>bugSt("BUG-0012")==="retest",andRed],olena:[()=>FB["returns-portal"].st.clarify==="signoff"],taras:[()=>bugSt("BUG-0012")==="retest"],andrii:[andRed],petro:[b14],daria:[b14,()=>FB["returns-portal"].st.uxflows==="todo"],bohdan:[andRed,()=>!TI.go],maksym:[null,null,()=>!TI.go]};
+function dynActions(pid){
+  const p=PB[pid],r=p.role,o=[],ti="tasks-issues",s=FB[ti].st;
+  if(r==="qa"&&s.qafinal==="signoff"&&!TI.returned)o.push({f:ti,tag:"Decision",title:"Make the final check",text:"All three gates are met. Pass the feature to release or return it.",cmd:"decide",go:"qa",btn:"Open QA"});
+  if(r==="dev"&&TI.returned&&tiOpen().some(b=>b.team===p.team))o.push({f:ti,tag:"Returned by QA",bad:1,title:"Fix the bugs QA returned",text:"QA returned the feature. Fix the open bugs on your team; QA retests after that.",cmd:"run fix",go:"qa",btn:"Open the bugs"});
+  if(r==="po"&&TI.decision==="pass"&&!TI.accepted)o.push({f:ti,tag:"Acceptance",title:"Accept tasks-issues on staging",text:"QA passed the final check. Walk the criteria on staging and accept the feature.",go:"release",btn:"Open release"});
+  if(r==="pm"&&TI.decision==="pass"&&TI.accepted&&!TI.go)o.push({f:ti,tag:"Go or no-go",title:"Give the go or the no-go",text:"The PO accepted the feature. The release waits for your decision.",go:"release",btn:"Open release"});
+  if(r==="pm"&&FB["returns-portal"].st.epic==="ready")o.push({f:"returns-portal",tag:"Your step",title:"Confirm size and route for returns-portal",text:"The PO signed off the spec. Confirm size and route and assign the team leads.",cmd:"next",go:"flow",step:"epic",btn:"Open the step"});
+  if(r==="ops"&&TI.go&&s.release!=="done")o.push({f:ti,tag:"Release",title:"Walk the release checklist",text:"The PM gave the go. Deploy in order and record every rollout stage.",cmd:"release",go:"release",btn:"Open release"});
+  return o;
+}
+function actionsFor(pid){return dynActions(pid).concat((ACTIONS[pid]||[]).filter((a,i)=>{const sh=(ASHOW[pid]||[])[i];return !sh||sh();}));}
+function fstat(f,id){return f.blocked&&id===curStep(f)?"blocked":(f.st[id]||"todo");}
+
+
+const SITE_HINT={qa:"Bugs, verdicts and test runs are on the feature's QA and tests screen.",docs:"The documents of the feature are on its Documents screen.",tasks:"Tasks and what they wait for are on the feature's Tasks screen.",flow:"The step and its sign-off are on the feature's Flow screen.",costs:"Estimates against actuals are on the feature's Costs screen.",release:"Acceptance, the go and the release checklist are on the feature's Release screen.",page:"This is done on an admin screen."};
+function projStats(){
+  const act=FEATS.filter(f=>curStep(f)),so=act.filter(f=>f.st[curStep(f)]==="signoff").length,bl=act.filter(f=>f.blocked).length,open=tiOpen().length,ci=tiCi();
+  const tot=FEATS.map(featCost).reduce((a,x)=>({t:a.t+x.t,c:a.c+x.c}),{t:0,c:0}),avg=Math.round(act.reduce((a,f)=>a+progress(f),0)/act.length);
+  const fso=act.find(f=>f.st[curStep(f)]==="signoff"),fbl=act.find(f=>f.blocked),go=(f,t,st2)=>f?`data-go="${f.slug}|${t}|${st2||""}"`:"";
+  return [[String(act.length),"Features in progress","",'data-page="features"'],[avg+"%","Average progress"],[String(so),"Waiting for a sign-off",so?"warn":"",go(fso,"flow",fso&&curStep(fso))],[String(bl),"Blocked by another team",bl?"bad":"ok",go(fbl,"tasks")],
+    [String(open),"Open bugs",open?"bad":"ok",go(FB["tasks-issues"],"qa")],[ci.filter(c=>c[1]).length+" of 4","Repositories with green CI",ci.every(c=>c[1])?"ok":"warn",go(FB["tasks-issues"],"qa")],[tok(tot.t),"Tokens used, about "+money(tot.c),"",go(FB["tasks-issues"],"costs")],[String(FEATS.length-act.length),"Released"]];
+}
+const kpiTiles=list=>list.map(k=>k[3]?`<button type="button" class="kpi" ${k[3]}><b class="${k[2]||""}">${esc(k[0])}</b><span>${esc(k[1])}</span></button>`:`<div class="kpi"><b class="${k[2]||""}">${esc(k[0])}</b><span>${esc(k[1])}</span></div>`).join("");
+function actRow(a,i){
+  const f=a.f?FB[a.f]:null;
+  return `<button type="button" class="arow${a.bad?" bad":""}" data-task="${i}"><span class="a-top"><span class="pill plain ${a.bad?"bad":"info"}">${esc(a.tag)}</span>${f?`<code>${f.slug}</code>`:""}</span><b>${esc(a.title)}</b><span class="muted">${esc(a.text)}</span><span class="chev" aria-hidden="true">›</span></button>`;
+}
+function pgHome(){
+  const p=me(),acts=actionsFor(p.id);
+  return `<div class="ph"><div><h1>Home</h1><p class="sub">${esc(p.name)} · ${esc(roleLabel(p))} · ${acts.length?acts.length+" action"+(acts.length===1?"":"s")+" waiting for you"+(acts.some(a=>a.bad)?", "+acts.filter(a=>a.bad).length+" urgent":""):"nothing is waiting for you"}</p></div><div class="row">${repoLabels(roleRepos(p))}</div></div>
+  <section><h2>Project statistics</h2><div class="kpis four">${kpiTiles(projStats())}</div></section>
+  <div class="homegrid"><section><h2>Your next actions</h2>${acts.length?`<div class="alist">${acts.map(actRow).join("")}</div>`:`<div class="lockbox">Nothing is waiting for you. New actions appear here when a step reaches your role.</div>`}</section>
+   <section><h2>Your numbers</h2><div class="kpis two">${kpiTiles(kpisFor(p))}</div></section></div>
+  <section><h2>Features in progress</h2>${featTable(FEATS.filter(f=>curStep(f)))}</section>`;
+}
+
+/* ---------- task page, opened over the current screen ---------- */
+const TST={done:["ok","done"],in_progress:["info","in progress"],waiting:["bad","waiting"],todo:["mute","to do"]};
+function taskDetail(a,f,p){
+  if(!f) return "";
+  if(a.go==="flow"&&a.step) return `<div class="card">${stepPanel(f,a.step)}</div>`;
+  if(a.go==="qa"&&f.slug==="tasks-issues"){
+    const dev=p.role==="dev",bugs=tiOpen().filter(b=>!dev||b.team===p.team),runs=TI.runs.filter(r=>!dev||r.repo===TEAMREPO[p.team]);
+    return `<div class="card"><span class="k">${dev?"Open bugs on your team":"Open bugs"}</span>${bugs.length?`<div class="scroll"><table><thead><tr><th>Bug</th><th>Title</th><th>Criterion</th><th>Severity</th><th>Status</th></tr></thead><tbody>${bugs.map(b=>`<tr><td class="nw"><code>${b.id}</code></td><td class="wide">${esc(b.title)}</td><td class="nw">${b.ac}</td><td class="nw">${pill(SEV[b.sev],b.sev)}</td><td class="nw">${pill(BST[b.status],b.status)}</td></tr>`).join("")}</tbody></table></div>`:`<p class="muted">None.</p>`}
+     <span class="k">Latest test runs</span><div class="scroll"><table><thead><tr><th>Source</th><th>Repository</th><th>Suite</th><th>Result</th><th>When</th></tr></thead><tbody>${runs.map(r=>`<tr><td class="nw">${r.src==="ci"?"CI":"local"}</td><td class="nw"><code>${r.repo}</code></td><td>${esc(r.what)}</td><td class="nw">${r.fail?pill("bad",r.fail+" failed"):pill("ok",r.pass+" passed")}</td><td class="nw muted">${esc(r.when)}</td></tr>`).join("")}</tbody></table></div></div>`;
+  }
+  if(a.go==="tasks"&&TASKS[f.slug]){
+    const T=TASKS[f.slug],dev=p.role==="dev",rows=[];
+    (dev?[p.team]:Object.keys(T)).forEach(t=>(T[t]||[]).forEach(x=>{if(dev||x[6]!=="done")rows.push([t,x]);}));
+    return `<div class="card"><span class="k">${dev?"Your team's tasks":"Tasks not finished yet"}</span><div class="scroll"><table><thead><tr><th>Team</th><th>Task</th><th>Title</th><th>Waits for</th><th>Size</th><th>Status</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="nw">${TEAMS[r[0]]}</td><td class="nw"><code>${r[1][0]}</code></td><td>${esc(r[1][1])}</td><td class="nw">${r[1][3].length?r[1][3].map(esc).join(", "):'<span class="muted">nothing</span>'}</td><td class="nw">${r[1][5]}</td><td class="nw">${pill(TST[r[1][6]][0],TST[r[1][6]][1])}</td></tr>`).join("")}</tbody></table></div></div>`;
+  }
+  if(a.go==="docs"){
+    const ds=DOCS.filter(d=>d.owner===p.role);
+    return `<div class="card"><span class="k">Documents you own in this feature</span><div class="chips">${ds.map(d=>`<code>${esc(d.id)}</code>`).join("")}</div>${p.role==="po"&&f.slug==="tasks-issues"?`<span class="k">Acceptance criteria today</span><div>${TI.acs.map(x=>`<div class="ac"><span class="id">${x.id}</span><span>${esc(x.text)}</span><span></span></div>`).join("")}</div>`:""}</div>`;
+  }
+  if(a.go==="costs"){
+    const s=SB.implement,act=actualTok(f,"implement"),over=Math.round((act/s.est[1]-1)*100);
+    return `<div class="card"><span class="k">Step implement</span><div class="kv"><span class="k">Estimate</span><span>${s.est[0]}–${s.est[1]}M tokens on <code>${s.est[2]}</code></span><span class="k">Actual</span><span><b>${tok(act)}</b> tokens, about ${money(costOf(f,"implement"))}</span><span class="k">Difference</span><span>${over>0?pill("warn",over+"% over the upper estimate"):pill("ok","inside the estimate")}</span></div></div>`;
+  }
+  if(a.go==="release"&&f.slug==="tasks-issues"){
+    const g=[["QA final check",TI.decision==="pass"],["PO acceptance",TI.accepted],["PM go",TI.go],["Release checklist, "+TI.rel.filter(r=>r.done).length+" of 4",TI.rel.every(r=>r.done)]];
+    return `<div class="card"><span class="k">Gates before release</span><ul class="gates">${g.map(x=>`<li>${pill(x[1]?"ok":"mute",x[1]?"done":"not yet")}<span>${x[0]}</span></li>`).join("")}</ul></div>`;
+  }
+  return "";
+}
+function taskHTML(a){
+  const p=me(),f=a.f?FB[a.f]:null,c=f?curStep(f):null,s=c?SB[c]:null,stt=c?f.st[c]:null;
+  const cmd=a.cmd&&f?hubCmd2(a.cmd,f.slug):null,goAttr=a.page?`data-page="${a.page}"`:`data-go="${a.f}|${a.go}|${a.step||""}"`;
+  return `<div class="sheet-top"><span class="k">Task for ${esc(p.name)} · ${esc(roleLabel(p))}</span><button type="button" class="btn sm" id="sheet-x" data-act="closetask">Close ✕</button></div>
+  <div class="fhead"><div class="row"><span class="pill plain ${a.bad?"bad":"info"}">${esc(a.tag)}</span>${f?`<code>${f.slug}</code>`:""}</div><h1 id="sheet-h">${esc(a.title)}</h1><p>${esc(a.text)}</p></div>
+  ${f?`<div class="card"><span class="k">Feature</span><div class="kv"><span class="k">Name</span><span><b>${esc(f.title)}</b> · size ${f.size} · route ${f.route}</span><span class="k">Now at</span><span class="row">${s?rchip(s.role)+"<span>step "+(FLOW.indexOf(c)+1)+" of 20 · "+esc(s.label)+"</span>"+pill(STLAB[stt][0],STLAB[stt][1]):pill("ok","Released")}</span><span class="k">Progress</span><div class="prog" style="--p:${progress(f)}%"><i></i><span>${progress(f)}%</span></div>${f.wait&&c?`<span class="k">Waiting on</span><span>${esc(f.wait)}</span>`:""}<span class="k">Jira</span><span><button type="button" class="btn sm" data-link="${esc(st.cfg.jira.replace(/\/browse\/.*$/,"/browse/")+f.jira)}">${f.jira} ↗</button></span></div></div>`:""}
+  ${taskDetail(a,f,p)}
+  <div class="${cmd?"grid2":""}">${cmd?`<div class="card"><span class="k">In your assistant</span>${cmdBox(cmd)}<p class="muted">The hub checks that the step is yours and open, then runs it. The result shows up here after the next sync.</p></div>`:""}
+   <div class="card"><span class="k">On this site</span><p>${SITE_HINT[a.page?"page":a.go]}</p><div class="row"><button type="button" class="btn pri" ${goAttr}>${esc(a.btn||"Open")}</button>${f?`<button type="button" class="btn" data-go="${f.slug}|flow|">Open the feature</button>`:""}</div></div></div>`;
+}
+function renderSheet(){
+  const el=$("#sheet"),a=st.task;
+  document.documentElement.style.overflow=a?"hidden":"";
+  if(!a){el.hidden=true;el.innerHTML="";return;}
+  el.innerHTML=`<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h">${ht(taskHTML(a))}</div>`;
+  el.hidden=false;
+}
+function openTask(i){const a=actionsFor(st.persona)[i];if(!a)return;if(a.f){st.feat=a.f;st.step=a.step||null;}st.task=a;st.taskIdx=i;renderSheet();$(".app").inert=true;const x=$("#sheet-x");if(x)x.focus();}
+function closeTask(){if(st.task==null)return;const i=st.taskIdx;st.task=null;render();const b=document.querySelector('[data-task="'+i+'"]')||$("#main h1");if(b){if(b.tagName==="H1")b.setAttribute("tabindex","-1");b.focus();}}
+
+/* ---------- features ---------- */
+function featGraph(LIST){
+  const FW=540,gap=16,TW=112,head=56,rowH=30,numW=20,laneW=(FW-numW-6)/6,n=LIST.length,W=FW+gap+n*TW+4,H=head+FLOW.length*rowH+10;
+  const y=i=>head+i*rowH+rowH/2,tx=k=>FW+gap+k*TW+TW/2,P={};
+  FLOW.forEach((id,i)=>{const s=SB[id];P[id]={cx:numW+(LANES.indexOf(s.role)+.5)*laneW,cy:y(i),w:Math.round(s.label.length*7+16)};});
+  P.fix={cx:numW+3.5*laneW,cy:P.verify.cy,w:40};
+  const cur=LIST.map(f=>curStep(f)),here={};cur.forEach(c=>{if(c)here[c]=(here[c]||0)+1;});
+  let s=`<svg class="fgraph" viewBox="0 0 ${W} ${H}" role="group" aria-label="All ${n} features on the flow: twenty steps in six role lanes, one track per feature">`;
+  s+=`<defs><marker id="ga" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1L7.5 4L0 7Z" fill="var(--wire)"/></marker><marker id="gb" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1L7.5 4L0 7Z" fill="var(--bad)"/></marker></defs>`;
+  FLOW.forEach((id,i)=>{if(here[id])s+=`<rect class="rowband" x="${FW+4}" y="${y(i)-rowH/2+2}" width="${W-FW-6}" height="${rowH-4}" rx="6"/>`;});
+  LANES.forEach((r,i)=>{s+=`<rect class="band role-${r}" x="${numW+i*laneW+2}" y="${head-8}" width="${laneW-4}" height="${H-head+6}" rx="7"/><text class="lanehead role-${r}" x="${numW+(i+.5)*laneW}" y="${head-14}" text-anchor="middle">${ROLES[r].s}</text>`;});
+  FLOW.forEach((id,i)=>{s+=`<text class="rownum" x="${numW/2}" y="${y(i)+3}" text-anchor="middle">${i+1}</text>`;});
+  for(let i=0;i<FLOW.length-1;i++){const a=P[FLOW[i]],b=P[FLOW[i+1]],y1=a.cy+11,y2=b.cy-12,my=(y1+y2)/2;s+=`<path class="wire" d="${Math.abs(a.cx-b.cx)<1?`M${a.cx} ${y1}V${y2}`:`M${a.cx} ${y1}V${my}H${b.cx}V${y2}`}" marker-end="url(#ga)"/>`;}
+  const v=P.verify,fx=P.fix;
+  s+=`<path class="loopw" d="M${v.cx-v.w/2-1} ${v.cy-4}H${fx.cx+fx.w/2+2}" marker-end="url(#gb)"/><path class="loopw" d="M${fx.cx+fx.w/2+1} ${fx.cy+4}H${v.cx-v.w/2-2}" marker-end="url(#gb)"/>`;
+  FLOW.concat(["fix"]).forEach(id=>{const p=P[id],x=SB[id];s+=`<g class="gnode role-${x.role}${here[id]?" on":""}"><rect x="${p.cx-p.w/2}" y="${p.cy-11}" width="${p.w}" height="22" rx="${x.eng?6:11}"/><text x="${p.cx}" y="${p.cy+3.8}" text-anchor="middle">${esc(x.label)}</text></g>`;});
+  LIST.forEach((f,k)=>{
+    const x=tx(k),ci=cur[k]?FLOW.indexOf(cur[k]):FLOW.length-1,parts=f.slug.length>14?[f.slug.slice(0,f.slug.lastIndexOf("-",13)+1),f.slug.slice(f.slug.lastIndexOf("-",13)+1)]:[f.slug];
+    s+=`<g class="fhd" data-go="${f.slug}|flow|" tabindex="0" role="button" aria-label="Open ${esc(f.title)}, ${cur[k]?progress(f)+" percent":"released"}"><rect class="hit" x="${x-TW/2+3}" y="2" width="${TW-6}" height="${head-12}" rx="7"/>${parts.map((t,j)=>`<text x="${x}" y="${parts.length===1?21:15+j*12}" text-anchor="middle">${esc(t)}</text>`).join("")}<text class="pc" x="${x}" y="${head-17}" text-anchor="middle">${cur[k]?progress(f)+"%":"released"}</text></g>`;
+    s+=`<line class="trk" x1="${x}" y1="${y(0)}" x2="${x}" y2="${y(FLOW.length-1)}"/><line class="trk done" x1="${x}" y1="${y(0)}" x2="${x}" y2="${y(ci)}"/>`;
+    FLOW.forEach((id,i)=>{let m=fstat(f,id);const big=["running","signoff","blocked","ready"].includes(m);
+      const tip=f.slug+" · "+(i+1)+" "+SB[id].label+" · "+(m==="blocked"&&f.wait?f.wait:STLAB[m][1]);
+      s+=`<g class="fm m-${m}" data-go="${f.slug}|flow|${id}" data-tip="${esc(tip)}" tabindex="${big?0:-1}" role="button" aria-label="${esc(tip)}"><rect class="hit" x="${x-TW/2+3}" y="${y(i)-rowH/2+2}" width="${TW-6}" height="${rowH-4}" rx="6"/>${m==="skipped"?`<line x1="${x-4}" y1="${y(i)}" x2="${x+4}" y2="${y(i)}"/>`:`<circle cx="${x}" cy="${y(i)}" r="${big?7.5:m==="done"?4.5:3.5}"/>`}</g>`;});
+  });
+  return s+"</svg>";
+}
+function ball(f){const c=curStep(f);if(!c)return null;const s=SB[c],stt=fstat(f,c);return {c,s,stt,role:f.ball||(stt==="signoff"&&s.gate&&s.gate[0]!=="auto"?(c==="accept"&&TI.accepted?"pm":s.gate[0]):s.role)};}
+const FFILT=[["all","All",()=>true],["mine","Waiting on my role",f=>{const b=ball(f);return !!b&&b.role===me().role;}],["progress","In progress",f=>!!curStep(f)],["released","Released",f=>!curStep(f)]];
+function pgFeatures(){
+  const g=st.fview==="graph",flt=FFILT.find(x=>x[0]===st.ffilter)||FFILT[0],list=FEATS.filter(flt[2]);
+  return `<div class="ph"><div><h1>Features</h1><p class="sub">Every feature in <code>docs/features/</code>, with the step the hub detected from the files.</p></div>
+   <div class="row"><div class="seg" role="group" aria-label="How to show the features"><button type="button" data-fview="list" aria-pressed="${!g}">List</button><button type="button" data-fview="graph" aria-pressed="${g}">Graph</button></div>${me().role==="po"?cmdBox(hubCmd("new","<slug>")):""}</div></div>
+  <div class="fpick" role="group" aria-label="Filter">${FFILT.map(x=>`<button type="button" class="chipbtn" data-ffilter="${x[0]}" aria-pressed="${x[0]===flt[0]}">${x[1]} · ${FEATS.filter(x[2]).length}</button>`).join("")}</div>
+  ${!list.length?`<div class="lockbox">No feature matches this filter.</div>`:g?`<div class="card"><p class="scrollhint">Scroll sideways: the feature tracks are to the right of the lanes.</p><div class="mapwrap">${featGraph(list)}</div><div class="legend">${[["done","done"],["running","running"],["signoff","waiting for sign-off"],["blocked","blocked"],["todo","not started"],["skipped","skipped on this route"]].map(l=>`<span><i class="ld ${l[0]}"></i>${l[1]}</span>`).join("")}<span class="muted">Each column on the right is one feature. Select a mark to open that feature at that step.</span></div></div>`:featTable(list)}
+  <p class="note">The step is derived from evidence: SDD files, the task tracker, review verdicts, test runs and sign-offs. Nobody types a status.</p>`;
+}
+function nowStrip(f){
+  const b=ball(f),p=me();
+  if(!b) return `<div class="now"><div class="now-m"><span class="k">Now</span><span class="row">${pill("ok","Released")}<span>${esc(f.wait&&f.wait!=="Released"?f.wait+". ":"")}Nothing is waiting.</span></span></div></div>`;
+  const i=FLOW.indexOf(b.c),nx=FLOW.slice(i+1).find(x=>f.st[x]!=="skipped"),mine=p.role===b.role,who=b.role==="dev"?(f.ball?"the owning teams":"the team leads"):(firstOf(b.role)||{}).name;
+  const btn=b.s.site?`<button type="button" class="btn pri sm" data-ftab="${b.s.site}">Open ${b.s.site==="qa"?"QA and tests":"Release"}</button>`:`<button type="button" class="btn pri sm" data-go="${f.slug}|flow|${b.c}">Open the step</button>`;
+  return `<div class="now${mine?" mine":""}"><div class="now-m"><span class="k">Now</span><span class="row">${rchip(b.role)}<b>step ${i+1} of 20 · ${esc(b.s.label)}</b>${pill(STLAB[b.stt][0],STLAB[b.stt][1])}</span><span class="muted">${b.stt==="signoff"?"Waiting for the sign-off of ":f.ball?"Returned to ":"With "}${esc(ROLES[b.role].n)}${who?" ("+esc(who)+")":""}${f.wait?" · waiting on: "+esc(f.wait):""}${nx?" · then step "+(FLOW.indexOf(nx)+1)+", "+esc(SB[nx].label):""}</span></div>
+   <div class="row">${mine?`<b>Your move</b>${f.ball?"":b.s.site&&st.ftab===b.s.site||!b.s.site&&st.ftab==="flow"&&(st.step||b.c)===b.c?"":btn}`:`<span class="muted">Nothing for you to do here now</span>`}</div></div>`;
+}
+function tabBadge(f,t){
+  let n=0,tip="";
+  if(t==="qa"&&f.slug==="tasks-issues"){n=tiOpen().length;tip="open bugs";}
+  if(t==="docs"&&f.slug==="tasks-issues"){n=Object.keys(TI.stale).length;tip="documents need validation";}
+  if(t==="tasks"&&TASKS[f.slug]){Object.keys(TASKS[f.slug]).forEach(k=>TASKS[f.slug][k].forEach(x=>{if(x[6]==="waiting")n++;}));tip="tasks waiting for another team";}
+  return n?`<span class="cnt" title="${n} ${tip}">${n}</span>`:"";
+}
+
+/* ---------- feature shell ---------- */
+const FTABS=[["flow","Flow"],["docs","Documents"],["tasks","Tasks"],["qa","QA and tests"],["release","Release"],["costs","Costs"]];
+function pgFeature(){
+  const f=feat(),c=curStep(f),fc=featCost(f);
+  const body={flow:tabFlow,docs:tabDocs,tasks:tabTasks,qa:tabQA,release:tabRelease,costs:tabCosts}[st.ftab](f);
+  return `<div class="fhead"><nav class="crumb" aria-label="Breadcrumb"><button type="button" data-page="features">Features</button><span aria-hidden="true">›</span><select id="featsel" aria-label="Feature">${FEATS.map(x=>`<option value="${x.slug}"${x.slug===f.slug?" selected":""}>${esc(x.title)}</option>`).join("")}</select></nav>
+   <div class="ph"><div><h1>${esc(f.title)}</h1><p class="sub"><code>${f.slug}</code> · size ${f.size} · route ${f.route} · owner ${esc(PB[f.owner].name)} · ${progress(f)}% done</p></div>
+   <div class="row">${[["Jira "+f.jira,st.cfg.jira.replace(/\/browse\/.*$/,"/browse/")+f.jira],["Confluence",st.cfg.conf],["Figma",st.cfg.figma],["Merge requests","https://"+st.cfg.host+"/"+st.cfg.group],["Staging","https://admin.staging.example.com"]].map(l=>`<button type="button" class="btn sm" data-link="${esc(l[1])}">${esc(l[0])} ↗</button>`).join("")}</div></div>
+   ${nowStrip(f)}
+   <div class="tabs" role="tablist">${FTABS.map(t=>`<button type="button" class="tab" role="tab" data-ftab="${t[0]}" aria-selected="${st.ftab===t[0]}">${t[1]}${tabBadge(f,t[0])}</button>`).join("")}</div></div>${body}`;
+}
+
+/* ---------- flow ---------- */
+function flowSVG(f){
+  const W=540,rowH=30,top=26,numW=20,laneW=(W-numW-6)/6,H=top+FLOW.length*rowH+8;
+  const P={};FLOW.forEach((id,i)=>{const s=SB[id],w=Math.round(s.label.length*7+16);P[id]={cx:numW+(LANES.indexOf(s.role)+.5)*laneW,cy:top+i*rowH+rowH/2,w};});
+  P.fix={cx:numW+(3+.5)*laneW,cy:P.verify.cy,w:40};
+  let s=`<svg class="flow" viewBox="0 0 ${W} ${H}" role="group" aria-label="Flow of ${esc(f.slug)}: twenty steps in six role lanes">`;
+  s+=`<defs><marker id="fa" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1L7.5 4L0 7Z" fill="var(--wire)"/></marker><marker id="fb" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1L7.5 4L0 7Z" fill="var(--bad)"/></marker></defs>`;
+  LANES.forEach((r,i)=>{s+=`<rect class="band role-${r}" x="${numW+i*laneW+2}" y="18" width="${laneW-4}" height="${H-20}" rx="7"/><text class="lanehead role-${r}" x="${numW+(i+.5)*laneW}" y="12" text-anchor="middle">${ROLES[r].s}</text>`;});
+  FLOW.forEach((id,i)=>{s+=`<text class="rownum" x="${numW/2}" y="${P[id].cy+3}" text-anchor="middle">${i+1}</text>`;});
+  for(let i=0;i<FLOW.length-1;i++){const a=P[FLOW[i]],b=P[FLOW[i+1]],y1=a.cy+11,y2=b.cy-12,my=(y1+y2)/2;const done=f.st[FLOW[i]]==="done"&&["done","running","signoff","blocked","ready"].includes(f.st[FLOW[i+1]]);
+    s+=`<path class="wire${done?" done":""}" d="${Math.abs(a.cx-b.cx)<1?`M${a.cx} ${y1}V${y2}`:`M${a.cx} ${y1}V${my}H${b.cx}V${y2}`}" marker-end="url(#fa)"/>`;}
+  const v=P.verify,fx=P.fix;
+  s+=`<path class="loopw" d="M${v.cx-v.w/2-1} ${v.cy-4}H${fx.cx+fx.w/2+2}" marker-end="url(#fb)"/><path class="loopw" d="M${fx.cx+fx.w/2+1} ${fx.cy+4}H${v.cx-v.w/2-2}" marker-end="url(#fb)"/>`;
+  FLOW.concat(["fix"]).forEach(id=>{const p=P[id],x=SB[id],stt=fstat(f,id),sel=st.step===id;
+    s+=`<g class="node st-${stt} role-${x.role}" data-step="${id}" tabindex="0" role="button" aria-label="${id==="fix"?"Fix":"Step "+(FLOW.indexOf(id)+1)}, ${esc(x.title)}, ${STLAB[stt][1]}">${sel?`<rect class="sel" x="${p.cx-p.w/2-3.5}" y="${p.cy-14.5}" width="${p.w+7}" height="29" rx="9"/>`:""}<rect class="b" x="${p.cx-p.w/2}" y="${p.cy-11}" width="${p.w}" height="22" rx="${x.eng?6:11}"/><text x="${p.cx}" y="${p.cy+3.8}" text-anchor="middle">${esc(x.label)}</text></g>`;});
+  return s+"</svg>";
+}
+function gateOK(p,s){if(!s.gate||s.gate[0]==="auto")return false;const g=s.gate[0];return p.role===g||p.role==="admin"&&false;}
+function stepPanel(f,id){
+  const s=SB[id],stt=f.st[id]||"todo",dst=id==="fix"?stt:fstat(f,id),p=me(),n=FLOW.indexOf(id);
+  const who=id==="tasks"||id==="implement"||id==="review"||id==="ship"?"the four team leads":id==="fix"?"the team that owns the bug":(firstOf(s.role,s.role==="dev"?"backend":null)||{}).name;
+  const a=actualTok(f,id),c=costOf(f,id),over=s.est[1]&&a>s.est[1];
+  let h=`<div class="sd role-${s.role}"><div class="row">${rchip(s.role,ROLES[s.role].n)}<span class="muted">${id==="fix"?"Return path":"Step "+(n+1)+" of 20"}</span><span class="tag">${s.eng?"engine stage":"hub step"}</span>${pill(STLAB[dst][0],STLAB[dst][1])}</div><h3>${esc(s.title)}</h3><p>${esc(s.what)}</p><div class="row">${repoLabels(s.repos)}</div></div>`;
+  h+='<div class="kv">';
+  if(stt==="done") h+=`<span class="k">Done by</span><span>${esc(who)}</span>`;
+  if(stt==="running") h+=`<span class="k">Running</span><span>${esc(who)}, started today</span>`;
+  if(s.gate) h+=`<span class="k">Sign-off</span><span><b>${s.gate[0]==="auto"?"Automatic gate":esc(ROLES[s.gate[0]].n)}</b> · ${esc(s.gate[1])}${stt==="done"&&s.gate[0]!=="auto"?" · recorded":""}${stt==="signoff"&&!s.site?` <button type="button" class="btn sm pri" data-act="signoff" data-id="${id}"${gateOK(p,s)?"":" disabled"}>Sign off</button>${gateOK(p,s)?"":` <span class="reason">Only ${esc(ROLES[s.gate[0]].n)} signs this off.</span>`}`:""}</span>`;
+  h+=`<span class="k">Files</span><span class="chips">${s.files.map(x=>`<button type="button" class="filechip" data-docopen="${esc(x)}">${esc(x)}</button>`).join("")}</span>`;
+  if(s.est[1]) h+=`<span class="k">Tokens</span><span>estimate ${s.est[0]}–${s.est[1]}M on <code>${s.est[2]}</code> · actual <b${over?' style="color:var(--bad)"':""}>${tok(a)}</b>${a?" · about "+money(c):""}${over?" · over the estimate":""}</span>`;
+  h+='</div>';
+  if(s.site) h+=`<div class="card"><span class="k">On this site</span><p>${id==="autotests"?"Test runs from CI and from local machines are listed on the QA and tests screen.":id==="qafinal"?"QA records the decision on the QA and tests screen.":id==="accept"?"The PO accepts and the PM gives the go on the Release screen.":id==="release"?"Ops ticks the release checklist on the Release screen.":"Bugs, verdicts and test runs live on the QA and tests screen."}</p><div><button type="button" class="btn pri" data-ftab="${s.site}">Open ${s.site==="qa"?"QA and tests":"Release"}</button></div></div>`;
+  {
+    const isCur=id===curStep(f),wantsSign=stt==="signoff"&&s.gate&&s.gate[0]!=="auto",can=p.role===s.role;
+    if(wantsSign&&id!=="accept"){
+      h+=`<div class="card"><span class="k">In your assistant</span>${cmdBox(hubCmd("signoff",s.label+" "+f.slug))}<p class="muted">The stage is finished and waits for the sign-off. This command records it, the same as the Sign off button. No LLM is involved.</p></div>`;
+    }else if(s.noLLM){
+      h+=`<div class="card"><span class="k">In your assistant</span>${cmdBox(hubCmd2(s.hub,f.slug))}<p class="muted">This command records a result. It does not call the LLM, and the same can be done on this site.</p></div>`;
+    }else{
+      const main=id==="fix"?hubCmd("run","fix "+f.slug):s.eng?(isCur?hubCmd("next",f.slug):hubCmd("run",s.label+" "+f.slug)):hubCmd2(s.hub,f.slug),prox=s.eng?engCmd(s.eng,f.slug):null,prompt=stepPrompt(s,f);
+      h+=`<div class="card"><span class="k">In your assistant</span>${cmdBox(main)}<p class="muted">${isCur||id==="fix"?"":stt==="done"?"The stage is done. This runs it again; documents that depend on it are then marked as needing validation. ":"This stage is not open yet. The hub refuses it until the steps before it are done. "}${prox?`The hub checks the gate, then passes the stage to <code>${esc(prox)}</code> with the prompt below.`:"A hub step: the hub runs it with the prompt below."}</p>
+       <details class="more"><summary>Prompt the hub passes</summary><div><pre class="wrap">${esc(prompt)}</pre><div><button type="button" class="copy" data-copy="${esc(prompt)}">copy prompt</button></div></div></details>
+       <div class="row"><button type="button" class="btn" data-act="headless" data-id="${id}"${st.headless&&can?"":" disabled"}>Run from the site</button><span class="reason">${st.headless?(can?"Starts the assistant headless under your seat.":"Only "+ROLES[s.role].n+" runs this step."):"Off. The admin can turn headless runs on in Settings."}</span></div></div>`;
+    }
+  }
+  return h;
+}
+function tabFlow(f){
+  const id=st.step||curStep(f)||"release";
+  return `<div class="flowgrid"><div class="card"><div class="mapwrap">${flowSVG(Object.assign(f,{}))}</div><div class="legend">${[["done","done"],["running","running"],["signoff","waiting for sign-off"],["blocked","blocked"],["todo","not started"],["skipped","skipped on this route"]].map(l=>`<span><i class="lg ${l[0]}"></i>${l[1]}</span>`).join("")}</div></div>
+  <div class="card" id="steppanel">${stepPanel(f,id)}</div></div>`;
+}
+
+/* ---------- documents ---------- */
+function canEdit(p,d){return p.role===d.owner&&(!d.team||p.team===d.team&&p.lead);}
+function tabDocs(f){
+  if(f.slug!=="tasks-issues") return `<div class="lockbox">Document content in this prototype is filled in for <code>tasks-issues</code>. This feature has ${FLOW.filter(id=>f.st[id]==="done").length} finished steps; their files would be listed here the same way. <button type="button" class="btn sm" data-feat="tasks-issues">Open tasks-issues</button></div>`;
+  const p=me(),d=DOCS.find(x=>x.id===st.doc)||DOCS[0],stale=Object.keys(TI.stale);
+  const list=DOCS.map(x=>`<button type="button" class="docbtn" data-doc="${esc(x.id)}" aria-pressed="${x.id===d.id}"><span class="fn">${esc(x.id)}</span><span class="row">${rchip(x.owner,x.team?TEAMS[x.team]+" lead":ROLES[x.owner].s)}${TI.stale[x.id]?pill("warn","needs validation"):x.id==="spec.md"&&stale.length?pill("info","changed since sign-off"):pill("ok","signed off")}</span></button>`).join("");
+  let body;
+  if(d.id==="spec.md"){
+    const ed=canEdit(p,d);
+    body=`<h3>User stories</h3><div>${TI.stories.map(s=>`<div class="ac"><span class="id">${s[0]}</span><span>${esc(s[1])}</span><span></span></div>`).join("")}</div>
+     <h3>Acceptance criteria</h3><div>${TI.acs.map(a=>st.edit===a.id?`<div class="ac"><span class="id">${a.id}</span><div class="editbox"><textarea id="ed-text" aria-label="Text of ${a.id}">${esc(a.text)}</textarea><div class="radio"><label><input type="radio" name="edkind" value="wording" checked> Wording only: the behaviour stays the same</label><label><input type="radio" name="edkind" value="meaning"> The meaning changed: other documents must be checked</label></div><div class="row"><button type="button" class="btn pri" data-act="savead" data-id="${a.id}">Save</button><button type="button" class="btn" data-act="canceled">Cancel</button></div></div></div>`
+       :`<div class="ac"><span class="id">${a.id}</span><span>${esc(a.text)}</span><button type="button" class="btn sm" data-act="editac" data-id="${a.id}"${ed?"":" disabled title=\"Only the PO / analyst can change spec.md\""}>Edit</button></div>`).join("")}</div>
+     <div class="row"><button type="button" class="btn sm" data-act="addac"${ed?"":" disabled"}>Add a criterion</button><span class="muted">${ed?"Adding or removing a criterion always counts as a change of meaning.":"You are viewing as "+esc(ROLES[p.role].n)+". The guard job would refuse your change to this file."}</span></div>`;
+  } else {
+    const ed=canEdit(p,d);
+    body=`<pre>${esc(d.id==="hub/feature.yaml"?DOCTEXT_FY():DOCTEXT[d.id])}</pre><p class="muted">${d.refs.length?"References: "+d.refs.map(r=>"<code>"+r+"</code>").join(" "):""}</p>
+     ${TI.stale[d.id]?`<div class="row"><button type="button" class="btn sm" data-act="clearstale" data-id="${esc(d.id)}"${ed?"":" disabled"}>Confirm: no change needed</button><span class="muted">${ed?"Recorded as a sign-off. Or run your stage again in the assistant.":"Only the owner of this file can clear the badge."}</span></div>`:""}
+     ${d.id==="hub/feature.yaml"?`<p class="note">Title, links, owner and estimates are edited here by the PO and the PM. No LLM is involved.</p>${p.role==="po"||p.role==="pm"?`<div class="editbox"><div class="form"><label class="fld"><span>Estimate, working days</span><input type="text" id="fy-days" value="${f.estDays}" inputmode="numeric"></label><label class="fld"><span>Jira issue</span><input type="text" id="fy-jira" value="${esc(f.jira)}"></label></div><div><button type="button" class="btn pri" data-act="savefy">Save</button></div></div>`:`<p class="reason">Only the PO and the PM edit this file.</p>`}`:`<p class="note">Changes to this file go through the assistant: ${cmdInline(d)}</p>`}`;
+  }
+  let val="";
+  if(stale.length||TI.report){
+    val=`<div class="card"><div class="row sp"><h3>Validation after the spec change</h3>${pill(stale.length?"warn":"ok",stale.length?stale.length+" documents need validation":"All documents cleared")}</div>
+     ${stale.length?`<p>These documents reference the changed criteria: ${stale.map(x=>"<code>"+esc(x)+"</code>").join(" ")}.</p>${cmdBox(hubCmd("validate",f.slug))}<div class="row"><button type="button" class="btn" data-act="validate"${st.headless&&p.role==="po"?"":" disabled"}>Validate now</button><span class="muted">${st.headless?(p.role==="po"?"Runs the assistant read-only and writes a report. It edits nothing.":"The PO starts the validation."):"Headless runs are off. Copy the command into your assistant, or ask the admin to turn them on."}</span><button type="button" class="btn sim sm" data-act="simvalidate">Prototype: show a finished report</button></div>`:""}
+     ${TI.report?`<div class="scroll"><table><thead><tr><th>Document</th><th>Owner</th><th>Result</th></tr></thead><tbody>${TI.report.map(r=>`<tr><td class="nw"><code>${esc(r[0])}</code></td><td class="nw">${rchip(r[1])}</td><td>${r[2]?pill("warn","conflict")+" "+esc(r[2]):pill("ok","consistent")}</td></tr>`).join("")}</tbody></table></div><p class="muted">Report written to <code>hub/validation/2026-10-07.md</code>. Each owner applies the fix in their own stage.</p>`:""}</div>`;
+  }
+  return `${val}<div class="docgrid"><div class="doclist">${list}</div><div class="card"><div class="row sp"><span class="mono"><b>docs/features/${f.slug}/${esc(d.id.replace("backend: ","(backend) "))}</b></span>${rchip(d.owner,"owner: "+(d.team?TEAMS[d.team]+" lead":ROLES[d.owner].n))}</div>${body}</div></div>`;
+}
+function cmdInline(d){const m={"ux-flows.md":"run ux-flows","screens.md":"run screens","contracts/openapi.yaml":"run api","test-plan.md":"run plan-tests","backend: tasks.json":"run tasks","hub/feature.yaml":"status"}[d.id];return "<code>"+esc(hubCmd2(m,"tasks-issues"))+"</code>";}
+
+/* ---------- tasks ---------- */
+function tabTasks(f){
+  const T=TASKS[f.slug];
+  if(!T) return `<div class="lockbox">${curStep(f)?"No tasks yet. Tasks appear after step 9, when each team runs the tasks stage in its own repository. This feature is at step "+(FLOW.indexOf(curStep(f))+1)+".":"This feature is released. Its task lists are kept with it; this prototype does not fill them in."}</div>`;
+  const teams=Object.keys(T).filter(t=>st.team==="all"||st.team===t);
+  const all=[];Object.keys(T).forEach(t=>T[t].forEach(x=>all.push({team:t,id:x[0],key:t+":"+x[0],title:x[1],layer:x[2],deps:x[3].map(d=>d.includes(":")?d:t+":"+d),acs:x[4],est:x[5],status:x[6]})));
+  const by={};all.forEach(x=>by[x.key]=x);
+  const depth=k=>{const x=by[k];if(x.d!==undefined)return x.d;x.d=0;x.d=x.deps.length?Math.max(...x.deps.map(d=>by[d]?depth(d)+1:0)):0;return x.d;};
+  all.forEach(x=>depth(x.key));
+  const shown=all.filter(x=>teams.includes(x.team)),cols=Math.max(...shown.map(x=>x.d))+1;
+  const cw=196,nw=170,nh=44,left=78,laneH={},laneY={};let y=8;
+  teams.forEach(t=>{const per={};shown.filter(x=>x.team===t).forEach(x=>{per[x.d]=(per[x.d]||0)+1;x.row=per[x.d]-1;});laneH[t]=Math.max(1,...Object.values(per))*(nh+10)+14;laneY[t]=y;y+=laneH[t]+6;});
+  const W=left+cols*cw+8,H=y+4;
+  const pos=x=>({x:left+x.d*cw,y:laneY[x.team]+10+x.row*(nh+10)});
+  let s=`<svg class="dag" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Task dependency graph of ${f.slug}"><defs><marker id="ta" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 1L7.5 4L0 7Z" fill="var(--wire)"/></marker><marker id="tb" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 1L7.5 4L0 7Z" fill="var(--bad)"/></marker></defs>`;
+  teams.forEach(t=>{s+=`<rect class="laneband" x="0" y="${laneY[t]}" width="${W}" height="${laneH[t]}" rx="8"/><text class="lanelab" x="10" y="${laneY[t]+18}">${TEAMS[t].toUpperCase()}</text>`;});
+  shown.forEach(x=>{const b=pos(x);x.deps.forEach(d=>{const dx=by[d];if(!dx||!teams.includes(dx.team))return;const a=pos(dx),cross=dx.team!==x.team,x1=a.x+nw,y1=a.y+nh/2,x2=b.x-2,y2=b.y+nh/2,mx=(x1+x2)/2;
+    s+=`<path class="edge${cross?" x":""}" d="M${x1} ${y1}C${mx} ${y1} ${mx} ${y2} ${x2} ${y2}" marker-end="url(#${cross?"tb":"ta"})"/>`;});});
+  const SL={done:"done",in_progress:"in progress",todo:"to do",waiting:"waiting for backend"};
+  shown.forEach(x=>{const b=pos(x),t=x.title.length>25?x.title.slice(0,24)+"…":x.title;
+    s+=`<g class="tnode s-${x.status}" data-tip="${esc(x.id+" · "+x.title+" · "+SL[x.status])}"><rect x="${b.x}" y="${b.y}" width="${nw}" height="${nh}" rx="8"/><text class="id" x="${b.x+10}" y="${b.y+17}">${x.id}</text><text class="st" x="${b.x+nw-10}" y="${b.y+17}" text-anchor="end">${SL[x.status]}</text><text x="${b.x+10}" y="${b.y+34}">${esc(t)}</text></g>`;});
+  s+="</svg>";
+  const waiting=all.filter(x=>x.status==="waiting").length;
+  return `<div class="row sp"><div class="fpick">${["all"].concat(Object.keys(T)).map(t=>`<button type="button" class="chipbtn" data-team="${t}" aria-pressed="${st.team===t}">${t==="all"?"All teams":TEAMS[t]}</button>`).join("")}</div><div class="legend"><span><svg width="26" height="8"><path d="M0 4H26" stroke="var(--wire)" stroke-width="1.3"/></svg>depends on</span><span><svg width="26" height="8"><path d="M0 4H26" stroke="var(--bad)" stroke-width="1.6" stroke-dasharray="5 3"/></svg>waits for another team</span></div></div>
+   ${waiting?`<p class="note bad">${waiting} client tasks wait for the backend. They are the last task of each client; the screens before them run on the mock.</p>`:""}
+   <div class="scroll" style="padding:8px">${s}</div>
+   <div class="scroll"><table><thead><tr><th>Team</th><th>Task</th><th>Layer</th><th>Criteria</th><th>Depends on</th><th>Estimate</th><th>Status</th></tr></thead><tbody>${shown.map(x=>`<tr><td class="nw"><span class="rl">${TEAMREPO[x.team]}</span></td><td><code>${x.id}</code> ${esc(x.title)}</td><td class="nw">${x.layer}</td><td class="nw">${x.acs.join(", ")||"—"}</td><td class="nw">${x.deps.map(d=>d.split(":")[0]===x.team?d.split(":")[1]:d.replace(":"," ")).join(", ")||"—"}</td><td class="nw">${x.est}</td><td class="nw">${pill(x.status==="done"?"ok":x.status==="in_progress"?"info":x.status==="waiting"?"bad":"mute",SL[x.status])}</td></tr>`).join("")}</tbody></table></div>
+   <p class="muted">Read from each team's <code>tasks.json</code> and <code>tasks/tracker.md</code>, published to the <code>hub-state</code> branch by the <code>hub-report</code> job.</p>`;
+}
+
+/* ---------- QA ---------- */
+const SEV={critical:"bad",high:"bad",medium:"warn",low:"mute"};
+const BST={open:"bad",fixing:"warn",retest:"info",closed:"ok",rejected:"mute"};
+function tabQA(f){
+  if(f.slug!=="tasks-issues") return `<div class="lockbox">${f.st.staging==="done"?"This feature is released; its QA record would be shown here.":"QA verifies at step 16, after the feature reaches staging at step 15. This feature is at step "+(FLOW.indexOf(curStep(f))+1)+"."} The QA screen in this prototype is filled in for <code>tasks-issues</code>. <button type="button" class="btn sm" data-feat="tasks-issues">Open tasks-issues</button></div>`;
+  const p=me(),isQA=p.role==="qa",open=tiOpen(),high=tiHigh(),ci=tiCi(),ciOK=ci.every(c=>c[1]),ver=tiVerdicts(),s=f.st;
+  const stepper=[["Staging ready","build 4128 · smoke passed","ok"],["Verification",tiFailing()?tiFailing()+" criterion failing":ver?"every criterion passes":"verdicts missing",tiFailing()?"bad":ver?"ok":"cur"],["Bugs",open.length+" open, "+high.length+" high",high.length?"bad":open.length?"cur":"ok"],["Autotests in CI",ci.filter(c=>c[1]).length+" of 4 green",ciOK?"ok":"bad"],["Final check",TI.decision==="pass"?"passed to release":TI.returned?"returned":"waiting",TI.decision==="pass"?"ok":s.qafinal==="signoff"?"cur":""]];
+  const mx=`<div class="scroll"><table class="mx"><thead><tr><th>Criterion</th><th>Web</th><th>Android</th><th>iOS</th><th>Backend</th></tr></thead><tbody>${TI.acs.filter(a=>TI.matrix[a.id]).map(a=>`<tr><td><code>${a.id}</code> ${esc(a.text)}</td>${["web","android","ios","backend"].map(k=>{const v=TI.matrix[a.id][k];return `<td>${v==="pass"?pill("ok","pass"):v==="fail"?pill("bad","fail"):v==="todo"?pill("mute","to check"):'<span class="muted">n/a</span>'}</td>`;}).join("")}</tr>`).join("")}</tbody></table></div>`;
+  const bugs=`<div class="scroll"><table><thead><tr><th>Bug</th><th>Criterion</th><th>Platforms</th><th>Team</th><th>Severity</th><th>Status</th></tr></thead><tbody>${TI.bugs.map(b=>{const can=isQA||(p.role==="dev"&&p.team===b.team);const opts=isQA?["open","fixing","retest","closed","rejected"]:["open","fixing","retest"];
+     return `<tr><td class="wide"><code>${b.id}</code> ${esc(b.title)}</td><td class="nw">${b.ac}</td><td class="nw">${b.platforms.join(", ")}</td><td class="nw"><span class="rl">${TEAMREPO[b.team]}</span></td><td class="nw">${pill(SEV[b.sev],b.sev)}</td><td class="nw">${can?`<select data-bug="${b.id}" aria-label="Status of ${b.id}">${(opts.includes(b.status)?opts:[b.status].concat(opts)).map(o=>`<option${o===b.status?" selected":""}>${o}</option>`).join("")}</select>`:pill(BST[b.status],b.status)}</td></tr>`;}).join("")}</tbody></table></div>`;
+  const form=st.bugForm?`<form class="card" id="bugform"><h3>New bug</h3><div class="form"><label class="fld full"><span>Title</span><input type="text" id="bf-title" required placeholder="What is wrong, in one line"></label>
+     <label class="fld"><span>Criterion</span><select id="bf-ac">${TI.acs.map(a=>`<option>${a.id}</option>`).join("")}</select></label>
+     <label class="fld"><span>Owning team</span><select id="bf-team">${Object.keys(TEAMS).map(t=>`<option value="${t}">${TEAMS[t]}</option>`).join("")}</select></label>
+     <label class="fld"><span>Severity</span><select id="bf-sev"><option>low</option><option selected>medium</option><option>high</option><option>critical</option></select></label>
+     <div class="fld"><span>Platforms</span><div class="checks">${["web","android","ios"].map(k=>`<label><input type="checkbox" id="bf-${k}" checked> ${k}</label>`).join("")}</div></div>
+     <label class="fld full"><span>Steps, expected, actual</span><textarea id="bf-steps" placeholder="1. Sign in as the test order manager&#10;2. ..."></textarea></label></div>
+     <div class="row"><button type="submit" class="btn pri">Save bug</button><button type="button" class="btn" data-act="bugform">Cancel</button><span class="muted">Saved as <code>hub/bugs/BUG-NNNN.md</code>. No LLM is involved.</span></div></form>`:"";
+  const runs=`<div class="scroll"><table><thead><tr><th>Source</th><th>Repository</th><th>Suite</th><th class="num">Passed</th><th class="num">Failed</th><th>When</th><th>Reference</th></tr></thead><tbody>${TI.runs.map(r=>`<tr><td class="nw">${r.src==="ci"?pill("info","CI"):pill("mute","local")}</td><td class="nw"><span class="rl">${r.repo}</span></td><td>${esc(r.what)}</td><td class="num">${r.pass}</td><td class="num">${r.fail?`<b style="color:var(--bad)">${r.fail}</b>`:"0"}</td><td class="nw muted">${r.when}</td><td class="nw">${esc(r.ref)}</td></tr>`).join("")}</tbody></table></div>`;
+  const gates=[["Every criterion passes or is not applicable on every platform",ver],["No open bug of severity high or above",!high.length],["The latest CI run is green in all four repositories",ciOK]];
+  const ready=gates.every(g=>g[1]);
+  const fin=`<div class="card"><div class="row sp"><h3>Final check</h3>${TI.decision==="pass"?pill("ok","Passed to release"):TI.returned?pill("warn","Returned to development"):pill(ready?"warn":"mute",ready?"Waiting for the QA decision":"Gates not met yet")}</div>
+     <ul class="gates">${gates.map(g=>`<li>${pill(g[1]?"ok":"bad",g[1]?"met":"not met")}<span>${g[0]}</span></li>`).join("")}</ul>
+     ${TI.decision==="pass"?`<p>Recorded in <code>hub/signoffs.yaml</code> by ${esc(firstOf("qa").name)}. Next: acceptance and go or no-go.</p><div><button type="button" class="btn" data-ftab="release">Open Release</button></div>`
+       :`<div class="row"><button type="button" class="btn pri" data-act="qapass"${isQA&&ready?"":" disabled"}>Pass to release</button><button type="button" class="btn danger" data-act="retform"${isQA&&(open.length||tiFailing())&&!TI.returned?"":" disabled"}>Return to development</button><span class="reason">${!isQA?"Only QA records this decision.":TI.returned?"Already returned. Waiting for the fixes.":ready?"":"Pass opens when all three gates are met."+(open.length||tiFailing()?"":" Nothing to return: no bug is open.")}</span></div>
+        ${st.retForm&&isQA&&!TI.returned?`<div class="editbox"><label class="fld"><span>Reason for the return</span><textarea id="ret-reason" placeholder="What must be fixed before the feature can pass">AC-4 still fails: a task stays visible after access to the order is revoked.</textarea></label><p class="muted">Goes back to: <b>fix</b>, with ${open.length} open bug${open.length===1?"":"s"} (${open.map(b=>b.id).join(", ")||"none"}). Bugs waiting for retest are reopened.</p><div class="row"><button type="button" class="btn danger" data-act="qareturn">Record the return</button><button type="button" class="btn" data-act="retform">Cancel</button></div></div>`:""}
+        ${TI.returned?`<p class="note warn">Returned: ${esc(TI.retReason)} The owning teams run ${"<code>"+esc(hubCmd("run","fix "+f.slug))+"</code>"} and QA retests.</p>`:""}
+        <div class="row"><button type="button" class="btn sim sm" data-act="simfix">Prototype: fixes land, CI turns green, bugs go to retest</button><span class="muted">Then close the bugs as QA to open the gate.</span></div>`}</div>`;
+  return `<div class="stepper">${stepper.map(x=>`<div class="sstep ${x[2]}"><b>${x[0]}</b><span>${x[1]}</span></div>`).join("")}</div>
+   <div class="row">${cmdBox(hubCmd("verify",f.slug))}${cmdBox(hubCmd("bug",f.slug))}${cmdBox(hubCmd("test",f.slug))}${cmdBox(hubCmd("decide",f.slug))}</div>
+   <section><h2>Criteria by platform</h2>${mx}</section>
+   <section><div class="row sp"><h2>Bugs</h2><span class="row">${isQA?"":`<span class="reason">Only QA adds bugs.</span>`}<button type="button" class="btn sm" data-act="bugform"${isQA?"":" disabled"}>Add a bug</button></span></div>${form}${bugs}</section>
+   <section><h2>Test runs</h2>${runs}<p class="muted">Local runs are recorded and shown, but only CI runs open the autotest gate.</p></section>
+   ${fin}`;
+}
+
+/* ---------- release ---------- */
+function tabRelease(f){
+  const p=me();
+  if(f.slug==="staff-permissions") return `<div class="card"><div class="row sp"><h3>Released on 12 September</h3>${pill("ok","Rollout 100%")}</div><div class="scroll"><table><thead><tr><th>#</th><th>Part</th><th>Version</th><th>Rollout</th><th>Deployed by</th></tr></thead><tbody>${[["backend","v2.29.0","production"],["web","admin build 861","production"],["android","2.29.0 (4011)","100%"],["ios","2.29.0 (498)","100%"]].map((r,i)=>`<tr><td>${i+1}</td><td><span class="rl">${r[0]}</span></td><td>${r[1]}</td><td>${pill("ok",r[2])}</td><td>${esc(firstOf("ops").name)}</td></tr>`).join("")}</tbody></table></div><p class="note">Watch period, first 7 days: 2 support tickets, crash-free sessions 99.8%, no rollback. The report went back to the PO as input for the next spec.</p></div>`;
+  if(f.slug!=="tasks-issues"||TI.decision!=="pass") return `<div class="lockbox">Release opens after QA passes the final check. ${f.slug==="tasks-issues"?'<button type="button" class="btn sm" data-ftab="qa">Open QA and tests</button>':"This feature is at step "+(FLOW.indexOf(curStep(f))+1)+"."}</div>`;
+  const live=TI.accepted&&TI.go,isOps=p.role==="ops";
+  const gate=`<div class="grid2"><div class="card"><div class="row sp"><h3>Acceptance</h3>${pill(TI.accepted?"ok":"warn",TI.accepted?"Accepted by "+firstOf("po").name:"Waiting for the PO")}</div><p>The analyst walks the criteria on staging, in the web admin and in one mobile app.</p><div class="row"><button type="button" class="btn pri" data-act="accept"${p.role==="po"&&!TI.accepted?"":" disabled"}>Accept the feature</button><span class="reason">${TI.accepted?"":p.role==="po"?"":"Only the PO accepts."}</span></div></div>
+    <div class="card"><div class="row sp"><h3>Go or no-go</h3>${pill(TI.go?"ok":TI.nogo?"bad":"warn",TI.go?"Go from "+firstOf("pm").name:TI.nogo?"No-go from "+firstOf("pm").name:"Waiting for the PM")}</div><p>Stories closed, no blocker open, four merge requests approved. Release window: Thursday 10:00.</p>${TI.nogo&&!TI.go?`<p class="note bad">No-go recorded. The feature stays on staging until the PM gives the go.</p>`:""}<div class="row"><button type="button" class="btn pri" data-act="go"${p.role==="pm"&&TI.accepted&&!TI.go?"":" disabled"}>Give the go</button><button type="button" class="btn danger" data-act="nogo"${p.role==="pm"&&TI.accepted&&!TI.go&&!TI.nogo?"":" disabled"}>No-go</button><span class="reason">${TI.go?"":p.role!=="pm"?"Only the PM decides.":!TI.accepted?"Opens after the PO accepts.":""}</span></div></div></div>`;
+  const prev=i=>i===0||TI.rel[i-1].done;
+  const list=`<div class="scroll"><table><thead><tr><th>#</th><th>Part</th><th>Version</th><th>Rollback</th><th>State</th><th>Action</th></tr></thead><tbody>${TI.rel.map((r,i)=>`<tr><td>${i+1}</td><td><span class="rl">${r.k}</span></td><td class="nw">${r.v}</td><td>${r.roll===undefined?"redeploy the previous tag":"halt the rollout, turn the flag off"}</td><td class="nw">${!r.done?pill("mute","not deployed"):r.roll===undefined?pill("ok","production"):pill(r.roll===100?"ok":"info","rollout "+r.roll+"%")}</td>
+      <td class="nw">${!r.done?`<button type="button" class="btn sm" data-act="deploy" data-id="${i}"${live&&isOps&&prev(i)?"":" disabled"}>Mark deployed</button>`:r.roll!==undefined&&r.roll<100?`<button type="button" class="btn sm" data-act="roll" data-id="${i}"${isOps?"":" disabled"}>Next rollout stage</button>`:'<span class="muted">done</span>'}</td></tr>`).join("")}</tbody></table></div>`;
+  const all=TI.rel.every(r=>r.done&&(r.roll===undefined||r.roll===100));
+  return `${gate}<section><h2>Release checklist, in order</h2>${cmdBox(hubCmd("release",f.slug))}${list}<p class="muted">${live?(isOps?"A person presses every production button; the hub only records it.":"Only Ops ticks the checklist. You are viewing as "+esc(ROLES[p.role].n)+"."):"The checklist unlocks after acceptance and the go."} Feature flag <code>tasks_issues</code> turns on for staff after checklist item 2.</p></section>
+   ${all?`<div class="card"><div class="row sp"><h3>Watch period</h3>${pill("ok","Released")}</div><p>The watch period is 7 days. First 24 hours: API 5xx rate unchanged, crash-free sessions 99.7% on Android and 99.9% on iOS, notification queue normal. The report goes to the PO.</p></div>`:""}`;
+}
+
+/* ---------- costs ---------- */
+function tabCosts(f){
+  const p=me(),ids=FLOW.filter(id=>f.st[id]!=="skipped"&&SB[id].est[1]).concat(f.st.fix!=="todo"||actualTok(f,"fix")?["fix"]:[]),fc=featCost(f);
+  const pct=v=>Math.min(v,160)/160*100;
+  const rows=ids.map(id=>{const s=SB[id],a=actualTok(f,id),r=a/s.est[1]*100,lo=s.est[0]/s.est[1]*100,over=r>100;
+    return `<div class="rngrow" data-tip="${esc(s.label+": actual "+tok(a)+", estimate "+s.est[0]+"–"+s.est[1]+"M on "+s.est[2]+(over?", over by "+Math.round(r-100)+"%":""))}"><span class="lbl">${rchip(s.role)}<span>${esc(s.label)}</span></span><div class="track"><span class="grid" style="left:0"></span><span class="grid" style="left:${pct(50)}%"></span><span class="grid" style="left:${pct(100)}%"></span><span class="grid" style="left:${pct(150)}%"></span><span class="band" style="left:${pct(lo)}%;width:${pct(100)-pct(lo)}%"></span>${a?`<span class="pt${over?" over":""}" style="left:${pct(r)}%"></span>`:""}</div><span class="v">${a?tok(a):"—"}${over?" ▲":""}</span><span class="v c2">${a?money(costOf(f,id)):"—"}</span></div>`;}).join("");
+  const byRole={},byModel={};ids.forEach(id=>{const s=SB[id],c=costOf(f,id);byRole[s.role]=(byRole[s.role]||0)+c;byModel[s.est[2]]=(byModel[s.est[2]]||0)+c;});
+  const bars=(obj,lab)=>{const mx=Math.max(...Object.values(obj),0.01);return `<div class="bars">${Object.keys(obj).sort((a,b)=>obj[b]-obj[a]).map(k=>`<div class="bar" data-tip="${esc(lab(k)+": "+money(obj[k]))}"><span>${lab(k)}</span><i style="width:${Math.max(obj[k]/mx*100,1)}%"></i><span class="v">${money(obj[k])}</span></div>`).join("")}</div>`;};
+  const ppl=[];Object.keys(byRole).forEach(r=>{const g=PEOPLE.filter(x=>x.role===r);g.forEach(x=>ppl.push([x,byRole[r]/g.length]));});
+  const asst={};ppl.forEach(x=>{const k={claude:"Claude Code",codex:"Codex",cursor:"Cursor"}[x[0].asst];asst[k]=(asst[k]||0)+x[1];});
+  const own=ppl.find(x=>x[0].id===p.id);
+  const see=p.role==="admin"||p.role==="pm";
+  return `<div class="kpis"><div class="kpi"><b>${tok(fc.t)}</b><span>Tokens so far · estimate ${Math.round(fc.lo)}–${Math.round(fc.hi)}M</span></div><div class="kpi"><b>${money(fc.c)}</b><span>API-equivalent cost so far</span></div><div class="kpi"><b>${f.days} of ${f.estDays}</b><span>Working days used of the estimate</span></div><div class="kpi"><b class="${ids.some(id=>actualTok(f,id)>SB[id].est[1])?"warn":"ok"}">${ids.filter(id=>actualTok(f,id)>SB[id].est[1]).length}</b><span>Steps over their upper estimate</span></div></div>
+   <div class="card"><div class="row sp"><h3>Actual tokens against the estimate, per step</h3><div class="legend"><span><i class="lg" style="border:0;height:6px;background:color-mix(in srgb,var(--accent) 30%,var(--surface))"></i>estimate range</span><span><i style="width:10px;height:10px;border-radius:50%;background:var(--accent);display:inline-block"></i>actual</span><span><i style="width:10px;height:10px;border-radius:50%;background:var(--bad);display:inline-block"></i>over ▲</span></div></div>
+    <div class="axis"><span></span><div class="ticks"><span style="left:0">0</span><span class="t2" style="left:${pct(50)}%">50%</span><span style="left:${pct(100)}%">upper estimate</span><span class="t2" style="left:${pct(150)}%">150%</span></div><span style="text-align:right">tokens</span><span class="c2" style="text-align:right">cost</span></div>${rows}
+    <p class="muted">Every row is drawn on the same scale: percent of that step's upper estimate. Costs are tokens at API list prices; on Team seats they are not billed per step.</p></div>
+   <div class="grid3"><div class="card"><h3>Cost by role</h3>${bars(byRole,k=>ROLES[k].n)}</div><div class="card"><h3>Cost by model</h3>${bars(byModel,k=>k)}</div><div class="card"><h3>Cost by assistant</h3>${bars(asst,k=>k)}<p class="muted">Cursor reports usage only for headless runs, so its share is partial.</p></div></div>
+   <section><h2>Per person</h2>${see?`<div class="scroll"><table><thead><tr><th>Person</th><th>Role</th><th>Assistant</th><th class="num">Cost on this feature</th></tr></thead><tbody>${ppl.sort((a,b)=>b[1]-a[1]).map(x=>`<tr><td>${esc(x[0].name)}</td><td class="nw">${rchip(x[0].role,roleLabel(x[0]))}</td><td class="nw">${{claude:"Claude Code",codex:"Codex",cursor:"Cursor"}[x[0].asst]}</td><td class="num">${money(x[1])}</td></tr>`).join("")}</tbody></table></div><p class="muted">Decrypted on this machine with your key. In the repository these records are encrypted to the admin and PM keys.</p>`
+     :`<div class="lockbox">Spend per person is visible to the admin and the PM only.${own?" Your own usage on this feature: about <b>"+money(own[1])+"</b>.":""}</div>`}</section>`;
+}
+
+/* ---------- your guide ---------- */
+function pgGuide(){
+  const p=me(),r=p.role;
+  return `<div class="ph"><div><h1>Your guide</h1><p class="sub">How ${esc(roleLabel(p))} works with the hub: what to type in the assistant, what to do on this site and how to start. It opens first after the setup script finishes.</p></div><div class="row">${repoLabels(roleRepos(p))}</div></div>
+  <div class="cols3"><div class="card"><span class="k">1 · In your assistant</span><p>The LLM work happens here. Type a command; the hub checks the gate and runs the stage.</p><ul class="list">${ROLE_CMDS[r].map(c=>`<li>${cmdBox(hubCmd(c[0],c[1]))}<span class="muted">${esc(c[2])}</span></li>`).join("")}</ul></div>
+   <div class="card"><span class="k">2 · On this site</span><p>Everything that needs no LLM: seeing where things are and recording decisions.</p><ul>${ROLE_SITE[r].map(x=>`<li>${esc(x)}</li>`).join("")}</ul><div><button type="button" class="btn pri" data-page="home">Open your home page</button></div></div>
+   <div class="card"><span class="k">3 · Start next time</span><p>Open the repository in your assistant and run:</p>${cmdBox(hubCmd("start",""))}<p>Or from a terminal in <code>product-specs</code>:</p>${cmdBox("node hub/cli.js serve")}<p class="muted">The site opens at <code>http://127.0.0.1:4173</code>. It syncs with GitLab every few minutes and when you press Sync.</p></div></div>
+  <div class="grid2"><div class="card"><h3>What you may change</h3><div class="chips">${ROLE_PATHS[r].map(x=>`<code>${esc(x)}</code>`).join("")}</div><p class="muted">Anything else is refused by the <code>hub-guard</code> job when your merge request tries to merge. You can read everything.</p></div>
+   <div class="card"><h3>How a save works</h3><ol><li>You save on the site, or the assistant commits a stage result.</li><li>The hub pushes a branch and opens a merge request that merges itself when the pipeline passes.</li><li>Everyone else sees the change after their next sync.</li></ol></div></div>
+  <div class="card"><h3>Words used on this site</h3><dl class="gloss"><dt>Step</dt><dd>One of the 20 steps of the flow. Each step belongs to one role. The fix box is the return path from verify, not a step.</dd><dt>Engine stage, hub step</dt><dd>An engine stage is run by the engine in your assistant. A hub step is run or recorded by the hub itself; some hub steps need no LLM at all.</dd><dt>Gate, sign-off</dt><dd>A gate is the condition for moving on. A sign-off is the recorded approval of the role that owns the gate.</dd><dt>Route</dt><dd>Quick, standard or full. Smaller features skip steps.</dd><dt>hub-guard</dt><dd>The CI job that refuses a change outside the paths of your role.</dd><dt>Sync</dt><dd>Pulling <code>main</code> and <code>hub-state</code>. The site does it every few minutes and when you press Sync.</dd><dt>The i button</dt><dd>Next to every command. It shows how to write the command, the prompt it passes and a sample of its output.</dd></dl></div>`;
+}
+
+/* ---------- admin: people ---------- */
+function adminNote(){return me().role==="admin"?"":`<p class="note warn">Only the admin changes people and settings. As ${esc(ROLES[me().role].n)} you can read everything here.</p>`;}
+function pgPeople(){
+  const adm=me().role==="admin";
+  return `<div class="ph"><div><h1>People and roles</h1><p class="sub">Stored in <code>.hub/roles.yaml</code>. Saving opens a merge request only the admin role can pass.</p></div><button type="button" class="btn pri" data-act="apform"${adm?"":" disabled"}>Add a person</button></div>${adminNote()}
+  ${st.addForm&&adm?`<div class="card"><h3>New person</h3><div class="form"><label class="fld"><span>GitLab username</span><input type="text" id="ap-user" placeholder="name.s" autocomplete="off"></label><label class="fld"><span>Name</span><input type="text" id="ap-name" placeholder="Name S." autocomplete="off"></label>
+    <label class="fld"><span>Role</span><select id="ap-role">${Object.keys(ROLES).map(r=>`<option value="${r}"${r==="dev"?" selected":""}>${ROLES[r].n}</option>`).join("")}</select></label><label class="fld"><span>Team, for engineering</span><select id="ap-team">${Object.keys(TEAMS).map(t=>`<option value="${t}">${TEAMS[t]}</option>`).join("")}</select></label>
+    <label class="fld"><span>Assistant</span><select id="ap-asst">${Object.keys(st.cfg.assts).filter(k=>st.cfg.assts[k]).map(k=>`<option value="${k}">${{claude:"Claude Code",codex:"Codex",cursor:"Cursor"}[k]}</option>`).join("")}</select></label><label class="fld"><span>System</span><select id="ap-os"><option>macOS</option><option>Windows</option><option>Linux</option></select></label>
+    <label class="switch full"><input type="checkbox" id="ap-lead"> Team lead: may sign off the team's steps and edit its design documents</label></div>
+    <div class="row"><button type="button" class="btn pri" data-act="addperson">Save and open a merge request</button><button type="button" class="btn" data-act="apform">Cancel</button><span class="muted">Written to <code>.hub/roles.yaml</code>. Add the person to the group on GitLab yourself; the hub checks it and warns.</span></div></div>`:""}
+  <div class="scroll"><table><thead><tr><th>Person</th><th>GitLab user</th><th>Role</th><th>Assistant</th><th>System</th><th>Setup</th><th>Last sync</th><th></th></tr></thead><tbody>${PEOPLE.map(p=>`<tr><td>${esc(p.name)}</td><td class="nw"><code>${p.user}</code></td><td class="nw">${rchip(p.role,roleLabel(p))}</td><td class="nw">${{claude:"Claude Code",codex:"Codex",cursor:"Cursor"}[p.asst]}</td><td class="nw">${p.os}</td><td class="nw">${p.setup==="ok"?pill("ok","installed"):p.setup==="script"?pill("warn","script sent"):pill("mute","not set up")}</td><td class="nw muted">${p.seen}</td><td class="nw"><button type="button" class="btn sm" data-act="script" data-id="${p.id}">Setup script</button></td></tr>`).join("")}</tbody></table></div>
+  <section><h2>What each role may change</h2><div class="scroll"><table><thead><tr><th>Role</th><th>Paths in product-specs</th></tr></thead><tbody>${Object.keys(ROLE_PATHS).map(r=>`<tr><td class="nw">${rchip(r,ROLES[r].n)}</td><td><div class="chips">${ROLE_PATHS[r].map(x=>`<code>${esc(x)}</code>`).join("")}</div></td></tr>`).join("")}</tbody></table></div><p class="muted">Everyone can read everything. The rules are enforced by the <code>hub-guard</code> job on protected <code>main</code>, not by this site.</p></section>`;
+}
+
+/* ---------- admin: setup script ---------- */
+function genScript(p,os){
+  const repos=roleRepos(p).map(r=>r[0]).filter(x=>x!=="product-specs").map(x=>st.cfg.group+"/"+x);
+  const inst={claude:["claude","curl -fsSL https://claude.ai/install.sh | bash","irm https://claude.ai/install.ps1 | iex"],codex:["codex","npm install -g @openai/codex","npm install -g @openai/codex"],cursor:["agent","see https://cursor.com/cli","see https://cursor.com/cli"]}[p.asst];
+  if(os==="bash") return `#!/usr/bin/env bash
+# SDLC Hub setup for ${p.user} (${roleLabel(p)})
+# Generated 2026-10-07 by the admin. Contains no secrets. Safe to run again.
+set -euo pipefail
+
+HUB_GIT_PROVIDER="${st.cfg.gitHost}"
+HUB_GIT_HOST="https://${st.cfg.host}"
+HUB_REPO="${st.cfg.group}/${st.cfg.repo}"
+HUB_USER="${p.user}"
+HUB_ROLE="${p.role}"${p.team?`\nHUB_TEAM="${p.team}"`:""}
+HUB_TEAM_REPOS="${repos.join(" ")}"
+HUB_ASSISTANT="${p.asst}"
+HUB_RELEASE="v1.0.0"
+WORK="$HOME/work/${st.cfg.group}"
+
+need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing: $1. $2"; exit 1; }; }
+
+echo "1/6 Checking what is installed"
+need git  "Install it from https://git-scm.com/downloads"
+need node "Install Node.js 20 or newer from https://nodejs.org"
+need ${inst[0]} "Install it: ${inst[1]}"
+
+echo "2/6 Signing in to GitLab (browser or SSH key; nothing is stored in this script)"
+git ls-remote "$HUB_GIT_HOST/$HUB_REPO.git" >/dev/null
+
+echo "3/6 Cloning into $WORK"
+mkdir -p "$WORK" && cd "$WORK"
+for r in "$HUB_REPO" $HUB_TEAM_REPOS; do
+  d="$(basename "$r")"
+  [ -d "$d/.git" ] || git clone "$HUB_GIT_HOST/$r.git" "$d"
+done
+
+echo "4/6 Checking your role on main"
+cd "$WORK/${st.cfg.repo}"
+node hub/cli.js setup --user "$HUB_USER" --role "$HUB_ROLE" --expect "$HUB_RELEASE"
+
+echo "5/6 Writing the files for your role and assistant"
+node hub/cli.js setup --role-files --assistant "$HUB_ASSISTANT"
+
+echo "6/6 Health check, then the site opens on your guide"
+node hub/cli.js doctor
+node hub/cli.js serve --open /guide`;
+  return `# SDLC Hub setup for ${p.user} (${roleLabel(p)})
+# Generated 2026-10-07 by the admin. Contains no secrets. Safe to run again.
+$ErrorActionPreference = "Stop"
+
+$HubProvider  = "${st.cfg.gitHost}"
+$HubGitHost   = "https://${st.cfg.host}"
+$HubRepo      = "${st.cfg.group}/${st.cfg.repo}"
+$HubUser      = "${p.user}"
+$HubRole      = "${p.role}"${p.team?`\n$HubTeam      = "${p.team}"`:""}
+$HubTeamRepos = @(${repos.map(r=>'"'+r+'"').join(", ")})
+$HubAssistant = "${p.asst}"
+$HubRelease   = "v1.0.0"
+$Work         = Join-Path $HOME "work\\${st.cfg.group}"
+
+function Need($cmd, $hint) {
+  if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) { Write-Host "Missing: $cmd. $hint"; exit 1 }
+}
+
+Write-Host "1/6 Checking what is installed"
+Need git  "winget install Git.Git"
+Need node "winget install OpenJS.NodeJS.LTS"
+Need ${inst[0]} "Install it: ${inst[2]}"
+
+Write-Host "2/6 Signing in to GitLab (Git Credential Manager; nothing is stored in this script)"
+git ls-remote "$HubGitHost/$HubRepo.git" | Out-Null
+
+Write-Host "3/6 Cloning into $Work"
+New-Item -ItemType Directory -Force -Path $Work | Out-Null
+Set-Location $Work
+foreach ($r in @($HubRepo) + $HubTeamRepos) {
+  $d = Split-Path $r -Leaf
+  if (-not (Test-Path "$d\\.git")) { git clone "$HubGitHost/$r.git" $d }
+}
+
+Write-Host "4/6 Checking your role on main"
+Set-Location (Join-Path $Work "${st.cfg.repo}")
+node hub/cli.js setup --user $HubUser --role $HubRole --expect $HubRelease
+
+Write-Host "5/6 Writing the files for your role and assistant"
+node hub/cli.js setup --role-files --assistant $HubAssistant
+
+Write-Host "6/6 Health check, then the site opens on your guide"
+node hub/cli.js doctor
+node hub/cli.js serve --open /guide`;
+}
+function pgScript(){
+  const p=PB[st.scriptUser],os=st.scriptOs,txt=genScript(p,os),adm=me().role==="admin";
+  return `<nav class="crumb" aria-label="Breadcrumb"><button type="button" data-page="people">People and roles</button><span aria-hidden="true">›</span><span>Setup script for ${esc(p.name)}</span></nav>
+  <div class="ph"><div><h1>Setup script</h1><p class="sub">One script per person. It carries who they are and where the repositories live, and nothing secret.</p></div></div>${adminNote()}
+  <div class="row"><label class="fld"><span>Person</span><select id="sc-user"${adm?"":" disabled"}>${PEOPLE.map(x=>`<option value="${x.id}"${x.id===p.id?" selected":""}>${esc(x.name)} · ${esc(roleLabel(x))}</option>`).join("")}</select></label>
+   <div class="fld"><span>System</span><div class="fpick"><button type="button" class="chipbtn" data-os="bash" aria-pressed="${os==="bash"}">macOS and Linux · bash</button><button type="button" class="chipbtn" data-os="ps" aria-pressed="${os==="ps"}">Windows · PowerShell</button></div></div></div>
+  <div class="grid2"><div class="card"><div class="row sp"><span class="mono"><b>setup-${p.user}.${os==="bash"?"sh":"ps1"}</b></span><span class="row"><button type="button" class="btn sm pri" data-act="dlscript">Download</button><button type="button" class="copy" data-copy="${esc(txt)}">copy script</button></span></div><pre>${esc(txt)}</pre><p class="muted">Download saves <code>setup-${p.user}.${os==="bash"?"sh":"ps1"}</code>. In this prototype it arrives inside a zip, because the preview cannot save script files; the real site saves the script itself.</p></div>
+   <div style="display:flex;flex-direction:column;gap:16px"><div class="card"><h3>What this script carries</h3><div class="kv"><span class="k">Git host</span><span><code>${st.cfg.host}</code> · ${H().n}</span><span class="k">Hub repository</span><span><code>${st.cfg.group}/${st.cfg.repo}</code></span><span class="k">Person</span><span><code>${p.user}</code> · ${esc(roleLabel(p))}</span><span class="k">Repositories</span><span class="row">${roleRepos(p).map(r=>`<span class="rl">${r[0]}</span>`).join("")}</span><span class="k">Assistant</span><span>${{claude:"Claude Code",codex:"Codex",cursor:"Cursor"}[p.asst]}</span><span class="k">Hub release</span><span><code>v1.0.0</code></span><span class="k">Work folder</span><span><code>~/work/${esc(st.cfg.group)}</code></span><span class="k">Secrets</span><span>none: no token, key or password</span></div></div>
+   <div class="card"><h3>What it does on their machine</h3><ol><li>Checks git, Node 20 or newer and the assistant, and says how to install what is missing.</li><li>Signs in to GitLab. The credential stays in the system keychain.</li><li>Clones the repositories of the role.</li><li>Confirms on <code>main</code> that <code>${p.user}</code> really has the role <code>${p.role}</code>. If not, it stops.</li><li>Writes the path rules, the MCP entry and the engine for the assistant.</li><li>Runs the health check and opens Your guide.</li></ol><div><button type="button" class="btn sim" data-act="viewas" data-id="${p.id}">Prototype: see the guide as ${esc(p.name)}</button></div></div></div></div>`;
+}
+
+/* ---------- admin: settings ---------- */
+function pgSettings(){
+  const adm=me().role==="admin",dis=adm?"":" disabled";
+  const checks=hostChecks(),hk=hostKind();
+  return `<div class="ph"><div><h1>Settings</h1><p class="sub">Stored in <code>.hub/config.yaml</code>.</p></div></div>${adminNote()}
+  <div class="grid2"><div class="card"><h3>Project</h3><div class="kv"><span class="k">Name</span><span>${esc(st.cfg.proj)}</span><span class="k">Specifications</span><span><code>${esc(st.cfg.group+"/"+st.cfg.repo)}</code></span><span class="k">Issue tracker</span><span>Jira · project key <code>${esc(st.cfg.key)}</code> · new bugs are not copied</span></div>
+    <div class="row sp"><span class="k">Team repositories</span><button type="button" class="btn sm" data-act="addteam"${dis}>Add a team</button></div>
+    <div class="scroll"><table><thead><tr><th>Team</th><th>Repository</th><th>Kind</th><th>hub-report job</th></tr></thead><tbody>${[["backend","Backend / API","ok"],["web","Web","ok"],["android","Android","ok"],["ios","iOS","wait"]].map(t=>`<tr><td class="nw">${TEAMS[t[0]]}</td><td class="nw"><code>${esc(TEAMREPO[t[0]])}</code></td><td class="nw">${t[1]}</td><td class="nw">${t[2]==="ok"?pill("ok","merged"):pill("warn","waits for the lead")}</td></tr>`).join("")}</tbody></table></div>
+    <p class="muted">Backend publishes the API contract; the other teams wait for it on complex features. Set at the first install. A team added here gets the same job through a merge request in its repository.</p></div>
+   <div class="card"><h3>Hub version</h3><div class="kv"><span class="k">Installed</span><span><code>v1.0.0</code> in <code>${esc(st.cfg.repo)}/hub/</code></span><span class="k">Available</span><span><code>v1.0.1</code> ${pill("info","upgrade ready")}</span></div><p>An upgrade arrives as a merge request that replaces <code>hub/</code> and updates the files of the assistants. Everyone gets it with the next sync; older sites turn read only until then.</p><div class="row"><button type="button" class="btn" data-link="https://${esc(st.cfg.host)}/${esc(st.cfg.group)}/${esc(st.cfg.repo)}/-/merge_requests/221"${dis}>Open the upgrade merge request ↗</button></div>
+    <h3>Left from the first install</h3><ul class="gates">${[["iOS lead merges the hub-report merge request in ios-app",0]].concat(checks.filter(c=>!c[1])).map(c=>`<li>${pill("warn","to do")}<span>${esc(c[0])}</span></li>`).join("")}</ul></div></div>
+  <div class="grid2"><div class="card"><h3>Engine</h3><p>Stages are run by the engine behind an adapter. Changing the engine changes one line and one adapter file.</p><div class="kv"><span class="k">Engine</span><span><select id="set-engine"${dis}><option value="sdd"${st.cfg.engine==="sdd"?" selected":""}>genkovich/sdd · 2.3.x (default)</option><option value="custom"${st.cfg.engine==="custom"?" selected":""}>custom adapter</option></select></span><span class="k">Adapter</span><span><code>.hub/engines/${st.cfg.engine==="sdd"?"sdd":"custom"}.yaml</code></span><span class="k">Calls</span><span><code>${esc(engCmd("{stage}","{slug}"))}</code></span></div>
+    <details class="more"><summary>Step to stage mapping</summary><div><div class="scroll"><table><thead><tr><th>Hub step</th><th>Engine stage</th></tr></thead><tbody>${STEPS.concat([FIX]).map(s=>`<tr><td class="nw">${esc(s.label)}</td><td class="nw">${s.eng?"<code>"+s.eng+"</code>":'<span class="muted">hub step, no engine stage</span>'}</td></tr>`).join("")}</tbody></table></div></div></details></div>
+   <div class="card"><h3>Assistants</h3><p>People choose from the assistants allowed here. The same files drive all three.</p><div class="checks">${[["claude","Claude Code"],["codex","Codex"],["cursor","Cursor"]].map(a=>`<label><input type="checkbox" data-asst="${a[0]}"${st.cfg.assts[a[0]]?" checked":""}${a[0]==="claude"?" disabled":dis}> ${a[1]}</label>`).join("")}</div>
+    <h3>Headless runs</h3><label class="switch"><input type="checkbox" id="set-headless"${st.headless?" checked":""}${dis}> Allow "Run from the site" and "Validate now"</label><p class="muted">Off by default. When on, the local server starts the assistant under the person's own seat, read-only for validation, with a turn limit.</p></div></div>
+  <div class="grid2"><div class="card"><h3>Links</h3><div class="form"><label class="fld full"><span>Jira project</span><input type="url" id="set-jira" value="${esc(st.cfg.jira)}"${dis}></label><label class="fld full"><span>Confluence space</span><input type="url" id="set-conf" value="${esc(st.cfg.conf)}"${dis}></label><label class="fld full"><span>Figma project</span><input type="url" id="set-figma" value="${esc(st.cfg.figma)}"${dis}></label></div><div><button type="button" class="btn" data-act="savelinks"${dis}>Save links</button></div><p class="muted">The hub only opens these. The assistant writes to them through its own MCP connections.</p></div>
+   <div class="card"><h3>${H().n} enforcement</h3><div class="kv"><span class="k">Git host</span><span><code>${esc(st.cfg.host)}</code> · ${esc(hk.ver)} · ${esc(hk.tier)}</span><span class="k">${H().ns}</span><span><code>${esc(st.cfg.group)}</code></span></div><ul class="gates">${checks.map(c=>`<li>${pill(c[1]?"ok":"warn",c[1]?"ok":"to do")}<span>${esc(c[0])}</span></li>`).join("")}</ul><p class="muted">${hostNote()} The host is chosen once, at the <a href="https://claude.ai/artifact/CRooJPqe8cPfLMk1m7z3FA" target="_blank" rel="noopener">first install</a>.</p><div class="row"><span class="k">Prototype</span><button type="button" class="btn sim sm" data-act="host" data-id="gitlab" aria-pressed="${st.cfg.gitHost==="gitlab"}">Show as Git&#76;ab</button><button type="button" class="btn sim sm" data-act="host" data-id="github" aria-pressed="${st.cfg.gitHost==="github"}">Show as GitHub</button></div></div></div>
+  <div class="card"><h3>Price table, per million tokens</h3><div class="scroll"><table><thead><tr><th>Model</th><th class="num">Input</th><th class="num">Output</th><th class="num">Cache read</th><th class="num">Blended rate the hub uses</th></tr></thead><tbody><tr><td>opus</td><td class="num">$4</td><td class="num">$20</td><td class="num">$0.20</td><td class="num">$0.90</td></tr><tr><td>sonnet</td><td class="num">$2</td><td class="num">$10</td><td class="num">$0.20</td><td class="num">$0.54</td></tr><tr><td>haiku</td><td class="num">$1</td><td class="num">$5</td><td class="num">$0.10</td><td class="num">$0.27</td></tr></tbody></table></div><p class="muted">The blended rate assumes 90% cached re-reads, 8% new input and 2% output. The admin changes prices in <code>.hub/config.yaml</code> when the list prices change.</p></div>`;
+}
+
+/* ---------- git host: what it must enforce ---------- */
+function hostKind(){
+  const c=st.cfg;
+  if(c.gitHost==="gitlab") return c.host==="gitlab.com"?{k:"saas",ver:"GitLab.com",tier:"Free"}:{k:"self",ver:"GitLab 19.3, self-managed",tier:"Free"};
+  return c.host==="github.com"?{k:"saas",ver:"GitHub.com",tier:"Team"}:{k:"self",ver:"GitHub Enterprise Server 3.19",tier:"Enterprise"};
+}
+/* What the host must enforce. 1 = init applied it, 0 = someone does it by hand. */
+function hostChecks(){
+  const c=st.cfg,self=hostKind().k==="self";
+  return (c.gitHost==="gitlab"?[
+    ["Branch main is protected: nobody pushes, every change is a merge request",1],
+    ["Merge check \"Pipelines must succeed\" is on",1],
+    ["CI/CD configuration file points to ci/product-specs.yml@"+c.group+"/hub-ci",1],
+    ["Merge requests may merge by themselves when the pipeline succeeds",1],
+    ["Branch hub-state exists and accepts pushes from Developers",1],
+    ["Project access token for hub-report is stored as the masked group variable HUB_STATE_TOKEN",1],
+    self?["Pre-receive server hook (optional, needs access to the GitLab server)",0]:null
+  ]:[
+    ["Ruleset on main: pull requests only, nobody bypasses",1],
+    ["Required status check hub-guard",1],
+    ["hub-guard runs on pull_request_target, so its definition always comes from the default branch",1],
+    ["Auto-merge is allowed, so a pull request merges by itself when the checks pass",1],
+    ["Branch hub-state exists and accepts pushes from members with write access",1],
+    ["Secret HUB_STATE_TOKEN for hub-report: a fine-grained token someone creates by hand",0],
+    self?["Pre-receive hook (optional, needs a site administrator)",0]:null
+  ]).filter(Boolean);
+}
+function hostNote(){return st.cfg.gitHost==="gitlab"?"Code Owners, required approvals and push rules need Premium, so the guard job and the hub's own sign-offs replace them.":"Private repositories need GitHub Team or higher for rulesets and required checks. On GitHub Free the guard can only warn.";}
+
+/* ---------- render ---------- */
+const PAGES={home:pgHome,features:pgFeatures,feature:pgFeature,guide:pgGuide,people:pgPeople,script:pgScript,settings:pgSettings};
+/* Rendering replaces the markup, so remember which control had the focus and give it back. */
+function fkey(el){
+  if(!el||el===document.body||!el.getAttribute) return null;
+  const root=el.closest("#dlg,#sheet,#nav,#main,.top"),pre=root?(root.id?"#"+root.id:".top")+" ":"";
+  if(el.id) return "#"+el.id;
+  const A=["data-ftab","data-fview","data-ffilter","data-step","data-task","data-doc","data-docopen","data-team","data-os","data-bug","data-info","data-page","data-go","data-act"];
+  for(const a of A){if(el.hasAttribute(a)){let q="["+a+'="'+el.getAttribute(a).replace(/["\\]/g,"\\$&")+'"]';if(a==="data-act"&&el.hasAttribute("data-id"))q+='[data-id="'+el.getAttribute("data-id")+'"]';return pre+q;}}
+  return null;
+}
+let focusTop=false;
+function render(){
+  const key=fkey(document.activeElement);
+  syncTI();
+  const allowed=Object.keys(st.cfg.assts).filter(k=>st.cfg.assts[k]);
+  $("#asst").querySelectorAll("option").forEach(o=>{o.disabled=!st.cfg.assts[o.value];});
+  if(!st.cfg.assts[st.asst]){st.asst=allowed[0]||"claude";$("#asst").value=st.asst;}
+  renderNav();
+  $("#main").innerHTML=ht(PAGES[st.page]());
+  renderSheet();
+  renderInfo();
+  const over=st.info!=null?$("#dlg"):st.task!=null?$("#sheet"):null;
+  $(".app").inert=!!over; $("#sheet").inert=st.info!=null;
+  let n=null;
+  if(focusTop&&!over){n=$("#main h1");if(n)n.setAttribute("tabindex","-1");}
+  else if(key){try{n=document.querySelector(key);}catch(e){n=null;}}
+  if(over&&(!n||!over.contains(n)))n=over.querySelector("#dlg-x,#sheet-x");
+  if(n&&n.focus&&!n.disabled)n.focus({preventScroll:true});
+  focusTop=false;
+  document.querySelectorAll(".mapwrap").forEach(w=>{const c=w.querySelector(".node rect.sel,.node.st-running,.node.st-signoff,.node.st-blocked,.node.st-ready");if(c&&w.scrollWidth>w.clientWidth){const r=c.getBoundingClientRect(),b=w.getBoundingClientRect();w.scrollLeft+=r.left-b.left-b.width/2+r.width/2;}});
+}
+function go(page,opts){st.task=null;st.info=null;if(page!==st.page||(opts&&opts.feat))focusTop=true;st.page=page;Object.assign(st,opts||{});render();window.scrollTo(0,0);}
+
+/* ---------- command help: what a command does, how to write it, its prompt and a sample of its output ---------- */
+function parseCmd(text){
+  let m=text.match(/^(\/hub:|\$hub-|\/hub-)([a-z]+)(?: (.*))?$/),key=null,rest="";
+  if(m){key=m[2];rest=m[3]||"";}else if((m=text.match(/^node hub\/cli\.js ([a-z]+)/))){key=m[1];}
+  if(!key||!CMDS[key]) return null;
+  const tok=rest.split(" ").filter(Boolean),slug=tok.find(x=>FB[x])||null,stage=key==="run"?(tok[0]||null):null;
+  return {key,rest,slug,f:slug?FB[slug]:null,stage,p:me(),text};
+}
+function stageStep(stage){return stage==="fix"?FIX:STEPS.find(s=>s.label===stage||s.eng===stage||s.id===stage||s.id===stage.replace(/-/g,""))||null;}
+function pickFeat(c){return c.f||FEATS.find(f=>{const b=ball(f);return b&&b.role===c.p.role;})||FB[SAMPLE];}
+function stepPrompt(s,f){
+  if(!s||s.noLLM) return "";
+  return (s.eng?engCmd(s.eng,f.slug)+"\n\n":"")+(s.hint?s.hint+"\n\n":"")+"Feature: "+f.title+" ("+f.slug+"). Jira: "+f.jira+".";
+}
+function stepRun(s,f,c,rerun){
+  const i=FLOW.indexOf(s.id),cur=curStep(f),at=cur?FLOW.indexOf(cur)+1:20,again=rerun&&s.id!==cur&&s.id!=="fix",nx=i>=0?FLOW.slice(i+1).find(x=>f.st[x]!=="skipped"):null,mine=c.p.role===s.role;
+  const head=s.id==="fix"?f.slug+": fix, the return path from verify ("+ROLES[s.role].n+").":again?"Stage: step "+(i+1)+" "+s.label+" ("+ROLES[s.role].n+"), run again. "+f.slug+" itself is at step "+at+".":f.slug+" is at step "+(i+1)+" of 20: "+s.label+" ("+ROLES[s.role].n+").";
+  if(!mine) return head+"\nYou are "+c.p.user+" ("+ROLES[c.p.role].n+"). This step is not yours.\nNothing was run.";
+  return [head,"You are "+c.p.user+" ("+ROLES[c.p.role].n+"). This step is yours ✓",s.id==="fix"?"Open bugs on your team: found ✓":"Gate before it: passed ✓",
+    s.eng?"→ "+engCmd(s.eng,f.slug):"→ hub step, no engine stage","  … the stage runs here, in your assistant …",
+    "Wrote: "+s.files.join(", "),"Merge request !216 passed hub-guard and merged.",
+    s.id==="fix"?"Next: the bug goes to retest and QA checks it on staging.":again?"The feature stays at step "+at+". Documents that depend on "+s.label+" are marked as needing validation.":nx?"Next: step "+(FLOW.indexOf(nx)+1)+" "+SB[nx].label+" ("+ROLES[SB[nx].role].n+")"+(s.gate&&s.gate[0]!=="auto"?", after the sign-off of "+ROLES[s.gate[0]].n:"")+".":"The feature is released."].join("\n");
+}
+const SAMPLE="tasks-issues";
+const CMDS={
+ start:{t:"Start your work session",what:"Starts the local site if it is not running, syncs both branches and lists what is waiting for you.",syn:"start",args:[],
+  ex:()=>[["start",""]],
+  out:c=>["SDLC Hub 1.0.0 · Marketplace · "+c.p.user+" ("+ROLES[c.p.role].n+")","Synced main and hub-state.","Site: http://127.0.0.1:4173","","Waiting for you:"].concat(actionsFor(c.p.id).map((a,i)=>"  "+(i+1)+". "+(a.f?a.f+" · ":"")+a.title),["","Continue with: "+hubCmd("next","<slug>")]).join("\n"),
+  then:"Nothing changes in the repository. The site opens on Home."},
+ status:{t:"See where every feature is",what:"Prints the current step of every feature, or of one feature, and what it waits on. It reads files and makes no decisions.",syn:"status [<slug>]",args:[["<slug>","Optional. One feature instead of all."]],
+  ex:c=>[["status",""],["status",c.slug||SAMPLE]],
+  out:c=>c.f?[c.f.slug+" · "+c.f.title,"Step:       "+(curStep(c.f)?(FLOW.indexOf(curStep(c.f))+1)+" of 20, "+SB[curStep(c.f)].label+" ("+ROLES[ball(c.f).role].n+")":"released"),"Progress:   "+progress(c.f)+"%","Waiting on: "+(c.f.wait||"nothing"),"Tokens:     "+tok(featCost(c.f).t)+", about "+money(featCost(c.f).c)].join("\n"):["Feature              Step            Waiting on"].concat(FEATS.map(f=>{const c=curStep(f);return (f.slug+"                     ").slice(0,21)+((c?(FLOW.indexOf(c)+1)+" "+SB[c].label:"released")+"                ").slice(0,16)+(f.wait||"");})).join("\n"),
+  then:"Read only. The same table is on the Features screen."},
+ next:{t:"Run your next stage of a feature",what:"Finds the feature's current step, checks that it belongs to your role and that the gate before it is passed, then runs the stage. Engine stages go to the engine; hub steps run in the hub.",syn:"next <slug>",args:[["<slug>","The feature's folder name under docs/features/."]],
+  ex:c=>[["next",pickFeat(c).slug]],
+  prompt:c=>{const f=pickFeat(c),s=SB[curStep(f)||"release"];return stepPrompt(s,f);},
+  out:c=>{const f=pickFeat(c);return stepRun(SB[curStep(f)||"release"],f,c);},
+  then:"The result is committed on a branch. A merge request opens and merges by itself when hub-guard passes. The site shows the new step after the next sync."},
+ run:{t:"Run one named stage",what:"Runs the stage you name instead of the next one. Use it to redo a stage after something changed, or for work outside the main line such as a fix.",syn:"run <stage> <slug>",args:[["<stage>","Any stage of the flow by its name on the map, for example clarify, ux-flows, screens, api, tasks, plan-tests, staging, or fix."],["<slug>","The feature."]],
+  ex:c=>[["run",(c.stage||"fix")+" "+(c.slug||SAMPLE)],["run","plan-tests "+(c.slug||SAMPLE)]],
+  prompt:c=>stepPrompt(stageStep(c.stage||"fix"),c.f||FB[SAMPLE]),
+  out:c=>{const s=stageStep(c.stage||"fix");return s?stepRun(s,c.f||FB[SAMPLE],c,true):"";},
+  then:"Same as next: a merge request that merges by itself. Documents that depend on the rerun stage are marked as needing validation."},
+ new:{t:"Start a feature",what:"Creates the feature folder and its hub files, then starts the first stage: the spec interview.",syn:"new <slug>",args:[["<slug>","A short name in lower case with hyphens. It becomes the folder name."]],
+  ex:()=>[["new","gift-cards"]],
+  prompt:()=>engCmd("specify","gift-cards")+"\n\n"+SB.specify.hint,
+  out:c=>c.p.role!=="po"?"You are "+c.p.user+" ("+ROLES[c.p.role].n+"). Only PO / Analyst starts a feature.\nNothing was created.":"Created docs/features/gift-cards/ and hub/feature.yaml\n→ "+engCmd("specify","gift-cards")+"\n  Who is the feature for, and what can they not do today?\n  > …\nWrote: spec.md, .size, .route\nMerge request !217 passed hub-guard and merged.\nNext: step 2 clarify (PO / Analyst).",
+  then:"The feature appears on the Features screen at step 1."},
+ validate:{t:"Check other documents after a spec change",what:"Reads every document that refers to the changed acceptance criteria and reports what no longer agrees. It changes nothing.",syn:"validate <slug>",args:[["<slug>","The feature whose spec changed."]],
+  ex:c=>[["validate",c.slug||SAMPLE]],
+  prompt:()=>"Read spec.md and the documents marked as needing validation. For each one, list the statements that contradict the changed acceptance criteria or no longer cover them. Do not edit any file. Return a table: document, owner, finding, stage to rerun.",
+  out:()=>{const ds=DOCS.filter(d=>d.refs.includes("AC-4")),bad=ds.filter(d=>CONFLICT[d.id]);return "Checked "+ds.length+" documents that refer to AC-4 (meaning changed).\n\n"+ds.map(d=>"  "+(d.id+"                         ").slice(0,25)+(CONFLICT[d.id]?"conflict: "+CONFLICT[d.id].split(". Proposed")[0]+".":"still agrees")).join("\n")+"\n\n"+bad.length+" of "+ds.length+" need a change. Nothing was edited. The report is on the feature's Documents screen.";},
+  then:"Each owner reruns their stage, or marks the document as still valid on the site."},
+ signoff:{t:"Record a sign-off",what:"Records that you approve a gate in your role. No LLM is involved. The hub-guard job accepts the entry only from the role that owns the gate.",syn:"signoff <gate> <slug>",args:[["<gate>","The step whose gate you approve: clarify, epic, sprint, accept and others."],["<slug>","The feature."]],
+  ex:c=>{const t=c.rest.split(" ").filter(Boolean),g=t[0]&&t[0][0]!=="<"?t[0]:"clarify";return [["signoff",g+" "+(c.slug||(g==="accept"?SAMPLE:"returns-portal"))],["signoff",(g==="accept"?"clarify returns-portal":"accept "+SAMPLE)]];},
+  out:c=>{const t=c.rest.split(" ").filter(Boolean),g=t[0]&&t[0][0]!=="<"?t[0]:"clarify",s=stageStep(g)||SB.clarify,f=c.f||(g==="accept"?FB[SAMPLE]:FB["returns-portal"]),own=g==="accept"?["po","pm"]:[s.gate&&s.gate[0]!=="auto"?s.gate[0]:s.role],mine=own.includes(c.p.role),i=FLOW.indexOf(s.id),nx=FLOW.slice(i+1).find(x=>f.st[x]!=="skipped");
+    return "Gate: "+s.label+" · "+(s.gate?s.gate[1]:"")+"\nYou are "+c.p.user+" ("+ROLES[c.p.role].n+"). "+(mine?"This gate is yours ✓\nWrote docs/features/"+f.slug+"/hub/signoffs.yaml\nMerge request !215 passed hub-guard and merged."+(nx?"\nNext: step "+(FLOW.indexOf(nx)+1)+" "+SB[nx].label+" ("+ROLES[SB[nx].role].n+").":""):"This gate belongs to "+own.map(r=>ROLES[r].n).join(" and ")+".\nNothing was recorded.");},
+  then:"The same sign-off can be given with the Sign off button on the site."},
+ bug:{t:"File a bug",what:"Creates one bug file from what you describe: title, acceptance criterion, platforms, severity and the team that owns the fix.",syn:"bug <slug>",args:[["<slug>","The feature the bug belongs to."]],
+  ex:c=>[["bug",c.slug||SAMPLE]],
+  prompt:()=>"Ask me for the title, the steps, the expected result and the actual result. Match the bug to an acceptance criterion in spec.md, propose the owning team from the files involved, and write hub/bugs/BUG-NNNN.md. Do not fix anything.",
+  out:()=>"Title?\n> Task visible after access to the order was revoked\nMatched to AC-4. Platforms: web, android, ios. Owning team: backend. Severity high?\n> yes\nWrote docs/features/tasks-issues/hub/bugs/BUG-0012.md\nMerge request !209 passed hub-guard and merged.\nThe feature goes to: fix (Backend).",
+  then:"The bug shows on the QA and tests screen. The same form is on the site and needs no LLM."},
+ verify:{t:"Verify the feature on staging",what:"Walks the acceptance criteria with you on staging, platform by platform, and records a verdict for each cell of the matrix.",syn:"verify <slug>",args:[["<slug>","The feature on staging."]],
+  ex:c=>[["verify",c.slug||SAMPLE]],
+  prompt:c=>stepPrompt(SB.verify,c.f||FB[SAMPLE]),
+  out:()=>"AC-4 · web: open an order as staff without access to it. Is the task block hidden?\n> no, the task is still visible\nRecorded AC-4 web = fail. File a bug?\n> yes\nWrote hub/bugs/BUG-0012.md (high, backend)\n…\n4 of 5 criteria pass on every platform. 1 high bug is open.",
+  then:"Verdicts and bugs show on the QA and tests screen."},
+ test:{t:"Run the autotests on your machine",what:"Runs the repository's automated tests locally and records the run, labelled as local. Only CI runs count for the gate.",syn:"test <slug>",args:[["<slug>","The feature whose tests to run."]],
+  ex:c=>[["test",c.slug||SAMPLE]],
+  out:c=>{const t=c.p.role==="dev"?c.p.team:"android",S={backend:["unit and integration tests in backend (212)","212"],web:["Playwright e2e in web-admin (31)","31"],android:["Maestro flows in android-app (14)","14"],ios:["Maestro flows in ios-app (14)","14"]}[t];return "Running "+S[0]+"…\n  "+S[1]+" passed · 0 failed\nRecorded as a local run on hub-state.\nOnly the CI run of this repository opens the autotest gate.";},
+  then:"The run shows in the test runs table with the label local."},
+ decide:{t:"Record the final QA decision",what:"Records pass to release, or return to the teams with a reason. Pass is refused while a high bug is open or CI is red.",syn:"decide <slug> pass | return \"<reason>\"",args:[["<slug>","The feature."],["pass | return","The decision. A return needs a reason."]],
+  ex:c=>[["decide",(c.slug||SAMPLE)+" pass"],["decide",(c.slug||SAMPLE)+" return \"AC-4 still fails on Android\""]],
+  out:c=>{const g=[["Every criterion passes on every platform",tiVerdicts()],["No high bug open",!tiHigh().length],["CI green in 4 repositories",tiCi().every(x=>x[1])]],bad=g.filter(x=>!x[1]).length;
+    return g.map(x=>x[0]+" "+(x[1]?"✓":"✗")).join("\n")+"\n"+(c.p.role!=="qa"?"You are "+c.p.user+" ("+ROLES[c.p.role].n+"). Only QA records this decision.\nNothing was recorded.":bad?"Pass is refused: "+bad+" gate"+(bad===1?" is":"s are")+" not met.\nTo return the feature: "+hubCmd("decide",SAMPLE+" return \"<reason>\""):"Recorded qa-final: pass\nNext: step 19 accept (PO accepts, then the PM gives the go).");},
+  then:"A return sends the feature back to fix and reopens the bugs that were waiting for retest."},
+ release:{t:"Walk the release checklist",what:"Goes through the release order with you: backend, web, then the mobile apps with a staged rollout. Every tick is recorded.",syn:"release <slug>",args:[["<slug>","The feature with a go from the PM."]],
+  ex:c=>[["release",c.slug||SAMPLE]],
+  out:()=>"Go from the PM ✓\n1. backend v2.31.0 deployed?\n> yes\n2. web admin build 885 deployed?\n> yes\n3. android 2.31.0 (4128): rollout stage?\n> 10%\nWrote hub/release.yaml",
+  then:"The Release screen shows the same checklist and can be ticked there."},
+ sync:{t:"Pull both branches",what:"Pulls main and hub-state so that the site and the assistant see what others did.",syn:"sync",args:[],
+  ex:()=>[["sync",""]],out:()=>"main: 2 new commits\nhub-state: 5 new records\nSite refreshed.",then:"The site also syncs by itself every few minutes."},
+ doctor:{t:"Check the installation",what:"Checks your git identity, your role on main, the engine, the MCP entry, the assistant and the session with the git host.",syn:"doctor",args:[],
+  ex:()=>[["doctor",""]],
+  out:c=>["git identity "+c.p.user,"role "+c.p.role+" on main","hub version matches the repository","engine genkovich/sdd 2.3.0","engine adapter is valid","MCP server hub answers","assistant version supported","hooks installed","GitLab session valid","main and hub-state reachable","port 4173 is free"].map(x=>"✓ "+x).join("\n")+"\n11 checks passed.",
+  then:"A failed check says what to do. Run the setup script again to repair the installation."},
+ serve:{t:"Start the local site",what:"Starts the local server on this machine only and opens the site. It reads the working tree and the hub-state branch.",syn:"node hub/cli.js serve [--open <page>]",raw:true,args:[["--open <page>","Optional. The page to open, for example /guide."]],
+  ex:()=>[],out:()=>"SDLC Hub 1.0.0\nServing http://127.0.0.1:4173 (this machine only)\nSynced main and hub-state.\nCtrl+C stops the server.",then:"Run it in a terminal inside product-specs. "+"The assistant command start does the same."}
+};
+function infoHTML(text){
+  const c=parseCmd(text); if(!c) return "";
+  const d=CMDS[c.key],syn=d.raw?d.syn:hubCmd.apply(null,[d.syn.split(" ")[0],d.syn.split(" ").slice(1).join(" ")]);
+  const ex=d.ex(c).map(e=>hubCmd(e[0],e[1])).filter((e,k,a)=>a.indexOf(e)===k),prompt=d.prompt?d.prompt(c):"",out=d.out(c);
+  const others=d.raw?"":[["claude","Claude Code"],["codex","Codex"],["cursor","Cursor"]].filter(a=>a[0]!==st.asst).map(a=>{const keep=st.asst;st.asst=a[0];const t=hubCmd(d.syn.split(" ")[0],d.syn.split(" ").slice(1).join(" "));st.asst=keep;return `${a[1]}: <code>${esc(t)}</code>`;}).join(" · ");
+  return `<div class="sheet-top"><span class="k">Command help</span><button type="button" class="btn sm" id="dlg-x" data-act="closeinfo">Close ✕</button></div>
+  <div class="fhead"><h2 class="dlg-h" id="dlg-h">${esc(d.t)}</h2><div class="cmd"><code>${esc(text)}</code><button type="button" class="copy" data-copy="${esc(text)}">copy</button></div><p>${esc(d.what)}</p></div>
+  <div class="kv"><span class="k">Write it as</span><span><code>${esc(syn)}</code></span>${d.args.map(a=>`<span class="k">${esc(a[0])}</span><span>${esc(a[1])}</span>`).join("")}${others?`<span class="k">Elsewhere</span><span>${others}</span>`:""}</div>
+  ${ex.length?`<div class="dsec"><span class="k">Examples</span>${ex.map(e=>`<div class="cmd"><code>${esc(e)}</code><button type="button" class="copy" data-copy="${esc(e)}">copy</button></div>`).join("")}</div>`:""}
+  ${prompt?`<div class="dsec"><div class="row sp"><span class="k">Prompt the hub passes to the assistant</span><button type="button" class="copy" data-copy="${esc(prompt)}">copy prompt</button></div><pre class="wrap">${esc(prompt)}</pre></div>`:d.prompt?`<div class="dsec"><span class="k">Prompt</span><p class="muted">None. This step needs no LLM.</p></div>`:""}
+  ${out?`<div class="dsec"><span class="k">Example of the output</span><pre class="out">${esc(out)}</pre></div>`:""}
+  <div class="dsec"><span class="k">What happens next</span><p>${esc(d.then)}</p></div>`;
+}
+function renderInfo(){
+  const el=$("#dlg");
+  if(st.info==null){el.hidden=true;el.innerHTML="";return;}
+  el.innerHTML=`<div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-h">${ht(infoHTML(st.info))}</div>`;
+  el.hidden=false;
+}
+function openInfo(text,from){st.info=text;openInfo.key=fkey(from);renderInfo();$(".app").inert=true;$("#sheet").inert=true;const x=$("#dlg-x");if(x)x.focus();}
+function closeInfo(){if(st.info==null)return;st.info=null;renderInfo();$("#sheet").inert=false;$(".app").inert=st.task!=null;let f=null;try{f=openInfo.key?document.querySelector(openInfo.key):null;}catch(e){}if(f)f.focus();}
+
+/* ---------- saving a file: the viewer confirms every save ---------- */
+let DL=null;
+try{if(window.claude&&window.claude.use)window.claude.use("downloads").then(d=>{DL=d;},()=>{});}catch(e){}
+function crc32(u){let crc=-1;for(let i=0;i<u.length;i++){let c=(crc^u[i])&255;for(let k=0;k<8;k++)c=c&1?(c>>>1)^0xEDB88320:c>>>1;crc=(crc>>>8)^c;}return (~crc)>>>0;}
+/* One stored (uncompressed) file in a zip, with Unix permissions so a .sh stays executable. */
+function zipOne(name,text,mode){
+  const enc=new TextEncoder(),n=enc.encode(name),d=enc.encode(text),crc=crc32(d),date=((2026-1980)<<9)|(10<<5)|7;
+  const lh=new DataView(new ArrayBuffer(30));lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint16(12,date,true);lh.setUint32(14,crc,true);lh.setUint32(18,d.length,true);lh.setUint32(22,d.length,true);lh.setUint16(26,n.length,true);
+  const ch=new DataView(new ArrayBuffer(46));ch.setUint32(0,0x02014b50,true);ch.setUint16(4,(3<<8)|20,true);ch.setUint16(6,20,true);ch.setUint16(8,0x0800,true);ch.setUint16(14,date,true);ch.setUint32(16,crc,true);ch.setUint32(20,d.length,true);ch.setUint32(24,d.length,true);ch.setUint16(28,n.length,true);ch.setUint32(38,((0x8000|mode)<<16)>>>0,true);
+  const eo=new DataView(new ArrayBuffer(22));eo.setUint32(0,0x06054b50,true);eo.setUint16(8,1,true);eo.setUint16(10,1,true);eo.setUint32(12,46+n.length,true);eo.setUint32(16,30+n.length+d.length,true);
+  return new Blob([lh,n,d,ch,n,eo]);
+}
+function downloadScript(){
+  const p=PB[st.scriptUser],os=st.scriptOs,name="setup-"+p.user+"."+(os==="bash"?"sh":"ps1"),zip="setup-"+p.user+".zip";
+  if(!DL){toast("Saving files is not available in this view. Use copy script instead.");return;}
+  DL.save({filename:zip,data:zipOne(name,ht(genScript(p,os)),os==="bash"?0o755:0o644)}).then(()=>toast("Saved "+zip+" with "+name+" inside."),e=>{if(e&&e.code==="declined")return;toast(e&&e.code==="rate_limited"?"A save prompt is already open.":"Saving files is not available in this view. Use copy script instead.");});
+}
+
+/* ---------- events ---------- */
+$("#persona").innerHTML=PEOPLE.map(p=>`<option value="${p.id}">${esc(p.name)} · ${esc(roleLabel(p))}</option>`).join("");
+$("#persona").value=st.persona;
+$("#persona").addEventListener("change",e=>{st.persona=e.target.value;st.task=null;st.info=null;st.asst=me().asst;$("#asst").value=st.asst;st.edit=null;st.bugForm=false;render();});
+$("#asst").addEventListener("change",e=>{st.asst=e.target.value;render();});
+
+document.addEventListener("click",e=>{
+  const t=e.target;
+  const cp=t.closest("[data-copy]");
+  if(cp){const txt=cp.getAttribute("data-copy"),old=cp.textContent;const ok=()=>{cp.textContent="copied";setTimeout(()=>{cp.textContent=old;},1300);};
+    const fb=()=>{const c=(cp.closest(".cmd")||cp.closest(".card")||cp.parentNode).querySelector("code,pre");if(c){const r=document.createRange();r.selectNodeContents(c);const s=getSelection();s.removeAllRanges();s.addRange(r);cp.textContent="selected";setTimeout(()=>{cp.textContent=old;},1300);}};
+    try{navigator.clipboard.writeText(txt).then(ok,fb);}catch(err){fb();}return;}
+  const lk=t.closest("[data-link]"); if(lk){toast("Opens "+lk.getAttribute("data-link")+" in a new tab (sample link)");return;}
+  if(t.id==="dlg"){closeInfo();return;}
+  const inf=t.closest("[data-info]"); if(inf){openInfo(inf.getAttribute("data-info"),inf);return;}
+  const ff=t.closest("[data-ffilter]"); if(ff){st.ffilter=ff.getAttribute("data-ffilter");render();return;}
+  if(t.id==="sheet"){closeTask();return;}
+  const tk=t.closest("[data-task]"); if(tk){openTask(+tk.getAttribute("data-task"));return;}
+  const fv=t.closest("[data-fview]"); if(fv){st.fview=fv.getAttribute("data-fview");render();return;}
+  const pg=t.closest("[data-page]"); if(pg){go(pg.getAttribute("data-page"));return;}
+  const g=t.closest("[data-go]"); if(g){const [f,tab,step]=g.getAttribute("data-go").split("|");go("feature",{feat:f,ftab:tab,step:step||null,team:"all"});return;}
+  const ft=t.closest("[data-feat]"); if(ft){st.feat=ft.getAttribute("data-feat");st.step=null;st.team="all";st.page="feature";render();return;}
+  const tb=t.closest("[data-ftab]"); if(tb){if(t.closest("#sheet")){st.task=null;st.page="feature";window.scrollTo(0,0);}st.ftab=tb.getAttribute("data-ftab");render();return;}
+  const nd=t.closest("[data-step]"); if(nd){st.step=nd.getAttribute("data-step");render();return;}
+  const dop=t.closest("[data-docopen]"); if(dop){const x=dop.getAttribute("data-docopen"),d=DOCS.find(d=>d.id===x||d.id.endsWith(x)||x.indexOf(d.id)>=0||(x==="tasks.json"&&d.id.indexOf("tasks.json")>=0));if(d)st.doc=d.id;st.edit=null;if(t.closest("#sheet")||st.page!=="feature"){go("feature",{ftab:"docs"});}else{st.ftab="docs";render();}return;}
+  const dc=t.closest("[data-doc]"); if(dc){st.doc=dc.getAttribute("data-doc");st.edit=null;render();return;}
+  const tm=t.closest("[data-team]"); if(tm){st.team=tm.getAttribute("data-team");render();return;}
+  const os=t.closest("[data-os]"); if(os){st.scriptOs=os.getAttribute("data-os");render();return;}
+  const a=t.closest("[data-act]"); if(!a||a.disabled) return;
+  const act=a.getAttribute("data-act"),id=a.getAttribute("data-id"),f=feat(),p=me();
+  switch(act){
+   case "host": {const c=st.cfg;if(c.gitHost!==id){c.gitHost=id;c.host=id==="gitlab"?"gitlab.example.com":"github.com";}render();break;}
+   case "closetask": closeTask();break;
+   case "closeinfo": closeInfo();break;
+   case "dlscript": downloadScript();break;
+   case "sync": toast("Pulled main and hub-state. Nothing new since 2 minutes ago."); break;
+   case "signoff": {f.st[id]="done";const nx=FLOW.slice(FLOW.indexOf(id)+1).find(x=>f.st[x]!=="skipped");if(nx)f.st[nx]="ready";f.wait="";st.step=nx||id;render();saved("hub/signoffs.yaml");break;}
+   case "headless": toast("Started the assistant headless for "+SB[id].label+". In the product the result appears here when it finishes."); break;
+   case "editac": st.edit=id;render();break;
+   case "canceled": st.edit=null;render();break;
+   case "savead": {const txt=$("#ed-text").value.trim(),kind=(document.querySelector('input[name="edkind"]:checked')||{}).value;const ac=TI.acs.find(x=>x.id===id);if(txt)ac.text=txt;st.edit=null;
+     if(kind==="meaning"){DOCS.forEach(d=>{if(d.refs.includes(id))TI.stale[d.id]=true;});TI.report=null;render();toast(id+" saved as a change of meaning. "+Object.keys(TI.stale).length+" documents now need validation.");}
+     else{render();saved("spec.md (wording of "+id+")");}break;}
+   case "addac": {const n="AC-"+(TI.acs.length+1);TI.acs.push({id:n,text:"When an assignee is deactivated, their open tasks return to the author with a notification."});TI.matrix[n]={web:"todo",android:"todo",ios:"todo",backend:"todo"};["test-plan.md","contracts/openapi.yaml","backend: tasks.json"].forEach(d=>TI.stale[d]=true);TI.report=null;render();{const k=Object.keys(TI.stale).length;toast(n+" added. "+k+" document"+(k===1?"":"s")+" now need validation, and QA has a new row to verify.");}break;}
+   case "validate": case "simvalidate": TI.report=Object.keys(TI.stale).map(d=>[d,DOCS.find(x=>x.id===d).owner,CONFLICT[d]]);render();toast(act==="validate"?"Validation finished. The assistant read "+TI.report.length+" documents and changed nothing.":"Sample report shown.");break;
+   case "clearstale": delete TI.stale[id];if(!Object.keys(TI.stale).length)TI.report=null;render();saved("hub/signoffs.yaml");break;
+   case "bugform": st.bugForm=!st.bugForm;render();break;
+   case "simfix": TI.bugs.forEach(b=>{if(b.status==="open"||b.status==="fixing")b.status="retest";});TI.runs.unshift({src:"ci",repo:"android-app",what:"Maestro flows",pass:14,fail:0,when:"just now",ref:"pipeline #4128"});TI.matrix["AC-4"]={web:"pass",android:"pass",ios:"pass",backend:"pass"};TI.returned=false;render();toast("Fixes merged, staging redeployed, Android pipeline #4128 is green. Bugs are waiting for retest.");break;
+   case "qapass": TI.decision="pass";st.ftab="release";render();saved("hub/signoffs.yaml (qa-final: pass)");break;
+   case "retform": st.retForm=!st.retForm;render();break;
+   case "qareturn": {const r=($("#ret-reason")||{}).value||"";if(!r.trim()){toast("Write the reason for the return first.");break;}TI.retReason=r.trim().replace(/\.?$/,".");TI.returned=true;st.retForm=false;TI.bugs.forEach(b=>{if(b.status==="retest")b.status="open";});render();saved("hub/signoffs.yaml (qa-final: return)");break;}
+   case "nogo": TI.nogo=true;render();saved("hub/release.yaml (no-go)");break;
+   case "savefy": {const d=parseInt(($("#fy-days")||{}).value,10),j=(($("#fy-jira")||{}).value||"").trim();if(d>0)f.estDays=d;if(j)f.jira=j;render();saved("hub/feature.yaml");break;}
+   case "addteam": toast("In the product this opens a form: team name, repository and kind. The hub then opens a merge request there that adds the hub-report job.");break;
+   case "apform": st.addForm=!st.addForm;render();break;
+   case "accept": TI.accepted=true;render();saved("hub/signoffs.yaml (accept)");break;
+   case "go": TI.go=true;TI.nogo=false;render();saved("hub/release.yaml (go)");break;
+   case "deploy": {const r=TI.rel[+id];r.done=true;if(r.roll!==undefined)r.roll=10;render();saved("hub/release.yaml ("+r.k+")");break;}
+   case "roll": {const r=TI.rel[+id];r.roll=r.roll===10?50:100;render();saved("hub/release.yaml ("+r.k+" "+r.roll+"%)");break;}
+   case "script": go("script",{scriptUser:id,scriptOs:PB[id].os==="Windows"?"ps":"bash"});break;
+   case "viewas": st.persona=id;st.asst=PB[id].asst;$("#persona").value=id;$("#asst").value=st.asst;go("guide");break;
+   case "addperson": {const u=($("#ap-user").value||"").trim(),nm=($("#ap-name").value||"").trim(),role=$("#ap-role").value;if(!u||!nm){toast("Enter the username and the name.");break;}if(PEOPLE.some(x=>x.user===u)){toast(u+" is already on the list.");break;}
+     const np={id:u.replace(/[^a-z0-9]/gi,"")+PEOPLE.length,user:u,name:nm,role,asst:$("#ap-asst").value,os:$("#ap-os").value,setup:"none",seen:"never"};if(role==="dev"){np.team=$("#ap-team").value;np.lead=$("#ap-lead").checked;}
+     PEOPLE.push(np);PB[np.id]=np;$("#persona").insertAdjacentHTML("beforeend",`<option value="${np.id}">${esc(np.name)} · ${esc(roleLabel(np))}</option>`);st.addForm=false;render();saved(".hub/roles.yaml");break;}
+   case "savelinks": st.cfg.jira=$("#set-jira").value;st.cfg.conf=$("#set-conf").value;st.cfg.figma=$("#set-figma").value;saved(".hub/config.yaml");break;
+  }
+});
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.id==="set-headless"){st.headless=t.checked;render();toast(st.headless?"Headless runs are on. Run and Validate buttons are enabled for the owning role.":"Headless runs are off.");return;}
+  if(t.id==="featsel"){st.feat=t.value;st.step=null;st.team="all";render();return;}
+  if(t.id==="sc-user"){st.scriptUser=t.value;st.scriptOs=PB[t.value].os==="Windows"?"ps":"bash";render();return;}
+  if(t.hasAttribute&&t.hasAttribute("data-asst")){const k=t.getAttribute("data-asst"),users=PEOPLE.filter(x=>x.asst===k);
+    if(!t.checked&&users.length){toast(users.map(x=>x.name).join(", ")+" "+(users.length===1?"uses":"use")+" "+{codex:"Codex",cursor:"Cursor"}[k]+". Change their assistant on People and roles first.");render();return;}
+    st.cfg.assts[k]=t.checked;render();saved(".hub/config.yaml");return;}
+  if(t.id==="set-engine"){st.cfg.engine=t.value;render();saved(".hub/config.yaml");return;}
+  if(t.hasAttribute&&t.hasAttribute("data-bug")){const b=TI.bugs.find(x=>x.id===t.getAttribute("data-bug"));b.status=t.value;render();saved("hub/bugs/"+b.id+".md");}
+});
+document.addEventListener("submit",e=>{
+  if(e.target.id!=="bugform")return;e.preventDefault();
+  const title=$("#bf-title").value.trim();if(!title)return;
+  const n="BUG-00"+(12+TI.bugs.length);
+  TI.bugs.unshift({id:n,title,ac:$("#bf-ac").value,platforms:["web","android","ios"].filter(k=>$("#bf-"+k).checked),team:$("#bf-team").value,sev:$("#bf-sev").value,status:"open",by:st.persona});
+  st.bugForm=false;render();saved("hub/bugs/"+n+".md");
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&st.info!=null){closeInfo();return;}
+  if(e.key==="Escape"&&st.task!=null){closeTask();return;}
+  if((e.key==="Enter"||e.key===" ")&&e.target.closest&&e.target.closest(".fm,.fhd")){e.preventDefault();const [f,tab,step]=e.target.closest(".fm,.fhd").getAttribute("data-go").split("|");go("feature",{feat:f,ftab:tab,step:step||null,team:"all"});return;}if((e.key==="Enter"||e.key===" ")&&e.target.closest&&e.target.closest(".node")){e.preventDefault();st.step=e.target.closest(".node").getAttribute("data-step");render();}});
+const tip=$("#tip");
+document.addEventListener("mousemove",e=>{const m=e.target.closest&&e.target.closest("[data-tip]");if(!m){tip.hidden=true;return;}tip.textContent=m.getAttribute("data-tip");tip.hidden=false;const w=tip.offsetWidth;tip.style.left=Math.min(e.clientX+14,window.innerWidth-w-8)+"px";tip.style.top=(e.clientY+16)+"px";});
+if(location.hash==="#admin"){st.persona="nazar";st.asst=PB.nazar.asst;st.page="people";$("#persona").value="nazar";$("#asst").value=st.asst;}
+render();
+})();
+</script>

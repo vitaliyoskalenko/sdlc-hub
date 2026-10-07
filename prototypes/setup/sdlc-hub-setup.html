@@ -1,0 +1,452 @@
+<title>SDLC Hub Setup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Onest:wght@400;500;600&family=Unbounded:wght@500;600&display=swap">
+<style>
+/* Layout: an installer. A narrow rail lists the five screens and what was entered on each; one form at a time sits beside it. Same visual language as the hub it installs: mono for anything typed or stored. */
+:root{
+  --bg:#EDF0F3; --surface:#FFFFFF; --sunk:#E2E7EC; --ink:#17212B; --muted:#566472; --line:#CDD5DD; --wire:#8492A0; --accent:#0C6B73;
+  --ok:#1B7A4B; --warn:#9A6200; --bad:#C2352B; --on:#FFFFFF;
+  --f-display:'Unbounded','Arial Black',system-ui,sans-serif;
+  --f-body:'Onest','Segoe UI',system-ui,-apple-system,sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F141A; --surface:#171E27; --sunk:#1F2833; --ink:#E4EAF0; --muted:#94A2B1; --line:#2B3644; --wire:#6C7A8A; --accent:#56C5CE;
+    --ok:#5FD39A; --warn:#F0B95A; --bad:#FF8073; --on:#0F141A;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F141A; --surface:#171E27; --sunk:#1F2833; --ink:#E4EAF0; --muted:#94A2B1; --line:#2B3644; --wire:#6C7A8A; --accent:#56C5CE;
+  --ok:#5FD39A; --warn:#F0B95A; --bad:#FF8073; --on:#0F141A;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--f-body)}
+h1,h2,h3,p,ul,ol,pre{margin:0}
+ul,ol{padding-left:1.15em}
+button,input,select{font:inherit;color:inherit}
+code,pre,.mono{font-family:var(--f-mono);font-size:.86em}
+code{background:var(--sunk);padding:.08em .36em;border-radius:4px;overflow-wrap:anywhere}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.muted{color:var(--muted)}
+
+.app{max-width:1120px;margin-inline:auto;padding-inline:clamp(16px,2.4vw,28px);padding-block:14px 36px;display:flex;flex-direction:column;gap:16px}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 18px}
+.brand{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;min-width:0}
+.brand b{font:600 1.08rem/1.2 var(--f-display);letter-spacing:-.01em}
+.proto{font:600 .72rem/1.5 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--on);background:var(--accent);border-radius:99px;padding:1px 10px}
+.addr{display:inline-flex;align-items:center;gap:7px;font:500 .8rem/1.6 var(--f-mono);color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:1px 12px;background:var(--surface);max-width:100%;overflow-wrap:anywhere}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px;display:flex;flex-direction:column;gap:14px;min-width:0}
+h1{font:600 1.55rem/1.2 var(--f-body);text-wrap:balance}
+h2{font:600 1.25rem/1.25 var(--f-body);text-wrap:balance}
+h3{font:600 1rem/1.3 var(--f-body)}
+.k{font:500 .68rem/1.3 var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.lead{color:var(--muted);max-width:68ch}
+.row{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.sp{justify-content:space-between}
+.sec{display:flex;flex-direction:column;gap:8px;min-width:0}
+.sec+.sec{border-top:1px solid var(--line);padding-top:14px}
+
+.btn{border:1.5px solid var(--line);background:var(--surface);border-radius:9px;padding:7px 14px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover:not(:disabled){border-color:var(--ink)}
+.btn.pri{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.btn.sm{padding:3px 10px;font-size:.84rem}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted);padding-inline:8px}
+.btn.ghost:hover:not(:disabled){color:var(--ink);border-color:var(--line)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.sim{border-style:dashed;color:var(--muted)}
+a.btn{text-decoration:none;display:inline-block}
+.copy{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:1px 9px;font-size:.78rem;color:var(--muted);cursor:pointer;white-space:nowrap;flex:none}
+.copy:hover{color:var(--ink);border-color:var(--ink)}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:0 8px;border-radius:6px;font:600 .74rem/1.6 var(--f-body);white-space:nowrap;border:1.5px solid var(--pc,var(--line));color:var(--pc,var(--muted));background:color-mix(in srgb,var(--pc,var(--muted)) 10%,var(--surface))}
+.pill.ok{--pc:var(--ok)} .pill.warn{--pc:var(--warn)} .pill.bad{--pc:var(--bad)}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+
+/* start screen */
+.start{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start}
+.term{background:var(--sunk);border-radius:10px;padding:12px 14px;font:400 .86rem/1.65 var(--f-mono);overflow-wrap:anywhere;white-space:pre-wrap}
+.term .c{color:var(--muted)} .term b{font-weight:600} .term .g{color:var(--ok)}
+.cmd{display:flex;align-items:center;gap:8px;background:var(--sunk);border-radius:9px;padding:7px 8px 7px 12px;min-width:0}
+.cmd code{background:transparent;padding:0;font-size:.95rem;font-weight:600;flex:1;min-width:0}
+.how{list-style:none;padding:0;display:flex;flex-direction:column;gap:14px;counter-reset:h}
+.how>li{display:grid;grid-template-columns:1.8em minmax(0,1fr);gap:4px 10px;counter-increment:h}
+.how>li::before{content:counter(h);font:600 .82rem/1.75rem var(--f-mono);width:1.75rem;height:1.75rem;border-radius:50%;background:var(--ink);color:var(--bg);text-align:center;grid-row:1 / span 3}
+.how>li>*{grid-column:2}
+
+/* wizard */
+.wiz{display:grid;grid-template-columns:250px minmax(0,1fr);gap:18px;align-items:start}
+.rail{display:flex;flex-direction:column;gap:4px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);min-width:0}
+.st{display:grid;grid-template-columns:1.9em minmax(0,1fr);gap:0 8px;text-align:left;border:1.5px solid transparent;background:transparent;border-radius:10px;padding:8px 10px;cursor:pointer;width:100%}
+.st:hover:not(:disabled){background:var(--sunk)}
+.st:disabled{cursor:default}
+.st .n{font:600 .78rem/1.6rem var(--f-mono);width:1.6rem;height:1.6rem;border-radius:50%;border:1.5px solid var(--line);text-align:center;color:var(--muted);grid-row:1 / span 2}
+.st .t{font-weight:600}
+.st .v{font:400 .78rem/1.45 var(--f-mono);color:var(--muted);overflow-wrap:anywhere}
+.st:disabled .t{color:var(--muted);font-weight:500}
+.st.done .n{border-color:var(--ok);color:var(--ok)}
+.st[aria-current="step"]{background:var(--surface);border-color:var(--line)}
+.st[aria-current="step"] .n{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.pane{display:flex;flex-direction:column;gap:14px;min-width:0}
+.foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.foot .why{color:var(--muted);font-size:.9rem}
+
+.fld{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fld>span:first-child{font:500 .68rem/1.3 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.fld small,.hint{font-size:.86rem;color:var(--muted)}
+.hint.ok{color:var(--ok)} .hint.bad{color:var(--bad)}
+input[type=text],select{background:var(--surface);border:1.5px solid var(--line);border-radius:9px;padding:7px 10px;width:100%;min-width:0;font-family:var(--f-mono);font-size:.9rem}
+select{font-family:var(--f-body)}
+input[type=text]:focus,select:focus{border-color:var(--ink);outline:none}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+.choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.choices.one{grid-template-columns:minmax(0,1fr)}
+.choice{display:flex;flex-direction:column;gap:2px;text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:11px;padding:10px 14px;cursor:pointer;min-width:0}
+.choice:hover{border-color:var(--wire)}
+.choice[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.choice b{font-weight:600;display:flex;align-items:center;gap:8px}
+.choice b::before{content:"";width:13px;height:13px;border-radius:50%;border:1.5px solid var(--wire);flex:none}
+.choice[aria-pressed="true"] b::before{border:4px solid var(--ink)}
+.choice span{color:var(--muted);font-size:.88rem}
+.choice.static{cursor:default;border-style:dashed}
+.choice.static b::before{display:none}
+.check{display:flex;gap:10px;align-items:flex-start;border:1.5px solid var(--line);border-radius:11px;padding:9px 14px;cursor:pointer}
+.check input{margin-top:.3em;flex:none}
+.check div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.check span{color:var(--muted);font-size:.88rem}
+.signed{display:flex;flex-direction:column;gap:6px;border:1.5px solid var(--ok);border-radius:11px;padding:10px 14px;background:color-mix(in srgb,var(--ok) 7%,var(--surface))}
+.signin{display:flex;flex-direction:column;gap:8px;border:1.5px dashed var(--line);border-radius:11px;padding:12px 14px}
+details.more>summary{cursor:pointer;color:var(--muted);font-size:.88rem;list-style:none}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary::before{content:"+ ";font-family:var(--f-mono)}
+details.more[open]>summary::before{content:"\2013 "}
+details.more>div{padding-top:8px;display:flex;flex-direction:column;gap:8px}
+
+/* team repositories */
+.teams{display:flex;flex-direction:column;gap:8px}
+.trow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) 9.5em auto;gap:8px;align-items:end}
+.trow.head{align-items:start}
+.trow>label{display:flex;flex-direction:column;gap:3px;min-width:0}
+.trow .tl{display:none;font:500 .66rem/1.3 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.pre{display:flex;align-items:stretch;min-width:0}
+.pre i{font:400 .86rem/1 var(--f-mono);font-style:normal;color:var(--muted);background:var(--sunk);border:1.5px solid var(--line);border-right:0;border-radius:9px 0 0 9px;padding:0 8px;display:flex;align-items:center;max-width:45%;overflow:hidden;white-space:nowrap}
+.pre input{border-radius:0 9px 9px 0}
+.x{border:1.5px solid var(--line);background:var(--surface);border-radius:9px;width:2.35rem;height:2.35rem;cursor:pointer;color:var(--muted);font-size:1.1rem;line-height:1}
+.x:hover:not(:disabled){border-color:var(--bad);color:var(--bad)}
+.x:disabled{opacity:.35;cursor:not-allowed}
+
+/* review, install */
+.kv{display:grid;grid-template-columns:11em minmax(0,1fr) auto;gap:6px 12px;align-items:baseline}
+.kv>span:nth-child(3n+2){overflow-wrap:anywhere}
+pre{background:var(--sunk);border-radius:10px;padding:12px 14px;overflow-x:auto;line-height:1.55;white-space:pre;max-width:100%}
+.todo{list-style:none;padding:0;display:flex;flex-direction:column;gap:7px}
+.todo li{display:flex;gap:9px;align-items:baseline}
+.log{background:var(--sunk);border-radius:10px;padding:12px 14px;font:400 .85rem/1.7 var(--f-mono);display:flex;flex-direction:column;overflow-wrap:anywhere;min-height:8em}
+.log .l{display:grid;grid-template-columns:1.4em minmax(0,1fr);color:var(--muted)}
+.log .l.ok i{color:var(--ok)} .log .l.man{color:var(--warn)}
+.log i{font-style:normal;font-weight:600}
+.bar{height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .3s}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translateX(-50%);z-index:30;background:var(--ink);color:var(--bg);border-radius:10px;padding:9px 14px;font-size:.9rem;max-width:min(560px,calc(100vw - 32px))}
+
+@media (max-width:860px){
+  .start,.wiz{grid-template-columns:minmax(0,1fr)}
+  .rail{position:static;flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:4px}
+  .st{width:auto;flex:none;grid-template-columns:1.9em auto;border-color:var(--line);background:var(--surface);align-items:center}
+  .st .v{display:none}
+  .st .n{grid-row:auto}
+  .st .t{white-space:nowrap}
+}
+@media (max-width:620px){
+  .card{padding:16px}
+  .g2,.choices{grid-template-columns:minmax(0,1fr)}
+  .trow{grid-template-columns:minmax(0,1fr) auto;border:1px solid var(--line);border-radius:11px;padding:10px}
+  .trow.head{display:none}
+  .trow .c-name,.trow .c-repo,.trow .c-kind{grid-column:1}
+  .trow .tl{display:block}
+  .trow .x{grid-column:2;grid-row:1}
+  .kv{grid-template-columns:minmax(0,1fr) auto}
+  .kv>.k{grid-column:1 / -1;padding-top:6px}
+}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand"><b>SDLC Hub</b><span>Setup</span><span class="proto">Prototype · sample data</span></div>
+    <span class="addr"><i class="dot"></i>http://127.0.0.1:4173/setup</span>
+  </header>
+  <main id="main"></main>
+</div>
+<div id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const HUB_URL="https://claude.ai/artifact/LpRJVwGi6dpGA8FQj9jT4M#admin";
+const ME="nazar.t";
+const HOSTS={
+  gitlab:{n:"GitLab",ns:"Group",nsl:"group",cr:"merge request",sig:"!",cli:"glab",scope:"Scope: api"},
+  github:{n:"GitHub",ns:"Organization",nsl:"organization",cr:"pull request",sig:"#",cli:"gh",scope:"Scopes: repo and workflow"}
+};
+const KINDS=[["backend","Backend / API"],["web","Web"],["android","Android"],["ios","iOS"],["desktop","Desktop"],["other","Other"]];
+const PRESETS=[
+  ["Backend, Web, Android, iOS",[["Backend","backend","backend"],["Web","web-admin","web"],["Android","android-app","android"],["iOS","ios-app","ios"]],0],
+  ["Backend and Web",[["Backend","backend","backend"],["Web","web-admin","web"]],0],
+  ["One repository",[["Product","app","other"]],-1]
+];
+const STEPS=["Git host","Repositories","Project and tracker","Assistants and engine","Review and install"];
+
+const st={step:-1,max:0,
+  host:"gitlab",addr:{gitlab:"gitlab.example.com",github:"github.com"},signed:false,
+  ns:"shop",repoMode:"existing",repo:"product-specs",
+  teams:PRESETS[0][1].map(t=>({name:t[0],repo:t[1],kind:t[2]})),contract:0,
+  proj:"Marketplace",tracker:"jira",jira:{url:"https://jira.example.com",key:"SHOP",mirror:false},conf:"",figma:"",
+  assts:{claude:true,codex:true,cursor:true},plan:"team",advisory:false,engine:"sdd",headless:false,
+  inst:{run:false,n:0,done:false}};
+const H=()=>HOSTS[st.host];
+const addr=()=>st.addr[st.host].trim();
+const crs=n=>H().cr+(n===1?"":"s");
+function kind(){
+  if(st.host==="gitlab") return addr()==="gitlab.com"?{self:false,ver:"GitLab.com",tier:"Free"}:{self:true,ver:"GitLab 19.3, self-managed",tier:"Free"};
+  return addr()==="github.com"?{self:false,ver:"GitHub.com",tier:st.plan==="free"?"Free":"Team"}:{self:true,ver:"GitHub Enterprise Server 3.19",tier:"Enterprise"};
+}
+function toast(t){const e=$("#toast");e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{e.hidden=true;},3600);}
+const pill=(k,t)=>`<span class="pill ${k}">${esc(t)}</span>`;
+const fld=(label,bind,val,hint,ph)=>`<label class="fld"><span>${esc(label)}</span><input type="text" id="f-${bind.replace(/\./g,"-")}" data-b="${bind}" value="${esc(val)}" placeholder="${esc(ph||"")}" autocomplete="off" spellcheck="false">${hint?`<small>${hint}</small>`:""}</label>`;
+const choice=(grp,val,cur,title,sub)=>`<button type="button" class="choice" id="c-${grp}-${val}" data-set="${grp}" data-val="${val}" aria-pressed="${cur===val}"><b>${esc(title)}</b><span>${esc(sub)}</span></button>`;
+
+/* ---------- what each screen needs before Next ---------- */
+function problem(i){
+  if(i===0){if(!addr())return "Enter the "+H().n+" address";if(!st.signed)return "Sign in to continue";if(freePlan()&&!st.advisory)return "Choose how to continue on GitHub Free";}
+  if(i===1){if(!st.ns.trim())return "Enter the "+H().nsl;if(!st.repo.trim())return "Name the specifications repository";if(!st.teams.length)return "Add at least one team repository";if(st.teams.some(t=>!t.name.trim()||!t.repo.trim()))return "Every team needs a name and a repository";
+    const rs=st.teams.map(t=>t.repo.trim().toLowerCase());if(rs.includes(st.repo.trim().toLowerCase()))return "A team repository cannot be the specifications repository";if(new Set(rs).size<rs.length)return "Two rows use the same repository";}
+  if(i===2){if(!st.proj.trim())return "Enter the project name";if(st.tracker==="jira"&&(!st.jira.url.trim()||!st.jira.key.trim()))return "Jira needs an address and a project key";}
+  return "";
+}
+const freePlan=()=>st.host==="github"&&addr()==="github.com"&&st.plan==="free";
+function firstBad(){for(let k=0;k<4;k++)if(problem(k))return k;return -1;}
+function summary(i){
+  if(i===0) return st.signed?H().n+" · "+addr():"";
+  if(i===1) return st.ns+"/"+st.repo+" + "+st.teams.length+" team "+(st.teams.length===1?"repository":"repositories");
+  if(i===2) return st.proj+" · "+(st.tracker==="jira"?"Jira "+st.jira.key:"no tracker");
+  if(i===3) return Object.keys(st.assts).filter(k=>st.assts[k]).map(k=>({claude:"Claude Code",codex:"Codex",cursor:"Cursor"})[k]).join(", ");
+  return "";
+}
+
+/* ---------- start ---------- */
+function pgStart(){
+  return `<div class="start"><div class="card"><div><span class="k">First install · once per project</span><h1>Set up SDLC Hub for your project</h1></div>
+   <p class="lead">One command starts the installer. Everything after that happens on this page, in five screens. The terminal asks nothing.</p>
+   <ol class="how">
+    <li><h3>Run one command</h3><p class="muted">In a terminal, in the folder where you keep your projects.</p><div class="cmd"><code>npx sdlc-hub init</code><button type="button" class="copy" data-copy="npx sdlc-hub init">copy</button></div></li>
+    <li><h3>This page opens in your browser</h3><p class="muted">The command starts a small server on your machine and opens the setup page. It prints only this:</p><div class="term"><span class="c">$</span> <b>npx sdlc-hub init</b>
+SDLC Hub 1.0.0
+<span class="g">✓</span> Setup is open at http://127.0.0.1:4173/setup
+<span class="c">  Leave this window open. Ctrl+C stops the setup.</span></div></li>
+    <li><h3>Answer five screens here</h3><p class="muted">Git host, repositories, project and tracker, assistants, then a review. Nothing is written until you press Install on the last one.</p></li>
+   </ol>
+   <div class="row"><button type="button" class="btn pri" data-act="begin">Start setup</button><span class="muted">About five minutes</span></div></div>
+  <div class="card"><h3>Have this ready</h3><ul>
+    <li>Owner rights on the GitLab group or GitHub organization. Setup needs them once, to protect the main branch.</li>
+    <li>git and Node.js 20 or newer on your machine.</li>
+    <li>The name of the repository for specifications, and of each team's repository.</li>
+    <li>Optional: your Jira address and project key, and links to Confluence and Figma.</li></ul>
+   <div class="sec"><h3>Who you become</h3><p class="muted">The person who runs setup is the hub's admin. After it you add people, give them roles and send each one a setup script.</p></div></div></div>`;
+}
+
+/* ---------- screen 1: git host ---------- */
+function s0(){
+  const k=kind(),g=st.host==="gitlab",free=freePlan();
+  const means=g?"The Free tier has no Code Owners or approval rules. The hub-guard job does that work instead.":free?"On GitHub Free a private repository cannot protect a branch or require a check, so the guard cannot block a merge.":k.tier==="Team"?"Team has rulesets and required checks for private repositories, so the guard can block a merge.":"Rulesets and required checks are available. A pre-receive hook is possible too.";
+  const run=g?(k.self?"1 runner is online":"Shared runners are on"):"Actions are enabled";
+  return `<div><span class="k">Screen 1 of 5</span><h2>Where does your code live?</h2></div>
+  <div class="choices">${choice("host","gitlab",st.host,"GitLab","GitLab.com or your own server")}${choice("host","github",st.host,"GitHub","GitHub.com or Enterprise Server")}</div>
+  ${fld(H().n+" address","addr."+st.host,st.addr[st.host],g?"gitlab.com, or the address of your own server":"github.com, or the address of your Enterprise Server")}
+  <div class="sec"><h3>Sign in</h3>${st.signed?`<div class="signed"><div class="row sp"><span><b>Signed in as ${ME}</b></span><button type="button" class="btn sm" data-act="signout">Sign out</button></div><div class="row">${pill("ok",k.ver)}${pill(free?"warn":"ok",(g?"Tier ":"Plan ")+k.tier)}${pill("ok",run)}</div><p class="muted">${esc(means)} Setup also checked that CI can run: without it no change could ever merge.</p>
+    ${free?`<div class="choices">${`<button type="button" class="choice" id="c-adv-1" data-act="advisory" aria-pressed="${st.advisory}"><b>Continue in advisory mode</b><span>The guard reports a change outside a role but cannot stop it</span></button>`}<div class="choice static"><b>Or stop here</b><span>Move the organization to GitHub Team, then run setup again</span></div></div>`:""}
+    ${st.host==="github"&&addr()==="github.com"?`<div class="row"><span class="k">Prototype</span><button type="button" class="btn sm sim" id="p-plan" data-act="plan">${free?"Show the Team plan":"Show the Free plan"}</button></div>`:""}</div>`
+   :`<div class="signin"><p>Setup changes repository settings once, so it needs the session of an Owner. The session stays in your system keychain. It is never written to the repository or to anyone's setup script.</p><div class="row"><button type="button" class="btn pri" data-act="signin"${addr()?"":" disabled"}>Sign in with ${H().n}</button><span class="muted">Opens ${esc(addr()||"the host")} in a new tab</span></div>
+     <details class="more"><summary>Other ways to sign in</summary><div><div class="row"><button type="button" class="btn sm" data-act="signin">Use my ${H().cli} session</button><span class="muted">If the ${H().cli} tool is already signed in</span></div><div class="row"><button type="button" class="btn sm" data-act="signin">Paste an access token</button><span class="muted">${H().scope}. Kept in the keychain</span></div></div></details></div>`}</div>`;
+}
+
+/* ---------- screen 2: repositories ---------- */
+function s1(){
+  const ns=st.ns.trim()||H().nsl,ex=st.repoMode==="existing",rp=st.repo.trim();
+  const rhint=!rp?"":ex?(rp==="product-specs"?`<span class="hint ok">Found ${esc(ns)}/product-specs with 5 features in docs/. Setup adds .hub/ and hub/ next to them.</span>`:`<span class="hint ok">Found ${esc(ns)}/${esc(rp)}. Setup adds .hub/, hub/ and docs/.</span>`):`<span class="hint">${esc(ns)}/${esc(rp)} will be created as a private repository.</span>`;
+  return `<div><span class="k">Screen 2 of 5</span><h2>Which repositories does the hub work with?</h2></div>
+  <div class="sec"><div class="g2">${fld(H().ns,"ns",st.ns,st.ns.trim()?`<span class="hint ok">You are an Owner of ${esc(st.ns.trim())}</span>`:"")}<div></div></div></div>
+  <div class="sec"><h3>Repository for specifications and the hub</h3><p class="muted">The hub is copied into this repository, so one clone has the documents, the rules and the site.</p>
+   <div class="choices">${choice("repoMode","existing",st.repoMode,"Use an existing repository","Its files stay as they are")}${choice("repoMode","new",st.repoMode,"Create a new repository","Private, with an empty docs/ folder")}</div>
+   <label class="fld"><span>Repository name</span><div class="pre"><i>${esc(ns)}/</i><input type="text" id="f-repo" data-b="repo" value="${esc(st.repo)}" autocomplete="off" spellcheck="false"></div>${rhint}</label></div>
+  <div class="sec"><div class="row sp"><h3>Team repositories</h3><span class="muted">${st.teams.length} added</span></div><p class="muted">One row per team that writes code. Add as many as you have. The hub reads tasks, ${crs(2)}, CI results and test runs from each.</p>
+   <div class="teams"><div class="trow head"><span class="k">Team</span><span class="k">Repository</span><span class="k">Kind</span><span></span></div>
+   ${st.teams.map((t,i)=>`<div class="trow"><label class="c-name"><span class="tl">Team</span><input type="text" id="f-t${i}-name" data-b="teams.${i}.name" value="${esc(t.name)}" placeholder="Team name" autocomplete="off"></label><label class="c-repo"><span class="tl">Repository</span><span class="pre"><i>${esc(ns)}/</i><input type="text" id="f-t${i}-repo" data-b="teams.${i}.repo" value="${esc(t.repo)}" placeholder="repository" autocomplete="off" spellcheck="false"></span></label><label class="c-kind"><span class="tl">Kind</span><select id="f-t${i}-kind" data-s="teams.${i}.kind">${KINDS.map(k=>`<option value="${k[0]}"${k[0]===t.kind?" selected":""}>${k[1]}</option>`).join("")}</select></label><button type="button" class="x" id="x-t${i}" data-act="rmteam" data-i="${i}" aria-label="Remove ${esc(t.name||"team")}"${st.teams.length>1?"":" disabled"}>×</button></div>`).join("")}</div>
+   <div class="row"><button type="button" class="btn" data-act="addteam">+ Add a repository</button><span class="muted">or start from:</span>${PRESETS.map((p,i)=>`<button type="button" class="btn sm" id="pre-${i}" data-act="preset" data-i="${i}">${p[0]}</button>`).join("")}</div></div>
+  <div class="sec"><label class="fld"><span>Team that publishes the API contract</span><select id="f-contract" data-s="contract">${st.teams.map((t,i)=>`<option value="${i}"${st.contract===i?" selected":""}>${esc(t.name||"Team "+(i+1))}</option>`).join("")}<option value="-1"${st.contract===-1?" selected":""}>No shared contract</option></select><small>On a complex feature the other teams wait for this team's contract before they start. Choose "No shared contract" if no team depends on another.</small></label></div>`;
+}
+
+/* ---------- screen 3: project and tracker ---------- */
+function s2(){
+  const j=st.tracker==="jira";
+  return `<div><span class="k">Screen 3 of 5</span><h2>Project and issue tracker</h2></div>
+  <div class="sec"><div class="g2">${fld("Project name","proj",st.proj,"Shown at the top of the hub")}<div></div></div></div>
+  <div class="sec"><h3>Issue tracker</h3><p class="muted">The hub keeps tasks and bugs as files in the repository either way. A tracker only adds links.</p>
+   <div class="choices">${choice("tracker","none",st.tracker,"No tracker","Tasks and bugs live in the repository only")}${choice("tracker","jira",st.tracker,"Jira","Features and bugs link to Jira issues")}</div>
+   ${j?`<div class="g2">${fld("Jira address","jira.url",st.jira.url)}${fld("Project key","jira.key",st.jira.key,st.jira.key.trim()?"Issues look like "+esc(st.jira.key.trim())+"-412":"")}</div>
+   <label class="check"><input type="checkbox" id="f-mirror" data-c="jira.mirror"${st.jira.mirror?" checked":""}><div><b>Copy new bugs to Jira</b><span>One way, from the hub to Jira. The repository stays the source of truth.</span></div></label>`:`<p class="hint">Nothing to connect. The hub then shows no tracker links. You can add Jira later in Settings.</p>`}</div>
+  <div class="sec"><h3>Links <span class="muted" style="font-weight:400">· optional</span></h3><p class="muted">Shown as buttons on every feature. The hub only opens these addresses.</p><div class="g2">${fld("Confluence space","conf",st.conf,"","https://confluence.example.com/display/SHOP")}${fld("Figma project","figma",st.figma,"","https://www.figma.com/files/project/…")}</div></div>`;
+}
+
+/* ---------- screen 4: assistants and engine ---------- */
+function s3(){
+  const a=st.assts;
+  const ck=(k,t,s,dis)=>`<label class="check"><input type="checkbox" id="f-a-${k}" data-c="assts.${k}"${a[k]?" checked":""}${dis?" disabled":""}><div><b>${t}</b><span>${s}</span></div></label>`;
+  return `<div><span class="k">Screen 4 of 5</span><h2>Assistants and engine</h2></div>
+  <div class="sec"><h3>Assistants people may use</h3><p class="muted">Setup generates the same hub commands for each one. Every person picks one when you add them.</p>
+   ${ck("claude","Claude Code","Always on. Writes <code>.claude/</code> and <code>CLAUDE.md</code>",true)}${ck("codex","Codex","Writes <code>.agents/skills/</code>, <code>.codex/</code> and <code>AGENTS.md</code>")}${ck("cursor","Cursor","Writes <code>.cursor/</code>")}</div>
+  <div class="sec"><h3>Engine that runs the stages</h3><div class="choices">${choice("engine","sdd",st.engine,"genkovich/sdd","Default. Version 2.3.x is pinned")}${choice("engine","custom",st.engine,"Custom adapter","You map each hub step to your own command")}</div>
+   <p class="hint">${st.engine==="sdd"?"The hub passes every stage to the engine through <code>.hub/engines/sdd.yaml</code>, so it can be swapped later.":"Setup writes a template to <code>.hub/engines/custom.yaml</code>. You fill in one command per stage before the first feature."}</p></div>
+  <div class="sec"><h3>Starting the assistant from the site</h3><label class="check"><input type="checkbox" id="f-headless" data-c="headless"${st.headless?" checked":""}><div><b>Allow Run and Validate buttons</b><span>Off by default: people copy the prompt into their assistant. When on, runs use each person's own seat.</span></div></label></div>`;
+}
+
+/* ---------- screen 5: review and install ---------- */
+function yaml(){
+  const L=["# .hub/config.yaml","git:","  provider: "+st.host,"  host: "+addr(),"  namespace: "+st.ns.trim(),"  repo: "+st.repo.trim(),"project:","  name: "+st.proj.trim(),"teams:"];
+  st.teams.forEach((t,i)=>{L.push("  - name: "+t.name.trim(),"    repo: "+st.ns.trim()+"/"+t.repo.trim(),"    kind: "+t.kind);if(st.contract===i)L.push("    api_contract: true");});
+  L.push("tracker:","  type: "+st.tracker);
+  if(st.tracker==="jira")L.push("  url: "+st.jira.url.trim(),"  project_key: "+st.jira.key.trim(),"  mirror_bugs: "+st.jira.mirror);
+  if(st.conf.trim()||st.figma.trim()){L.push("links:");if(st.conf.trim())L.push("  confluence: "+st.conf.trim());if(st.figma.trim())L.push("  figma: "+st.figma.trim());}
+  L.push("assistants: ["+Object.keys(st.assts).filter(k=>st.assts[k]).join(", ")+"]","engine: "+st.engine,"headless:","  enabled: "+st.headless,"","# .hub/roles.yaml","people:","  - user: "+ME,"    role: admin");
+  return L.join("\n");
+}
+function plan(){
+  const g=st.host==="gitlab",ns=st.ns.trim(),rp=st.repo.trim(),n=st.teams.length,a=st.assts,k=kind();
+  const L=[];
+  if(st.repoMode==="new")L.push(["ok","created private repository "+ns+"/"+rp]);
+  L.push(["ok","copied hub v1.0.0 into "+rp+"/hub/"],
+    ["ok","wrote .hub/config.yaml, roles.yaml, flow.yaml, engines/"+st.engine+".yaml"],
+    ["ok","wrote .claude/, CLAUDE.md"+(a.codex?", .agents/skills/, .codex/, AGENTS.md":"")+(a.cursor?", .cursor/":"")]);
+  if(g)L.push(["ok","pushed the first commit to main and created branch hub-state"],
+    ["ok","created project "+ns+"/hub-ci with the jobs hub-guard, hub-validate, hub-fanout"],
+    ["ok","protected main: merge requests only"],
+    ["ok","turned on \"Pipelines must succeed\" and merge when the pipeline succeeds"],
+    ["ok","pointed the CI/CD configuration file at "+ns+"/hub-ci"],
+    ["ok","stored a project access token for hub-report as the masked group variable HUB_STATE_TOKEN"]);
+  else L.push(["ok","wrote .github/workflows/hub-guard.yml, hub-validate.yml, hub-fanout.yml"],
+    ["ok","pushed the first commit to main and created branch hub-state"],
+    freePlan()?["man","Advisory mode: GitHub Free has no ruleset for a private repository. hub-guard reports a violation but cannot block the merge"]:["ok","added ruleset hub-main: pull requests only, required check hub-guard, nobody bypasses"],
+    ["ok","allowed auto-merge"],
+    ["man","Create a fine-grained token (Contents: read and write, "+rp+" only) and save it as the organization secret HUB_STATE_TOKEN"]);
+  L.push(["man",(n===1?"The team lead merges the "+crs(1):"Each team lead merges the "+crs(1))+" that adds the hub-report job: "+st.teams.map((t,i)=>t.repo.trim()+" "+H().sig+[231,118,87,64,52,41,39,27][i%8]).join(", ")]);
+  if(k.self)L.push(["man",g?"Optional: install the pre-receive server hook. It needs access to the GitLab server":"Optional: add the pre-receive hook. It needs a site administrator"]);
+  if(st.engine==="custom")L.push(["man","Fill in .hub/engines/custom.yaml: one command per stage"]);
+  L.push(["ok","hub doctor: 11 checks passed"],["ok","the hub is running at http://127.0.0.1:4173"]);
+  return L;
+}
+function s4(){
+  const n=st.teams.length,g=st.host==="gitlab",P=plan(),auto=P.filter(x=>x[0]==="ok").length;
+  const row=(k,v,i)=>`<span class="k">${k}</span><span>${v}</span><button type="button" class="btn ghost sm" data-go="${i}">Edit</button>`;
+  return `<div><span class="k">Screen 5 of 5</span><h2>Review and install</h2></div>
+  <p class="lead">Nothing has been written yet. Check the answers, then install.</p>
+  <div class="kv">${row("Git host",esc(H().n+" · "+addr())+(st.signed?" · signed in as "+ME:" · not signed in")+(freePlan()?" · advisory mode":""),0)}
+   ${row("Specifications",`<code>${esc(st.ns.trim()+"/"+st.repo.trim())}</code>${st.repoMode==="new"?" · new":""}`,1)}
+   ${row("Team repositories",st.teams.map((t,i)=>esc(t.name.trim())+" <code>"+esc(t.repo.trim())+"</code>"+(st.contract===i?" · API contract":"")).join("<br>"),1)}
+   ${row("Project",esc(st.proj.trim()),2)}
+   ${row("Issue tracker",st.tracker==="jira"?"Jira · "+esc(st.jira.key.trim())+(st.jira.mirror?" · bugs copied":""):"None",2)}
+   ${row("Links",[st.conf.trim()&&"Confluence",st.figma.trim()&&"Figma"].filter(Boolean).join(", ")||"None",2)}
+   ${row("Assistants",esc(summary(3)),3)}
+   ${row("Engine",st.engine==="sdd"?"genkovich/sdd":"Custom adapter",3)}
+   ${row("Run from the site",st.headless?"Allowed":"Off",3)}
+   ${row("Admin",ME+" (you)",0)}</div>
+  <div class="sec"><h3>What Install does</h3><ul><li>Writes the hub and its settings into <code>${esc(st.ns.trim()+"/"+st.repo.trim())}</code> and pushes them.</li><li>Applies the ${H().n} settings that keep <code>main</code> open to ${crs(2)} only.</li><li>Opens ${n===1?"one "+crs(1)+" in the team repository":n+" "+crs(2)+", one in each team repository"}. Nothing else changes there.</li></ul>
+   <details class="more"><summary>The files it writes</summary><div><pre>${esc(yaml())}</pre></div></details></div>`;
+}
+function pgInstall(){
+  const P=plan(),n=st.inst.n,fin=st.inst.done,left=P.filter(x=>x[0]==="man");
+  return `<div class="card"><div class="row sp"><div><span class="k">${fin?"Finished":"Installing"}</span><h2>${fin?"SDLC Hub is installed in "+esc(st.ns.trim()+"/"+st.repo.trim()):"Installing SDLC Hub"}</h2></div>${fin?pill("ok","installed"):`<span class="muted" id="inst-n">${n} of ${P.length}</span>`}</div>
+   <div class="bar"><i style="width:${Math.round(n/P.length*100)}%"></i></div>
+   <div class="log" role="log" aria-live="polite">${P.slice(0,n).map(x=>`<div class="l ${x[0]}"><i>${x[0]==="ok"?"✓":"!"}</i><span>${esc(x[0]==="man"?"left for a person: "+x[1].charAt(0).toLowerCase()+x[1].slice(1):x[1])}</span></div>`).join("")}</div>
+   ${fin?`<div class="sec"><h3>Left for people</h3><p class="muted">Setup could not or should not do ${left.length===1?"this":"these"} itself.</p><ul class="todo">${left.map(x=>`<li>${pill("warn","to do")}<span>${esc(x[1])}</span></li>`).join("")}</ul></div>
+   <div class="sec"><h3>What you do next</h3><ol><li>Open the hub. You are its admin.</li><li>On People and roles, add each person with a role and a team.</li><li>Generate a setup script for each person and send it to them. It carries no secrets.</li></ol>
+    <div class="row"><a class="btn pri" href="${HUB_URL}" target="_blank" rel="noopener">Open the hub ↗</a><button type="button" class="btn" data-act="restart">Run setup again</button></div></div>`:""}</div>`;
+}
+
+/* ---------- render ---------- */
+const SCREENS=[s0,s1,s2,s3,s4];
+function render(){
+  const m=$("#main");
+  if(st.step<0){m.innerHTML=pgStart();return;}
+  if(st.inst.run){m.innerHTML=pgInstall();return;}
+  const i=st.step,fb=firstBad(),pr=i<4?problem(i):fb>=0?"Screen "+(fb+1)+" is not complete: "+problem(fb).charAt(0).toLowerCase()+problem(fb).slice(1):"";
+  m.innerHTML=`<div class="wiz"><nav class="rail" aria-label="Setup screens">${STEPS.map((s,k)=>{const lock=k>st.max||(fb>=0&&k>fb);return `<button type="button" class="st${k<st.max&&!problem(k)?" done":""}" id="rail-${k}" data-go="${k}"${k===i?' aria-current="step"':""}${lock?" disabled":""}><span class="n">${k<st.max&&!problem(k)&&k!==i?"✓":k+1}</span><span class="t">${s}</span><span class="v">${k<=st.max&&k!==4?esc(summary(k)):""}</span></button>`;}).join("")}</nav>
+   <div class="pane"><div class="card">${SCREENS[i]()}</div>
+   <div class="foot"><button type="button" class="btn" id="b-back" data-act="back">${i?"Back":"Back to start"}</button>${i<4?`<button type="button" class="btn pri" id="b-next" data-act="next"${pr?" disabled":""}>Next</button>`:`<button type="button" class="btn pri" id="b-install" data-act="install"${pr?" disabled":""}>Install</button>`}${pr?`<span class="why">${esc(pr)}</span>`:""}</div></div></div>`;
+}
+function rerenderKeepingFocus(){
+  const a=document.activeElement,id=a&&a.id,s=a&&a.selectionStart,e=a&&a.selectionEnd;
+  render();
+  if(id){const n=document.getElementById(id);if(n){n.focus({preventScroll:true});try{if(s!=null)n.setSelectionRange(s,e);}catch(err){}}}
+}
+function focusHead(){const h=document.querySelector("#main h2, #main h1");if(h){h.setAttribute("tabindex","-1");h.focus({preventScroll:true});}}
+function setPath(path,v){const p=path.split(".");let o=st;for(let k=0;k<p.length-1;k++)o=o[p[k]];o[p[p.length-1]]=v;}
+function runInstall(){
+  const P=plan(),quick=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  st.inst={run:true,n:0,done:false};render();window.scrollTo(0,0);focusHead();
+  if(quick){st.inst.n=P.length;st.inst.done=true;render();focusHead();return;}
+  const line=x=>`<div class="l ${x[0]}"><i>${x[0]==="ok"?"✓":"!"}</i><span>${esc(x[0]==="man"?"left for a person: "+x[1].charAt(0).toLowerCase()+x[1].slice(1):x[1])}</span></div>`;
+  const tick=()=>{if(!st.inst.run)return;const x=P[st.inst.n];st.inst.n++;
+    if(st.inst.n>=P.length){st.inst.n=P.length;st.inst.done=true;render();focusHead();return;}
+    const log=document.querySelector(".log"),bar=document.querySelector(".bar i"),cnt=document.querySelector("#inst-n");
+    if(log)log.insertAdjacentHTML("beforeend",line(x));if(bar)bar.style.width=Math.round(st.inst.n/P.length*100)+"%";if(cnt)cnt.textContent=st.inst.n+" of "+P.length;
+    setTimeout(tick,330);};
+  setTimeout(tick,330);
+}
+
+document.addEventListener("click",e=>{
+  const t=e.target;
+  const cp=t.closest("[data-copy]");
+  if(cp){const txt=cp.getAttribute("data-copy"),old=cp.textContent;const ok=()=>{cp.textContent="copied";setTimeout(()=>{cp.textContent=old;},1300);};
+    const fb=()=>{const c=cp.parentNode.querySelector("code");if(c){const r=document.createRange();r.selectNodeContents(c);const s=getSelection();s.removeAllRanges();s.addRange(r);}};
+    try{navigator.clipboard.writeText(txt).then(ok,fb);}catch(err){fb();}return;}
+  const set=t.closest("[data-set]");
+  if(set){const g=set.getAttribute("data-set"),v=set.getAttribute("data-val");if(g==="host"&&st.host!==v){st.signed=false;st.advisory=false;}st[g]=v;rerenderKeepingFocus();return;}
+  const go=t.closest("[data-go]");
+  if(go){if(go.disabled)return;st.step=+go.getAttribute("data-go");render();window.scrollTo(0,0);focusHead();return;}
+  const a=t.closest("[data-act]"); if(!a||a.disabled) return;
+  const i=+a.getAttribute("data-i");
+  switch(a.getAttribute("data-act")){
+    case "begin": st.step=0;render();window.scrollTo(0,0);focusHead();break;
+    case "plan": st.plan=st.plan==="free"?"team":"free";st.advisory=false;rerenderKeepingFocus();break;
+    case "advisory": st.advisory=!st.advisory;rerenderKeepingFocus();break;
+    case "signin": st.signed=true;render();{const b=document.querySelector("#b-next");if(b&&!b.disabled)b.focus();else focusHead();}toast("Signed in as "+ME+". The session is in your keychain.");break;
+    case "signout": st.signed=false;st.advisory=false;render();focusHead();break;
+    case "addteam": st.teams.push({name:"",repo:"",kind:"other"});render();{const n=document.getElementById("f-t"+(st.teams.length-1)+"-name");if(n)n.focus();}break;
+    case "rmteam": {const nm=st.teams[i].name.trim()||"The team",was=st.contract===i;st.teams.splice(i,1);if(was)st.contract=-1;else if(st.contract>i)st.contract--;render();{const b=document.querySelector("#x-t"+Math.min(i,st.teams.length-1));if(b&&!b.disabled)b.focus();else focusHead();}if(was)toast(nm+" published the API contract. It is now set to: no shared contract.");break;}
+    case "preset": {const n=st.teams.length;st.teams=PRESETS[i][1].map(x=>({name:x[0],repo:x[1],kind:x[2]}));st.contract=PRESETS[i][2];rerenderKeepingFocus();toast("Replaced "+n+" row"+(n===1?"":"s")+" with: "+PRESETS[i][0]+".");break;}
+    case "back": st.step--;render();window.scrollTo(0,0);focusHead();break;
+    case "next": if(problem(st.step))return;st.step++;st.max=Math.max(st.max,st.step);render();window.scrollTo(0,0);focusHead();break;
+    case "install": if(firstBad()>=0)return;runInstall();break;
+    case "restart": st.inst={run:false,n:0,done:false};st.step=-1;st.max=0;st.signed=false;render();window.scrollTo(0,0);break;
+  }
+});
+document.addEventListener("input",e=>{
+  const t=e.target,b=t.getAttribute&&t.getAttribute("data-b"); if(!b) return;
+  setPath(b,t.value);
+  if(b.indexOf("addr.")===0)st.signed=false;
+  rerenderKeepingFocus();
+});
+document.addEventListener("change",e=>{
+  const t=e.target; if(!t.getAttribute) return;
+  const c=t.getAttribute("data-c"),s=t.getAttribute("data-s");
+  if(c){setPath(c,t.checked);st.assts.claude=true;rerenderKeepingFocus();}
+  else if(s){setPath(s,s==="contract"?+t.value:t.value);rerenderKeepingFocus();}
+});
+render();
+})();
+</script>

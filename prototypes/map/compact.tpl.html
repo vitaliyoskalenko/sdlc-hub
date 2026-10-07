@@ -1,0 +1,1040 @@
+<title>AI-SDLC One-Screen Map</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Onest:wght@400;500;600&family=Unbounded:wght@500;600&display=swap">
+<style>
+/* Layout: a one-screen app. A slim top bar, then two panes that share the viewport height: the role-lane map on the left (rows scale to the height), a tabbed detail pane on the right with collapsible sections. */
+:root{
+  --bg:#EDF0F3; --surface:#FFFFFF; --sunk:#E2E7EC; --ink:#17212B; --muted:#566472; --line:#CDD5DD; --wire:#8492A0; --accent:#0C6B73;
+  --po:#A65F00; --pm:#6247CF; --des:#B82C78; --dev:#1C68C4; --qa:#127A52; --bug:#C2352B; --on-role:#FFFFFF;
+  --f-display:'Unbounded','Arial Black',system-ui,sans-serif;
+  --f-body:'Onest','Segoe UI',system-ui,-apple-system,sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F141A; --surface:#171E27; --sunk:#1F2833; --ink:#E4EAF0; --muted:#94A2B1; --line:#2B3644; --wire:#6C7A8A; --accent:#56C5CE;
+    --po:#F2B24C; --pm:#AC9BFF; --des:#F47DB9; --dev:#74B4FF; --qa:#55D3A0; --bug:#FF8073; --on-role:#0F141A;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F141A; --surface:#171E27; --sunk:#1F2833; --ink:#E4EAF0; --muted:#94A2B1; --line:#2B3644; --wire:#6C7A8A; --accent:#56C5CE;
+  --po:#F2B24C; --pm:#AC9BFF; --des:#F47DB9; --dev:#74B4FF; --qa:#55D3A0; --bug:#FF8073; --on-role:#0F141A;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{box-sizing:border-box;height:100%}
+body{height:100%;background:var(--bg);color:var(--ink);font:400 14.5px/1.5 var(--f-body)}
+.role-po{--rc:var(--po)} .role-pm{--rc:var(--pm)} .role-des{--rc:var(--des)} .role-dev{--rc:var(--dev)} .role-qa{--rc:var(--qa)}
+h1,h2,h3,p,ul,ol,pre,figure{margin:0}
+ul,ol{padding-left:1.15em}
+code,pre{font-family:var(--f-mono);font-size:.86em}
+code{background:var(--sunk);padding:.08em .36em;border-radius:4px;overflow-wrap:anywhere}
+a{color:var(--accent)}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.muted{color:var(--muted)}
+
+.app{height:100%;max-width:1480px;margin-inline:auto;padding-inline:clamp(16px,2vw,28px);padding-block:12px;display:flex;flex-direction:column;gap:10px}
+
+/* top bar */
+.bar{display:flex;justify-content:space-between;align-items:flex-start;gap:6px 18px}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
+h1{font:600 1.08rem/1.25 var(--f-display);letter-spacing:-.01em}
+.h1row{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+.ver{flex:none;font:700 .8rem/1.5 var(--f-body);letter-spacing:.02em;white-space:nowrap;color:var(--surface);background:var(--accent);border-radius:99px;padding:1px 10px}
+.sub{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;font-size:.86rem;color:var(--muted)}
+.sub b{color:var(--ink);font-weight:600}
+.sub .meta{display:inline-flex;flex-wrap:wrap;gap:2px 10px}
+.bar-right{flex:none;display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px 10px}
+.btn.restart{padding:3px 12px;font-size:.84rem}
+.hchips{display:inline-flex;flex-wrap:wrap;gap:6px}
+.hchip{border:1px solid color-mix(in srgb,var(--accent) 45%,var(--surface));background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:var(--ink);border-radius:99px;padding:1px 10px;font-size:.8rem;line-height:1.5;cursor:pointer;white-space:nowrap}
+.hchip:hover{border-color:var(--accent)}
+.hchip b{color:var(--accent);font-weight:600}
+.coststrip{display:flex;flex-wrap:wrap;gap:2px 14px;align-items:baseline;background:color-mix(in srgb,var(--accent) 11%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 40%,var(--surface));border-radius:9px;padding:5px 10px}
+.coststrip .cv{display:inline-flex;gap:6px;align-items:baseline;white-space:nowrap}
+.coststrip b{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.coststrip{position:relative}
+.info-btn{margin-left:auto;border:1px solid color-mix(in srgb,var(--accent) 55%,var(--surface));background:var(--surface);color:var(--accent);border-radius:99px;padding:0 9px;font-size:.76rem;font-weight:600;line-height:1.5;cursor:pointer}
+.info-btn:hover,.info-btn[aria-expanded="true"]{background:var(--accent);color:var(--surface)}
+.cost-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:4;width:min(380px,100%);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.86rem;line-height:1.45;box-shadow:0 6px 18px rgba(10,14,20,.18)}
+.coststrip .money b{color:var(--bug);font-weight:700;font-size:1.04em}
+.hchip.money b{color:var(--bug);font-weight:700}
+.coststrip .est{margin-left:auto;font:500 .66rem/1.3 var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.lang{flex:none;display:inline-flex;border:1.5px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.lang button{border:0;background:transparent;padding:4px 11px;font:500 .76rem/1.4 var(--f-mono);cursor:pointer;color:var(--muted)}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.lang button:focus-visible{outline-offset:-2px}
+
+/* stage */
+.stage{flex:1;min-height:0;display:grid;grid-template-columns:minmax(340px,.8fr) minmax(0,1.2fr);gap:16px}
+.mapcol{display:flex;flex-direction:column;gap:6px;min-height:0;min-width:0}
+.hintrow{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 12px;position:relative}
+.hr-right{display:inline-flex;align-items:center;gap:12px}
+.hint{font-size:.8rem;color:var(--muted)}
+.lanes{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+.lane-btn{border:1.5px solid var(--rc);color:var(--rc);background:color-mix(in srgb,var(--rc) 9%,var(--surface));border-radius:7px;padding:3px 2px;font-weight:600;font-size:.8rem;cursor:pointer;min-width:0;white-space:nowrap;overflow:hidden}
+.lane-btn[aria-pressed="true"]{background:var(--rc);color:var(--on-role)}
+.lane-btn .s{display:none}
+.compact .lane-btn .l{display:none} .compact .lane-btn .s{display:inline}
+#map{flex:1;min-height:0;position:relative}
+#map svg{position:absolute;left:0;top:0;display:block}
+.band{fill:var(--rc);fill-opacity:.07} .band.on{fill-opacity:.17}
+.rownum{fill:var(--muted);font-family:var(--f-mono)}
+.wire{fill:none;stroke:var(--wire);stroke-width:1.3}
+.wire.hand{stroke:var(--ink);stroke-width:1.7}
+.wire{transition:stroke-width .18s ease}
+.wire.hot{stroke:var(--ink);stroke-width:3.4}
+@media (prefers-reduced-motion:reduce){.wire{transition:none}}
+.ah{fill:var(--wire)} .ahs{fill:var(--ink)} .ahb{fill:var(--bug)}
+.loop{fill:none;stroke:var(--bug);stroke-width:1.4;stroke-dasharray:5 4;opacity:.55}
+.loop.solid{stroke-dasharray:none}
+.focus .wire{opacity:.28}
+.has-loop .loop{opacity:.16}
+.has-loop .loop.on{opacity:1;stroke-width:2.3}
+.node{cursor:pointer}
+.node rect{fill:var(--surface);stroke:var(--rc);stroke-width:1.5}
+.node text{fill:var(--ink);font-family:var(--f-mono);font-weight:500}
+.node.team text{font-family:var(--f-body)}
+.node:hover rect{stroke-width:2.6}
+.node:focus{outline:none}
+.node:focus-visible rect{stroke:var(--ink);stroke-width:3}
+.node.active rect{fill:var(--rc)}
+.node.active text{fill:var(--on-role);font-weight:600}
+.node.dim{opacity:.28}
+.node.ring rect{stroke:var(--bug);stroke-width:2.6}
+.under{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.under .lbl{font-size:.8rem;color:var(--muted)}
+.chipbtn{border:1.5px solid var(--line);background:var(--surface);border-radius:7px;padding:3px 9px;cursor:pointer;font-size:.8rem;white-space:nowrap}
+.chipbtn b{font-family:var(--f-mono);font-weight:600;font-size:.92em}
+.chipbtn[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--bg)}
+.loop-btn{border-style:dashed;border-color:var(--bug)}
+.loop-btn[aria-pressed="true"]{border-style:solid;border-color:var(--bug);background:var(--bug);color:var(--on-role)}
+.lg summary{list-style:none;cursor:pointer;font-size:.8rem;color:var(--muted);border-bottom:1px dotted var(--muted)}
+.lg summary::-webkit-details-marker{display:none}
+.lg .legend{position:absolute;right:0;top:calc(100% + 6px);z-index:3;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:.82rem;max-width:300px}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.lg-box{flex:none;width:22px;height:13px;border:1.5px solid var(--muted);border-radius:3px;background:var(--surface)}
+.lg-pill{flex:none;width:22px;height:13px;border:1.5px solid var(--muted);border-radius:99px;background:var(--surface)}
+.lg-line{flex:none;width:22px;height:0;border-top:2px solid var(--ink)}
+.lg-thin{flex:none;width:22px;height:0;border-top:1.3px solid var(--wire)}
+.lg-dash{flex:none;width:22px;height:0;border-top:2px dashed var(--bug)}
+
+/* pane */
+.pane{container-type:inline-size;display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.tabs{display:flex;gap:2px;padding:4px 8px 0;border-bottom:1px solid var(--line);overflow-x:auto;flex:none}
+.tab{border:0;background:transparent;padding:7px 9px 6px;border-bottom:2px solid transparent;font-weight:500;font-size:.88rem;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.tab:focus-visible{outline-offset:-2px}
+.pane-body{flex:1;min-height:0;overflow:auto;padding:12px 18px 12px;display:flex;flex-direction:column;gap:12px}
+.d-top{display:flex;flex-direction:column;gap:6px;border-left:3px solid var(--rc,var(--ink));padding-left:12px}
+.d-line{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:.82rem;color:var(--muted)}
+.tag{font:500 .7rem/1 var(--f-mono);border:1px solid var(--line);border-radius:99px;padding:3px 8px;color:var(--muted)}
+.walk{margin-left:auto;display:inline-flex;gap:4px}
+.ib{border:1.5px solid var(--line);background:var(--surface);border-radius:8px;padding:3px 12px;cursor:pointer;font-weight:600;font-size:.92rem;line-height:1.5;min-width:46px}
+.ib.arrow{font-size:1.3rem;line-height:1.1;padding:3px 12px 5px}
+.ib .ar{display:inline-block}
+.ib.hint{border-color:var(--accent);background:var(--accent);color:var(--surface);animation:ring 1.15s ease-out infinite}
+.ib.hint .ar{animation:nudge 1.15s ease-in-out infinite}
+@keyframes ring{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 60%,transparent)}100%{box-shadow:0 0 0 9px color-mix(in srgb,var(--accent) 0%,transparent)}}
+@keyframes nudge{0%,100%{transform:translateX(-2px)}50%{transform:translateX(4px)}}
+@media (prefers-reduced-motion:reduce){.ib.hint,.ib.hint .ar{animation:none}}
+.ib:hover:not(:disabled){border-color:var(--ink)}
+.ib:disabled{opacity:.4;cursor:default}
+.ib[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pane h2{font:600 1.2rem/1.25 var(--f-body);text-wrap:balance}
+.sum{max-width:62ch}
+.cmdrow{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.cmd{display:inline-flex;align-items:center;gap:6px;max-width:100%}
+.cmd code{padding:3px 8px;border-radius:6px;font-weight:500}
+.copy{border:1px solid var(--line);background:transparent;border-radius:6px;padding:1px 7px;font-size:.74rem;color:var(--muted);cursor:pointer;white-space:nowrap}
+.copy:hover{color:var(--ink);border-color:var(--ink)}
+.jira{font-size:.84rem;color:var(--muted)} .jira b{color:var(--ink);font-weight:600}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 20px}
+@container (max-width:470px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.tools{list-style:none;padding:0;display:flex;flex-direction:column;gap:4px}
+.tools li{display:grid;grid-template-columns:11.5em minmax(0,1fr);gap:1px 12px;align-items:baseline;font-size:.9rem}
+.tools b{font-weight:600}
+.tw{display:inline-block;background:var(--sunk);border-radius:5px;padding:0 6px;margin-right:6px;font-size:.78rem;color:var(--muted)}
+@container (max-width:470px){.tools li{grid-template-columns:minmax(0,1fr)}}
+.handline{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.cell{display:flex;flex-direction:column;gap:5px;min-width:0}
+.k{font:500 .68rem/1.3 var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chips code,.src{background:var(--sunk);border-radius:5px;padding:1px 7px;font-size:.82rem;overflow-wrap:anywhere}
+.src b{font-weight:600}
+.plain{font-size:.88rem;color:var(--muted)}
+.rows{list-style:none;padding:0;display:flex;flex-direction:column;gap:5px}
+.rows li{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:3px 12px;align-items:baseline}
+.rows .kk{font-weight:600}
+.rows .v{color:var(--muted)}
+.rchip{display:inline-block;padding:0 8px;border-radius:99px;border:1.5px solid var(--rc);color:var(--rc);font-weight:600;font-size:.76rem;line-height:1.55;background:color-mix(in srgb,var(--rc) 9%,var(--surface));white-space:nowrap}
+.more{display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--line);padding-bottom:12px}
+.more-tabs{display:flex;flex-wrap:wrap;gap:6px}
+.mt{border:1.5px solid var(--line);background:var(--surface);border-radius:99px;padding:2px 12px;font-size:.84rem;font-weight:500;cursor:pointer;color:var(--muted)}
+.mt::after{content:" +";font-family:var(--f-mono)}
+.mt:hover{border-color:var(--ink);color:var(--ink)}
+.mt[aria-expanded="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.mt[aria-expanded="true"]::after{content:" \2013"}
+.more-body{display:flex;flex-direction:column;gap:8px}
+.cap{font-size:.84rem;color:var(--muted)}
+.rolepick{display:flex;flex-wrap:wrap;gap:6px}
+.rolepick .lane-btn{padding:3px 12px;font-size:.84rem}
+.setup-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:9px}
+.setup-list li{display:flex;flex-direction:column;gap:4px}
+.setup-list .v{color:var(--muted)}
+.acc .in > p{max-width:70ch}
+.caprow{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 12px}
+.more-body pre{line-height:1.42}
+.pblock{display:flex;flex-direction:column;gap:4px}
+.pblock .cap{flex:1;min-width:0}
+.chat{list-style:none;padding:0;display:flex;flex-direction:column;gap:5px;font-size:.9rem}
+.chat li{display:grid;grid-template-columns:4.4em minmax(0,1fr);gap:2px 10px;align-items:baseline}
+.chat .who{font:600 .74rem/1.5 var(--f-mono);letter-spacing:.04em}
+.chat .say{white-space:pre-wrap;overflow-wrap:anywhere}
+.chat .c-po .who{color:var(--po)}
+.chat .c-po .say{background:color-mix(in srgb,var(--po) 9%,var(--surface));border-radius:7px;padding:2px 9px;justify-self:start}
+.chat .c-cl .who{color:var(--accent)}
+.chat .c-note .say{color:var(--muted);font-style:italic}
+.chat .c-sec{display:block;margin-top:6px;padding-top:6px;border-top:1px solid var(--line);font:500 .68rem/1.3 var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.chat .c-sec:first-child{margin-top:0;padding-top:0;border-top:0}
+.cap b{color:var(--ink);font-weight:600}
+.more-body ul:not(.rows){display:flex;flex-direction:column;gap:4px}
+.acc{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.acc details{border-bottom:1px solid var(--line)}
+.acc summary{list-style:none;cursor:pointer;padding:8px 2px;display:flex;justify-content:space-between;align-items:center;gap:10px;font:500 .7rem/1.3 var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.acc summary::-webkit-details-marker{display:none}
+.acc summary::after{content:"+";font-size:1rem;line-height:1;letter-spacing:0}
+.acc details[open] > summary{color:var(--ink)}
+.acc details[open] > summary::after{content:"\2013"}
+.acc .in{padding:0 2px 12px;display:flex;flex-direction:column;gap:10px}
+.acc .in ul:not(.rows){display:flex;flex-direction:column;gap:4px}
+pre{background:var(--sunk);border-radius:8px;padding:10px 12px;overflow-x:auto;line-height:1.5;white-space:pre;max-width:100%}
+pre.wrap{white-space:pre-wrap;overflow-wrap:anywhere}
+.step-link{border:1.5px solid var(--rc,var(--line));background:var(--surface);border-radius:6px;padding:1px 8px;font:500 .82rem/1.5 var(--f-mono);cursor:pointer;white-space:nowrap}
+.step-link:hover{background:color-mix(in srgb,var(--rc,var(--ink)) 12%,var(--surface))}
+.steps-in{display:flex;flex-wrap:wrap;gap:5px}
+.loop-steps{padding-left:1.3em;display:flex;flex-direction:column;gap:7px}
+.trigger{border-left:3px solid var(--bug);padding-left:12px}
+.foot{display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1.5px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 12px;cursor:pointer;font-weight:500;font-size:.88rem}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--bg);padding:7px 22px;font-size:.95rem}
+dialog.intro{border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);padding:0;width:920px;max-width:calc(100vw - 32px);height:fit-content;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:hidden}
+dialog.intro[open]{display:flex;flex-direction:column}
+.intro-body{flex:0 1 auto;min-height:0;overflow:auto;padding:20px 26px 16px;display:flex;flex-direction:column;gap:13px}
+.intro-foot{flex:none;display:flex;flex-wrap:wrap;gap:8px;padding:12px 26px 16px;border-top:1px solid var(--line)}
+.intro-body > p{max-width:92ch}
+dialog.intro::backdrop{background:rgba(10,14,20,.58)}
+.intro-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+dialog.intro h2{font:500 1.12rem/1.3 var(--f-display);text-wrap:balance}
+.abbr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 22px;border-block:1px solid var(--line);padding-block:12px}
+.abbr > div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.abbr p{font-size:.9rem}
+.ab{font:600 1rem/1.2 var(--f-mono);letter-spacing:.04em}
+.intro-block{display:flex;flex-direction:column;gap:5px}
+.intro-block .rows{margin-top:4px;font-size:.92rem}
+.intro-block .rows li{grid-template-columns:7.6em minmax(0,1fr)}
+@media (max-width:560px){.abbr{grid-template-columns:minmax(0,1fr)} .intro-body{padding:16px 16px 14px} .intro-foot{padding:10px 16px 14px}}
+.btn:hover{border-color:var(--ink)}
+.btn.up{display:none}
+.intro{color:var(--muted);font-size:.9rem;max-width:66ch}
+
+/* reference tabs */
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:500px;font-size:.9rem}
+th,td{text-align:left;padding:6px 10px;vertical-align:top;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+th{font:500 .68rem/1.3 var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+td.nw{white-space:nowrap}
+td.num,th.num{font-variant-numeric:tabular-nums}
+table.tight{font-size:.86rem}
+table.tight th,table.tight td{padding:2px 9px}
+table.tight .step-link{line-height:1.3;border-width:1px;font-size:.8rem}
+.models li{display:grid;grid-template-columns:4.2em minmax(0,1fr);gap:2px 10px;align-items:baseline}
+.models b{font-family:var(--f-mono);font-weight:600}
+.acc summary.mcp-sum{flex-wrap:wrap;padding-block:6px;text-transform:none;letter-spacing:0;font:600 .95rem/1.3 var(--f-body);color:var(--ink)}
+.mcp-name{flex:1;min-width:0}
+.slots{display:grid;grid-template-columns:repeat(5,58px);gap:4px}
+.slot{display:flex;justify-content:center;align-items:baseline;gap:5px;border:1.5px solid var(--rc);border-radius:7px;padding:2px 0;line-height:1.3;font-size:.74rem}
+.slot .r{font-weight:600;color:var(--rc)}
+.slot .a{font-family:var(--f-mono);font-size:.7rem;color:var(--muted)}
+.slot.s-rw{background:var(--rc)} .slot.s-rw .r,.slot.s-rw .a{color:var(--on-role)}
+.slot.s-none{border-color:var(--line);border-style:dashed} .slot.s-none .r{color:var(--muted);font-weight:400}
+.mcp-cmd{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0}
+.mcp-cmd code{padding:4px 8px;border-radius:6px;max-width:100%}
+.keyline{display:flex;flex-wrap:wrap;gap:4px 16px;color:var(--muted);font-size:.82rem}
+.rule-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:10px}
+.rule-list b{display:block;font-weight:600}
+.rule-list span{color:var(--muted)}
+.decide{display:flex;flex-direction:column;gap:7px}
+.sources{color:var(--muted);font-size:.84rem;display:flex;flex-wrap:wrap;gap:4px 14px}
+figcaption{color:var(--muted);font-size:.82rem;margin-top:5px}
+
+/* windows too small for the one-screen layout fall back to normal page scrolling */
+@media (max-width:759px),(max-height:639px){
+  html,body{height:auto}
+  .app{height:auto}
+  .stage{align-items:start}
+  #map{flex:none}
+  .pane{overflow:visible}
+  .pane-body{overflow:visible}
+}
+@media (max-width:759px){
+  .bar{flex-wrap:wrap}
+  .stage{display:flex;flex-direction:column;align-items:stretch}
+  .pane-body{padding:14px}
+  .btn.up{display:inline-block}
+  .grid2{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:no-preference){ html{scroll-behavior:smooth} }
+</style>
+
+<div class="app" id="app">
+  <header class="bar">
+    <div class="brand">
+      <div class="h1row"><h1 data-i18n="h1"></h1><strong class="ver" data-i18n="ver"></strong></div>
+      <p class="sub"><span data-i18n="exShort"></span><b data-i18n="featName"></b><span class="meta" data-i18n="featMeta"></span><span class="hchips" id="hchips"></span></p>
+    </div>
+    <div class="bar-right">
+      <button class="btn restart" id="about" type="button" data-about="1" data-i18n="aboutBtn"></button>
+      <button class="btn restart" id="restart" type="button" data-restart="1" data-i18n="restart"></button>
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" id="lang-en" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" id="lang-uk" data-lang="uk" aria-pressed="false">УКР</button>
+      </div>
+    </div>
+  </header>
+  <main class="stage">
+    <section class="mapcol" id="mapcol">
+      <div class="hintrow">
+        <p class="hint" data-i18n="hintShort"></p>
+        <span class="hr-right">
+          <button class="chipbtn" id="prep" type="button" aria-pressed="false" data-i18n="prepShort"></button>
+          <details class="lg" id="lg">
+            <summary data-i18n="legendWord"></summary>
+            <div class="legend">
+              <span><i class="lg-box"></i><span data-i18n="lgSdd"></span></span>
+              <span><i class="lg-pill"></i><span data-i18n="lgTeam"></span></span>
+              <span><i class="lg-line"></i><span data-i18n="lgHand"></span></span>
+              <span><i class="lg-thin"></i><span data-i18n="lgSame"></span></span>
+              <span><i class="lg-dash"></i><span data-i18n="lgBack"></span></span>
+            </div>
+          </details>
+        </span>
+      </div>
+      <div class="lanes" id="lanes"></div>
+      <div id="map"></div>
+      <div class="under">
+        <span class="lbl" data-i18n="offLabel"></span>
+        <span id="loopbtns" style="display:contents"></span>
+      </div>
+    </section>
+    <section class="pane" id="pane">
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="pane-body" id="panel" role="tabpanel" aria-live="polite"></div>
+    </section>
+  </main>
+</div>
+
+<dialog class="intro" id="intro" aria-labelledby="intro-h">
+  <div class="intro-body">
+  <div class="intro-top">
+    <span class="k" data-i18n="introEyebrow"></span>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="uk" aria-pressed="false">УКР</button>
+    </div>
+  </div>
+  <h2 id="intro-h" data-i18n="introH"></h2>
+  <p data-i18n="introLead"></p>
+  <div class="abbr">
+    <div><span class="ab">SDD</span><p data-i18n="introSdd"></p></div>
+    <div><span class="ab">TDD</span><p data-i18n="introTdd"></p></div>
+  </div>
+  <div class="intro-block">
+    <span class="k" data-i18n="introFeatK"></span>
+    <p><b data-i18n="featName"></b></p>
+    <p class="muted" data-i18n="introFeat"></p>
+  </div>
+  <div class="intro-block">
+    <span class="k" data-i18n="introShowK"></span>
+    <p data-i18n="introShow"></p>
+    <ul class="rows" id="intro-roles"></ul>
+  </div>
+  </div>
+  <div class="intro-foot">
+    <button class="btn primary" type="button" data-close="1" data-i18n="introStart"></button>
+  </div>
+</dialog>
+
+<script>
+(function(){
+"use strict";
+var LANG="en";
+try{var saved=localStorage.getItem("sdlc-map-lang");if(saved==="uk"||saved==="en")LANG=saved;}catch(e){}
+function T(en,uk){return {en:en,uk:uk};}
+function tr(x){return (x&&typeof x==="object"&&!Array.isArray(x)&&("en" in x))?x[LANG]:x;}
+
+/*__DATA__*/
+
+/* copy specific to the one-screen layout */
+S.exShort=T("Example:","Приклад:");
+S.featMeta=T("","");
+S.restart=T("Start from step 1","Почати з кроку 1");
+S.aboutBtn=T("About","Про приклад");
+S.ver=T("Version 1","Версія 1");
+S.introEyebrow=T("About this example","Про цей приклад");
+S.introH=T("One feature, built with spec-driven development and an AI coding assistant","Одна фіча, зроблена через spec-driven development з ШІ-асистентом");
+S.introLead=T("How a team builds a feature when an LLM assistant does most of the writing and people make the decisions. Shown in Claude Code; the same SDD plugin also installs into Codex CLI and Cursor.",
+  "Як команда робить фічу, коли більшість тексту й коду пише LLM-асистент, а рішення приймають люди. Показано в Claude Code; той самий плагін SDD ставиться також у Codex CLI та Cursor.");
+S.introSdd=T("<b>Spec-Driven Development.</b> The feature moves through fixed stages. Each stage writes a file (spec, design, contract, tasks), and the next stage and the code are derived from it. <a href='https://github.com/genkovich/sdd' target='_blank' rel='noopener'>What SDD is: genkovich/sdd</a>",
+  "<b>Spec-Driven Development, розробка від специфікації.</b> Фіча проходить фіксовані стадії. Кожна стадія пише файл (spec, дизайн, контракт, задачі), а наступна стадія й код виводяться з нього. <a href='https://github.com/genkovich/sdd' target='_blank' rel='noopener'>Що таке SDD: genkovich/sdd</a>");
+S.introTdd=T("<b>Test-Driven Development.</b> First a test that fails, then the code that makes it pass. The implement stage of SDD writes every task this way. <a href='https://en.wikipedia.org/wiki/Test-driven_development' target='_blank' rel='noopener'>What TDD is</a>",
+  "<b>Test-Driven Development, розробка через тести.</b> Спершу тест, що падає, потім код, який його проходить. Так стадія implement у SDD пише кожну задачу. <a href='https://en.wikipedia.org/wiki/Test-driven_development' target='_blank' rel='noopener'>Що таке TDD</a>");
+S.introFeatK=T("Example: how it works on the following feature","Приклад: як це працює на такій фічі");
+S.introFeat=T("Staff who manage orders create a task or an issue for a colleague straight from an order, a product or a customer, and follow it until it is done.",
+  "Працівники, які ведуть замовлення, створюють колезі завдання або проблему прямо із замовлення, товару чи клієнта й стежать за ним до виконання.");
+S.introShowK=T("What you will see","Що ви побачите");
+S.introShow=T("The whole development of this feature in 16 steps, from idea to release, by role: what each role does, with which tools, what it produces and whom it hands off to. Plus the return paths when QA or review finds a problem.",
+  "Уся розробка цієї фічі за 16 кроків, від ідеї до релізу, по ролях: що робить кожна роль, якими інструментами, що лишає на виході й кому передає. А ще шляхи повернення, коли QA або рев'ю знаходить проблему.");
+S.introStart=T("Let's go","Почнімо");
+var INTRO_ROLE={
+ po:T("turns the idea into a spec with acceptance criteria and accepts the result","перетворює ідею на spec із критеріями приймання й приймає результат"),
+ pm:T("confirms the size, moves the tasks into Jira, plans the sprint and the release","підтверджує розмір, переносить задачі в Jira, планує спринт і реліз"),
+ des:T("designs the user flows and every screen in every state","проєктує шляхи користувача й кожен екран у кожному стані"),
+ dev:T("technical design, API contract, code through TDD, review and the PR","технічний дизайн, контракт API, код через TDD, рев'ю і PR"),
+ qa:T("test plan from the criteria, AI-assisted verification, bugs traced to the criteria","план тестів від критеріїв, перевірка з ШІ, баги з прив'язкою до критеріїв")
+};
+S.hintShort=T("Select a step or a role. ← → walks the cycle.","Натисніть крок або роль. ← → ведуть по циклу.");
+S.prepShort=T("<b>Step 0</b> · setup","<b>Крок 0</b> · підготовка");
+S.offLabel=T("Return paths:","Повернення:");
+S.legendWord=T("Legend","Легенда");
+U.reads=T("Reads","Читає"); U.outShort=T("Output","На виході"); U.handShort=T("Hands off to","Передає");
+U.sameRole=T("the same role continues","далі та сама роль"); U.endCycle=T("end of the cycle","кінець циклу"); U.diskOnly=T("none, disk only","немає, лише диск");
+U.secWhat=T("What happens","Що відбувається"); U.secMcp=T("MCP in detail","MCP детально"); U.secOut=T("Output in detail","Результат детально"); U.moreLabel=T("More about this step","Більше про цей крок");
+U.secEx=T("Example","Приклад"); U.secPrompt=T("Prompt","Промпт"); U.promptBy=T("Typed in Claude Code by:","У Claude Code це вводить:"); U.secChat=T("Dialogue","Діалог"); U.chatCap=T("A shortened session. The wording is illustrative; the order of questions follows the two skills.","Скорочена сесія. Формулювання умовні; порядок питань відповідає двом скілам.");
+U.play=T("Play","Авто"); U.pause=T("Pause","Стоп"); U.prev=T("Previous step","Попередній крок"); U.next=T("Next step","Наступний крок");
+U.backTo=T("Back to step","Назад до кроку"); U.roleProposal=T("SDD does not bind stages to roles. The split by role, and the steps with Jira, Confluence and the preview environment, are a proposal for your team.","SDD не закріплює стадії за ролями. Розподіл по ролях і кроки з Jira, Confluence та стендом запропоновані під вашу команду.");
+U.fromTo=T("From → to","Від → кому"); U.handBlock=T("Handoff block","Блок передачі");
+var TABS=[["step",T("Details","Деталі")],["hand",T("Handoffs","Передачі")],["mcp",T("Tools","Інструменти")],["files",T("Files","Файли")],["cost",T("Cost","Вартість")],["rules",T("How it works","Як це працює")],["setup",T("Role setup","Інструкції")]];
+var LB={regress:T("Bug","Баг"),ac:T("Unclear AC","Нечіткий AC"),screen:T("Screen ≠ mockup","Екран ≠ макет"),review:T("Review","Рев'ю")};
+U.secTools=T("Tools and MCP","Інструменти й MCP"); U.secCtx=T("Context and commands","Контекст і команди"); U.secOutH=T("Output and handoffs","Результат і передачі");
+var SUM={
+ specify:T("Claude interviews the analyst and writes the spec: user stories and acceptance criteria.","Claude розпитує аналітика й пише spec: історії користувачів і критерії приймання."),
+ clarify:T("A devil's-advocate pass finds the gaps; the analyst closes or defers each one.","Агент-опонент шукає дірки в spec; аналітик кожну закриває або відкладає."),
+ epic:T("The PM confirms size and route, places the feature in the roadmap and assigns people.","PM підтверджує розмір і маршрут, ставить фічу в roadmap і призначає людей."),
+ uxflows:T("The designer maps one flow per user story and lists every screen the feature needs.","Дизайнер описує шлях на кожну історію й складає перелік потрібних екранів."),
+ design:T("The tech lead fits the feature into the existing architecture. This is architecture, not UI.","Техлід вписує фічу в наявну архітектуру. Це архітектура, а не UI."),
+ datamodel:T("Schema plus forward and rollback migrations, staged in the feature folder.","Схема й міграції вперед і назад, поки що в теці фічі."),
+ api:T("The OpenAPI contract is derived from the data model, the flows and the spec.","OpenAPI-контракт виводиться з моделі даних, потоків і spec."),
+ screens:T("The designer specifies every screen in every state and links the Figma frames.","Дизайнер описує кожен екран у кожному стані й додає фрейми Figma."),
+ tasks:T("Work is split into tasks of a day or less, with a dependency graph.","Робота ділиться на задачі до одного дня з графом залежностей."),
+ sprint:T("Claude turns tasks.json into Jira stories and the PM plans the sprint.","Claude переносить tasks.json у задачі Jira, PM планує спринт."),
+ plantests:T("QA maps every acceptance criterion to at least one test.","QA зіставляє кожен критерій приймання щонайменше з одним тестом."),
+ implement:T("Code is written task by task through TDD, with a gate before every commit.","Код пишеться задача за задачею через TDD, з гейтом перед кожним комітом."),
+ review:T("A clean-context reviewer checks the whole change against the spec and the AC.","Рев'юер у чистому контексті звіряє всю зміну зі spec і AC."),
+ ship:T("The feature is run for real, the changelog is written and a PR is opened.","Фічу запускають по-справжньому, пишуть changelog і відкривають PR."),
+ verify:T("QA and Claude walk the preview environment in a browser and file bugs traced to AC.","QA з Claude проходять стенд у браузері й заводять баги з прив'язкою до AC."),
+ fix:T("A bug is reproduced, pinned with a failing test and fixed through the same gate.","Баг відтворюють, фіксують тестом, що падає, і виправляють через той самий гейт."),
+ release:T("The analyst accepts the feature, a human merges the PR and the release goes out.","Аналітик приймає фічу, людина мержить PR, реліз виходить.")
+};
+
+/* tools per step: the plugin or app that does the work, what it does here, and where it runs */
+U.toolsHere=T("Tools at this step: what for and where","Інструменти на цьому кроці: для чого і де");
+U.usedAt=T("Used at","Де використовується");
+S.toolsIntro=T("The SDD plugin runs the stages inside Claude Code, Claude Design covers prototypes, and MCP servers, declared once in <code>.mcp.json</code>, connect Claude to your apps. Open a tool to see what it is for and where it is used.",
+  "Плагін SDD запускає стадії всередині Claude Code, Claude Design закриває прототипи, а MCP-сервери, описані один раз у <code>.mcp.json</code>, з'єднують Claude з вашими застосунками. Відкрийте інструмент, щоб побачити, для чого він і де використовується.");
+var TOOLREG={
+ sdd:{name:"SDD plugin",where:T("Claude Code, in the repo","Claude Code, у репозиторії")},
+ cc:{name:"Claude Code",where:T("terminal, desktop or web","термінал, десктоп або веб")},
+ cd:{name:"Claude Design",where:"claude.ai/design"},
+ atl:{name:"Atlassian Rovo MCP",where:"Jira · Confluence"},
+ fig:{name:"Figma MCP",where:"Figma"},
+ gh:{name:"GitHub (gh CLI)",where:"GitHub"},
+ pw:{name:"Playwright MCP",where:T("preview environment","стенд")},
+ shop:{name:"Shopify Dev MCP",where:"shopify.dev"}
+};
+var MCPKEY={"Atlassian Rovo":"atl","Figma":"fig","Shopify Dev":"shop","Playwright":"pw","GitHub":"gh"};
+var STOOL={
+ specify:["sdd",T("runs the interview and writes `spec.md`","веде інтерв'ю й пише `spec.md`")],
+ clarify:["sdd",T("finds ambiguities and tightens `spec.md`","шукає неоднозначності й уточнює `spec.md`")],
+ epic:["sdd",T("re-checks size and route, keeps `docs/roadmap.md`","перевіряє розмір і маршрут, веде `docs/roadmap.md`")],
+ uxflows:["sdd",T("derives the user flows and the screen inventory","виводить шляхи користувача й перелік екранів")],
+ design:["sdd",T("writes the SAD and ADRs, draws the sequence diagrams","пише SAD і ADR, малює sequence-діаграми")],
+ datamodel:["sdd",T("designs the schema and writes the migrations","проєктує схему й пише міграції")],
+ api:["sdd",T("derives the OpenAPI contract","виводить OpenAPI-контракт")],
+ screens:["sdd",T("writes the screen manifest with every state","пише маніфест екранів з усіма станами")],
+ tasks:["sdd",T("splits the work and writes `tasks.json`","ділить роботу й пише `tasks.json`")],
+ sprint:["cc",T("reads `tasks.json` and prepares the Jira stories","читає `tasks.json` і готує задачі для Jira")],
+ plantests:["sdd",T("maps every AC to tests and writes `test-plan.md`","зіставляє кожен AC з тестами й пише `test-plan.md`")],
+ implement:["sdd",T("runs the TDD cycle per task with the test-author, implementer and reviewer agents","веде цикл TDD на кожну задачу з агентами test-author, implementer, reviewer")],
+ review:["sdd",T("reviews the whole diff in a clean context","рев'ює весь diff у чистому контексті")],
+ ship:["sdd",T("runs the feature for real and writes the changelog","запускає фічу по-справжньому й пише changelog")],
+ verify:["cc",T("walks the flows and checks each AC from the tester's own prompts","проходить шляхи й перевіряє кожен AC за промптами тестувальника")],
+ fix:["sdd",T("reproduces the bug, adds a failing test and the fix","відтворює баг, додає тест, що падає, і виправлення")],
+ release:["cc",T("turns the changelog into release notes","перетворює changelog на нотатки до релізу")]
+};
+var CDTOOL={
+ uxflows:T("quick prototypes of the flows from your design-system components","швидкі прототипи шляхів із компонентів вашої дизайн-системи"),
+ screens:T("screen variants before the final frames go to Figma","варіанти екранів до того, як фінальні фрейми потраплять у Figma")
+};
+function toolsFor(s){
+  var out=[STOOL[s.id]];
+  if(CDTOOL[s.id]) out.push(["cd",CDTOOL[s.id]]);
+  s.mcp.forEach(function(m){out.push([MCPKEY[m[0]],m[1]]);});
+  return out;
+}
+/* rough per-step estimates: [low, high] in millions of tokens processed (cached re-reads included), suggested model, why */
+var EST={
+ specify:[0.8,1.5,"opus",T("judgment: spec and critic","судження: spec і критик")],
+ clarify:[0.5,1,"opus",T("judgment: hunting ambiguity","судження: пошук неоднозначностей")],
+ epic:[0.1,0.3,"haiku",T("simple sizing and bookkeeping","просте оцінювання й облік")],
+ uxflows:[0.6,1.2,"sonnet",T("derived from the spec","виводиться зі spec")],
+ design:[1.5,3,"opus",T("architecture decisions","архітектурні рішення")],
+ datamodel:[0.6,1.2,"sonnet",T("derived from the design","виводиться з дизайну")],
+ api:[0.5,1,"sonnet",T("derived from the data model","виводиться з моделі даних")],
+ screens:[1,2,"sonnet",T("derived, many screen states","виводиться, багато станів")],
+ tasks:[0.5,1,"sonnet",T("derived, task split","виводиться, поділ на задачі")],
+ sprint:[0.3,0.6,"haiku",T("mechanical Jira entry","механічне внесення в Jira")],
+ plantests:[0.5,1,"sonnet",T("mapping AC to tests","зіставлення AC з тестами")],
+ implement:[8,20,"sonnet",T("tests and code; reviewer agent on opus","тести й код; агент-рев'юер на opus")],
+ review:[1,2.5,"opus",T("judgment over the whole diff","судження про весь diff")],
+ ship:[0.8,1.5,"sonnet",T("run, changelog, PR","запуск, changelog, PR")],
+ verify:[3,8,"sonnet",T("many browser steps","багато кроків у браузері")],
+ fix:[1.5,3,"sonnet",T("per bug; opus if the cause is unclear","на один баг; opus, якщо причина неясна")],
+ release:[0.1,0.3,"haiku",T("short notes","короткі нотатки")]
+};
+function num(x){var t=String(x);return LANG==="uk"?t.replace(".",","):t;}
+function estText(e){return num(e[0])+"–"+num(e[1])+(LANG==="uk"?" млн":"M");}
+U.model=T("Model","Модель"); U.tokens=T("tokens","токенів"); U.estNote=T("rough estimate, not measured","груба оцінка, не вимір");
+U.thStep=T("Step","Крок"); U.thTokens=T("Tokens, est.","Токени, оцінка"); U.thShare=T("Share","Частка"); U.thWhy=T("Why this model","Чому ця модель");
+U.cTokens=T("Tokens and model per step","Токени й модель на кожен крок"); U.cModels=T("Which model for what","Яка модель для чого"); U.cPlan=T("Plan for your team","Тариф для вашої команди");
+S.costIntro=T("Rough estimates for one M-size feature on one platform, counting every token the model processes, cached re-reads included. They are not measured on your project: run one pilot feature and read the real numbers with <code>/usage</code>.",
+  "Грубі оцінки для однієї фічі розміру M на одній платформі з урахуванням усіх токенів, які обробляє модель, разом із перечитаним кешем. На вашому проєкті їх не вимірювали: проведіть одну пілотну фічу й подивіться справжні числа через <code>/usage</code>.");
+S.costModels=T(
+ "<li><b>opus</b><span>Judgment: specify, clarify, tech-design, review. Decisions that are expensive to get wrong. In SDD this is <code>judgment_model: opus</code>, the default.</span></li>"+
+ "<li><b>sonnet</b><span>Derivation and execution: ux-flows, data-model, api, screens, tasks, plan-tests, implement, ship, verify, fix. Handles most coding work at half the per-token price of Opus.</span></li>"+
+ "<li><b>haiku</b><span>Mechanical work: sizing, Jira entry, release notes, and the codebase scans SDD runs through its explorer agent.</span></li>"+
+ "<li><b>fable</b><span>Not needed for a feature this size. Keep it for root-cause investigations and very long autonomous runs.</span></li>",
+ "<li><b>opus</b><span>Судження: specify, clarify, tech-design, review. Рішення, де помилка коштує дорого. У SDD це <code>judgment_model: opus</code>, значення за замовчуванням.</span></li>"+
+ "<li><b>sonnet</b><span>Виведення й виконання: ux-flows, data-model, api, screens, tasks, plan-tests, implement, ship, verify, fix. Справляється з більшістю роботи з кодом за половину ціни Opus за токен.</span></li>"+
+ "<li><b>haiku</b><span>Механічна робота: оцінювання розміру, внесення в Jira, нотатки до релізу та сканування коду, які SDD робить через агента explorer.</span></li>"+
+ "<li><b>fable</b><span>Для фічі такого розміру не потрібна. Лишіть її для пошуку першопричин і дуже довгих автономних запусків.</span></li>");
+S.costModelTip=T("On Team and Enterprise seats Claude Code starts on Opus 5.5. SDD stages run on the session model, so switch with <code>/model sonnet</code> before derivation and execution stages, or use <code>/model opusplan</code> (Opus while planning, Sonnet while executing). The seat allowance then lasts longer.",
+  "На місцях Team та Enterprise Claude Code стартує на Opus 5.5. Стадії SDD працюють на моделі сесії, тому перед стадіями виведення й виконання перемикайтесь через <code>/model sonnet</code> або вмикайте <code>/model opusplan</code> (Opus під час планування, Sonnet під час виконання). Так ліміту місця вистачає надовше.");
+var SEATS=[
+ ["po",T("PO / analyst","PO / аналітик"),1,"std",T("short interview and spec stages","короткі стадії інтерв'ю та spec")],
+ ["pm","PM",1,"std",T("sizing and Jira entry","оцінювання й внесення в Jira")],
+ ["des",T("Designers","Дизайнери"),2,"std",T("ux-flows, screens, Claude Design","ux-flows, screens, Claude Design")],
+ ["qa","QA",4,"std",T("browser checks are heavy: turn on usage credits, upgrade a seat that keeps hitting the limit","перевірки в браузері важкі: увімкніть usage credits і підвищуйте місце, яке постійно впирається в ліміт")],
+ ["dev","Android",2,"prem",T("implement, review and fix are the heaviest steps","implement, review і fix — найважчі кроки")],
+ ["dev","iOS",4,"prem",T("the same","те саме")]
+];
+U.thRole=T("Role","Роль"); U.thPeople=T("People","Людей"); U.thSeat=T("Seat","Місце"); U.thNote=T("Why","Чому");
+U.seatStd=T("Standard","Standard"); U.seatPrem=T("Premium","Premium");
+S.planLead=T("<b>Team plan, 14 seats: 8 Standard and 6 Premium.</b> That is $760 a month billed annually (8 × $20 + 6 × $100) or $950 billed monthly (8 × $25 + 6 × $125), before tax. One PO and one PM are assumed; the other twelve are the team as it is today.",
+  "<b>Тариф Team, 14 місць: 8 Standard і 6 Premium.</b> Це $760 на місяць за річної оплати (8 × $20 + 6 × $100) або $950 за помісячної (8 × $25 + 6 × $125), без податків. Один PO і один PM тут припущення; решта дванадцять відповідає нинішній команді.");
+S.planNotes=T(
+ "<li>Every Team seat includes Claude Code and all models. Standard gives 1.25× the Pro per-session allowance, Premium 6.25×. The plan covers 2 to 150 seats, with SSO and spend controls.</li>"+
+ "<li>Turn on usage credits with a spend limit per person, so nobody is blocked mid-task when a seat runs out.</li>"+
+ "<li>Enterprise ($20 a seat plus all usage at API rates, self-serve from 20 seats) is worth it only if you need audit logs, SCIM or compliance controls.</li>"+
+ "<li>For scale: Anthropic reports an average of about $13 per developer per active day at API rates for Claude Code, which is why Premium is the safer start for developers.</li>"+
+ "<li>Check the seat mix after one pilot feature, using <code>/usage</code> and the admin spend report.</li>",
+ "<li>Кожне місце Team містить Claude Code і всі моделі. Standard дає 1,25× ліміту Pro на сесію, Premium 6,25×. Тариф розрахований на 2–150 місць, із SSO та контролем витрат.</li>"+
+ "<li>Увімкніть usage credits з лімітом витрат на людину, щоб ніхто не зупинявся посеред задачі, коли місце вичерпано.</li>"+
+ "<li>Enterprise ($20 за місце плюс усе використання за цінами API, самообслуговування від 20 місць) має сенс, лише якщо потрібні журнали аудиту, SCIM або комплаєнс-контролі.</li>"+
+ "<li>Для масштабу: за даними Anthropic, Claude Code у середньому коштує близько $13 на розробника за активний день за цінами API, тому розробникам безпечніше стартувати з Premium.</li>"+
+ "<li>Перегляньте розподіл місць після однієї пілотної фічі за <code>/usage</code> та адмінським звітом про витрати.</li>");
+S.costSrc=T("Prices and limits as published on 6 October 2026:","Ціни й ліміти станом на 6 жовтня 2026:");
+/* API list-price equivalent per million tokens processed, assuming 90% cache reads, 8% new input (cache writes), 2% output */
+var RATE={opus:0.9*0.20+0.08*5+0.02*20, sonnet:0.9*0.20+0.08*2.5+0.02*10, haiku:0.9*0.10+0.08*1.25+0.02*5};
+var SEATROLE={po:"std",pm:"std",des:"std",qa:"std",dev:"prem"};
+function usdRange(e){return [e[0]*RATE[e[2]],e[1]*RATE[e[2]]];}
+function usdFmt(v){return v>=10?String(Math.round(v)):num(Math.round(v*10)/10);}
+function usdText(lo,hi){return hi<0.1?"< $"+num(0.1):"≈ $"+usdFmt(Math.max(lo,0.1))+"–"+usdFmt(hi);}
+function totals(){var t={lo:0,hi:0,mid:0,ulo:0,uhi:0};ORDER.forEach(function(id){var e=EST[id],u=usdRange(e);t.lo+=e[0];t.hi+=e[1];t.mid+=(e[0]+e[1])/2;t.ulo+=u[0];t.uhi+=u[1];});
+  t.tok=Math.round(t.lo)+"–"+Math.round(t.hi)+(LANG==="uk"?" млн":"M"); t.usd="$"+Math.round(t.ulo)+"–"+Math.round(t.uhi); return t;}
+function seatMix(){var m={std:0,prem:0};SEATS.forEach(function(x){m[x[3]]+=x[2];});m.month=m.std*20+m.prem*100;return m;}
+var costOpen="c1";
+U.tokensK=T("Tokens","Токени"); U.costK=T("API cost","Ціна API"); U.seatK=T("Seat","Місце"); U.estWord=T("estimate","оцінка"); U.infoBtn=T("Info","Інфо");
+U.costTip=T("Rough estimate, not measured. The cost is the API list-price equivalent; on a Team seat it is covered by the seat allowance and not billed per step.","Груба оцінка, не вимір. Ціна — еквівалент за прайсом API; на місці Team її покриває ліміт місця, окремо за крок вона не списується.");
+U.thCost=T("Cost, est.","Ціна, оцінка");
+U.hFeature=T("Feature","Фіча"); U.hPlan=T("Team plan","Тариф Team"); U.perMonth=T("/mo","/міс");
+S.costTotal=T("<b>Whole feature: about {t} tokens, about {u} at API list prices.</b> The price assumes 90% cached re-reads, 8% new input and 2% output. On Team seats it is not billed per step: the work draws on each seat's allowance. Each extra platform repeats implement, review and fix: with Android and iOS, add about 10–25M tokens for the second one.",
+  "<b>Уся фіча: приблизно {t} токенів, близько {u} за прайсовими цінами API.</b> Ціна виходить із припущення: 90% перечитаного кешу, 8% нового входу, 2% виходу. На місцях Team вона не списується за крок: робота витрачає ліміт кожного місця. Кожна додаткова платформа повторює implement, review і fix: з Android та iOS додайте ще приблизно 10–25 млн токенів на другу.");
+function costHTML(){
+  var t=totals();
+  var rows=ORDER.map(function(id){var st=BY[id],e=EST[id],u=usdRange(e),sh=Math.round((e[0]+e[1])/2/t.mid*100);
+    return '<tr><td class="nw"><button type="button" class="step-link role-'+st.role+'" data-nav="'+id+'">'+(st.row+1)+' · '+esc(tr(st.label))+'</button></td><td class="nw"><code>'+e[2]+'</code></td><td class="nw num">'+estText(e)+'</td><td class="nw num">'+usdText(u[0],u[1])+'</td><td class="nw num">'+(sh<1?"<1":sh)+'%</td><td>'+esc(tr(e[3]))+'</td></tr>';}).join("");
+  return '<p class="intro">'+tr(S.costIntro)+'</p><div class="acc">'+
+    sec("c1",U.cTokens,'<div class="scroll"><table class="tight"><thead><tr><th>'+esc(tr(U.thStep))+'</th><th>'+esc(tr(U.model))+'</th><th>'+esc(tr(U.thTokens))+'</th><th>'+esc(tr(U.thCost))+'</th><th>'+esc(tr(U.thShare))+'</th><th>'+esc(tr(U.thWhy))+'</th></tr></thead><tbody>'+rows+'</tbody></table></div><p>'+tr(S.costTotal).replace("{t}",t.tok).replace("{u}",t.usd)+'</p>',costOpen==="c1")+
+    sec("c2",U.cModels,'<ul class="rule-list models">'+tr(S.costModels)+'</ul><p class="plain">'+tr(S.costModelTip)+'</p>',costOpen==="c2")+
+    sec("c3",U.cPlan,'<p>'+tr(S.planLead)+'</p><div class="scroll"><table class="tight"><thead><tr><th>'+esc(tr(U.thRole))+'</th><th>'+esc(tr(U.thPeople))+'</th><th>'+esc(tr(U.thSeat))+'</th><th>'+esc(tr(U.thNote))+'</th></tr></thead><tbody>'+
+      SEATS.map(function(x){return '<tr><td class="nw"><span class="rchip role-'+x[0]+'">'+esc(tr(x[1]))+'</span></td><td class="num">'+x[2]+'</td><td class="nw"><b>'+esc(tr(x[3]==="prem"?U.seatPrem:U.seatStd))+'</b></td><td>'+esc(tr(x[4]))+'</td></tr>';}).join("")+
+      '</tbody></table></div><ul class="decide">'+tr(S.planNotes)+'</ul>',costOpen==="c3")+
+    '</div><p class="sources"><span>'+esc(tr(S.costSrc))+'</span><a href="https://claude.com/pricing" target="_blank" rel="noopener">claude.com/pricing</a><a href="https://support.claude.com/en/articles/9266767-what-is-the-team-plan" target="_blank" rel="noopener">Team plan</a><a href="https://support.claude.com/en/articles/9797531-what-is-the-enterprise-plan" target="_blank" rel="noopener">Enterprise plan</a><a href="https://code.claude.com/docs/en/costs" target="_blank" rel="noopener">Claude Code costs</a><a href="https://code.claude.com/docs/en/model-config" target="_blank" rel="noopener">Model config</a></p>';
+}
+var TOOLTAB=[
+ {key:"sdd",name:"SDD plugin for Claude Code",what:T("Runs every /sdd: stage inside Claude Code: interviews, writes the feature files to the repository, runs TDD, review and ship.","Запускає кожну стадію /sdd: усередині Claude Code: веде інтерв'ю, пише файли фічі в репозиторій, запускає TDD, рев'ю і ship."),cmds:["/plugin marketplace add genkovich/sdd","/plugin install sdd@sdd"],cells:{po:"run",pm:"run",des:"run",dev:"run",qa:"run"}},
+ {key:"cd",name:"Claude Design",what:T("Prototypes and screen variants on a canvas at claude.ai/design, handed to Claude Code as one bundle.","Прототипи й варіанти екранів на полотні в claude.ai/design, передача в Claude Code одним пакетом."),cmds:[],cells:{po:"-",pm:"-",des:"rw",dev:"r",qa:"-"}}
+].concat(MCP.map(function(m,i){return {key:["atl","fig","gh","pw","shop"][i],name:m.name,what:m.what,cmds:[m.cmd],cells:m.cells};}));
+
+/* per-role setup instructions */
+var setupRole="po";
+U.setupIntro=T("Pick a role to see what to install, which MCP servers to connect, how to get the repository, the daily flow, permissions and files.","Оберіть роль, щоб побачити, що встановити, які MCP підключити, як отримати репозиторій, щоденний порядок роботи, права та файли.");
+U.sInstall=T("Install","Встановити"); U.sMcp=T("Connect MCP servers","Підключити MCP-сервери"); U.sRepo=T("Get the repository","Отримати репозиторій");
+U.sFlow=T("How you work day to day","Як працювати щодня"); U.sPerm=T("Permissions","Права доступу"); U.sFiles=T("Files you read and update","Файли: що читаєте й оновлюєте");
+U.setupBtn=T("Setup instructions for this role →","Інструкція з налаштування для цієї ролі →");
+U.upd=T("Updates","Оновлює"); U.rd=T("Reads","Читає"); U.noEdit=T("Does not edit","Не редагує");
+U.inClaude=T("In Claude Code","У Claude Code"); U.onGit=T("On the Git host","На Git-хостингу"); U.inApps=T("In Jira, Confluence and Figma","У Jira, Confluence та Figma");
+function lk(href,text){return '<a href="'+href+'" target="_blank" rel="noopener">'+esc(text)+'</a>';}
+function cmdLine(c){return '<span class="cmd"><code>'+esc(c)+'</code>'+copyBtn(c)+'</span>';}
+var REPO_URL="https://github.com/YOUR-ORG/YOUR-REPO.git";
+var SETUP={
+ po:{
+  extra:[[T("Jira and Confluence","Jira й Confluence"),T("an account that can edit the SHOP project and space","обліковий запис із правом редагування проєкту й простору SHOP"),null,[]]],
+  why:T("Your spec lives there as `docs/features/tasks-issues/spec.md`, and every later stage reads it from disk.","Ваш spec лежить там як `docs/features/tasks-issues/spec.md`, і кожна наступна стадія читає його з диска."),
+  flow3:T("Answer Claude's questions. Read `spec.md` before you accept it: it is the contract for everyone after you.","Відповідайте на питання Claude. Прочитайте `spec.md`, перш ніж приймати: це контракт для всіх після вас."),
+  allow:["Edit(/docs/features/**)","Edit(/CONTEXT.md)"], deny:["Edit(/src/**)","Bash(git push --force *)"],
+  owns:T("`spec.md` and `CONTEXT.md`","`spec.md` і `CONTEXT.md`"),
+  updates:["docs/features/tasks-issues/spec.md",".size, .route","CONTEXT.md"],
+  reads:["docs/architecture-map.md","docs/roadmap.md","ux-flows.md","screens.md","test-plan.md","changelog"],
+  noedit:T("source code, `sad.md`, `contracts/`, migrations","код, `sad.md`, `contracts/`, міграції")},
+ pm:{
+  extra:[[T("Jira and Confluence","Jira й Confluence"),T("an account that can create issues, manage sprints and edit pages","обліковий запис, який може створювати задачі, керувати спринтами й редагувати сторінки"),null,[]]],
+  why:T("You read `tasks.json` there and keep `docs/roadmap.md` up to date.","Ви читаєте там `tasks.json` і ведете `docs/roadmap.md`."),
+  flow3:T("Check the size and route, then let Claude create the Jira stories from `tasks.json` and review them before the sprint.","Перевірте розмір і маршрут, потім дайте Claude створити задачі Jira з `tasks.json` і перегляньте їх перед спринтом."),
+  allow:["Edit(/docs/roadmap.md)","Edit(/docs/features/**/.size)","Edit(/docs/features/**/.route)"], deny:["Edit(/src/**)","Edit(/docs/features/**/spec.md)","Bash(git push --force *)"],
+  owns:T("`docs/roadmap.md`","`docs/roadmap.md`"),
+  updates:["docs/roadmap.md",".size, .route"],
+  reads:["spec.md","tasks.json","test-plan.md","review record","changelog"],
+  noedit:T("`spec.md`, design files, source code","`spec.md`, файли дизайну, код")},
+ des:{
+  extra:[["Figma",T("an account with edit access to the team library","обліковий запис із правом редагування командної бібліотеки"),"https://www.figma.com/",[]],
+         ["Claude Design",T("prototypes on a canvas; included in the Claude seat","прототипи на полотні; входить у місце Claude"),"https://claude.ai/design",[]]],
+  why:T("`ux-flows.md` and `screens.md` are written there. The visuals stay in Figma, the manifest links to them.","`ux-flows.md` і `screens.md` пишуться там. Візуал лишається у Figma, маніфест на нього посилається."),
+  flow3:T("Draw the frames in Figma, link them in `screens.md` and check that every state is there.","Намалюйте фрейми у Figma, додайте посилання в `screens.md` і перевірте, що є кожен стан."),
+  allow:["Edit(/docs/design-system.md)","Edit(/docs/features/**/ux-flows.md)","Edit(/docs/features/**/screens.md)"], deny:["Edit(/src/**)","Bash(git push --force *)"],
+  owns:T("`ux-flows.md`, `screens.md` and `docs/design-system.md`","`ux-flows.md`, `screens.md` і `docs/design-system.md`"),
+  updates:["docs/design-system.md","ux-flows.md","screens.md"],
+  reads:["spec.md","CONTEXT.md","sad.md","contracts/openapi.yaml"],
+  noedit:T("`spec.md`, source code, contracts","`spec.md`, код, контракти")},
+ dev:{
+  extra:[["GitHub CLI",T("pull requests and diffs from the terminal","pull request і diff із термінала"),"https://cli.github.com/",["gh auth login"]],
+         ["Node.js",T("needed for MCP servers that start with npx","потрібен для MCP-серверів, які стартують через npx"),"https://nodejs.org/en/download",[]],
+         [T("IDE extension","Розширення для IDE"),T("optional: the same seat covers Claude Code in VS Code and JetBrains IDEs","за бажанням: те саме місце покриває Claude Code у VS Code та IDE від JetBrains"),null,[]]],
+  why:T("All of your work is there: design docs, contracts, tasks and the code itself.","Уся ваша робота там: документи дизайну, контракти, задачі й сам код."),
+  flow3:T("Let `implement` run task by task. Step in when it stops on a red test or on a conflict with the spec.","Дайте `implement` іти задача за задачею. Втручайтесь, коли він зупиняється на червоному тесті чи конфлікті зі spec."),
+  allow:["Bash(git commit *)"], deny:["Bash(git push --force *)","Read(./.env)"],
+  owns:T("`sad.md`, contracts, migrations and the code","`sad.md`, контракти, міграції та код"),
+  updates:["docs/architecture-map.md","sad.md, adr/*","data-model.md, migrations/","contracts/openapi.yaml","tasks/*, tasks.json",T("source code and tests","код і тести"),"_fixes/","CLAUDE.md, .mcp.json, .claude/settings.json"],
+  reads:[T("everything in the repository","усе в репозиторії")],
+  noedit:T("`spec.md` without the analyst, `screens.md` without the designer","`spec.md` без аналітика, `screens.md` без дизайнера")},
+ qa:{
+  extra:[["Node.js",T("Playwright MCP starts with npx","Playwright MCP стартує через npx"),"https://nodejs.org/en/download",[]],
+         ["GitHub CLI",T("to read the pull request and its checks","щоб читати pull request і його перевірки"),"https://cli.github.com/",["gh auth login"]]],
+  why:T("`test-plan.md` and the e2e tests live there, next to the spec you test against.","`test-plan.md` і e2e-тести лежать там, поруч зі spec, проти якого ви тестуєте."),
+  flow3:T("Have Claude walk the preview environment in the browser. You decide what is a bug and file it with the AC it breaks.","Дайте Claude пройти стенд у браузері. Ви вирішуєте, що є багом, і заводите його з AC, який він порушує."),
+  allow:["Edit(/docs/features/**/test-plan.md)","Edit(/tests/e2e/**)","mcp__playwright__*"], deny:["Edit(/src/**)","Bash(git push --force *)"],
+  owns:T("`test-plan.md` and the e2e tests","`test-plan.md` та e2e-тести"),
+  updates:["test-plan.md",T("e2e tests, for example tests/e2e/","e2e-тести, наприклад tests/e2e/")],
+  reads:["spec.md","ux-flows.md","screens.md","contracts/openapi.yaml","tasks.json",T("the pull request diff","diff pull request")],
+  noedit:T("`spec.md`, application code","`spec.md`, код застосунку")}
+};
+function setupHTML(){
+  var k=setupRole,d=SETUP[k],dev=k==="dev";
+  var mine=STEPS.filter(function(x){return x.role===k;});
+  var cmds=[]; mine.forEach(function(x){x.cmds.forEach(function(c){if(cmds.indexOf(c)<0)cmds.push(c);});});
+  var seat="Team "+tr(SEATROLE[k]==="prem"?U.seatPrem:U.seatStd);
+  function item(name,note,href,cs){return '<li><div><b>'+(href?lk(href,tr(name)):esc(tr(name)))+'</b> <span class="v">'+fmt(note)+'</span></div>'+(cs&&cs.length?'<div class="cmds">'+cs.map(cmdLine).join("")+'</div>':'')+'</li>';}
+  var install='<ul class="setup-list">'+
+    item(T("Claude account","Обліковий запис Claude"),T("a seat on the team plan ("+seat+"). The free plan does not include Claude Code.","місце в командному тарифі ("+seat+"). Безкоштовний тариф не містить Claude Code."),"https://claude.ai/",[])+
+    (dev?item(T("Claude Code in the terminal","Claude Code у терміналі"),T("macOS, Linux and WSL use the first command, Windows PowerShell the second. Then run `claude` in the project folder and sign in.","macOS, Linux і WSL використовують першу команду, Windows PowerShell другу. Потім запустіть `claude` у теці проєкту й увійдіть."),"https://code.claude.com/docs/en/setup",["curl -fsSL https://claude.ai/install.sh | bash","irm https://claude.ai/install.ps1 | iex"])
+        :item(T("Claude desktop app, Code tab","Десктоп-застосунок Claude, вкладка Code"),T("no terminal needed. If you prefer the terminal, the setup guide has the install commands.","термінал не потрібен. Якщо зручніше в терміналі, команди встановлення є в інструкції."),"https://claude.com/download",[]))+
+    (dev?'':'<li><div class="v">'+lk("https://code.claude.com/docs/en/desktop-quickstart",tr(T("Desktop quickstart","Швидкий старт для десктопу")))+' · '+lk("https://code.claude.com/docs/en/setup",tr(T("Terminal setup","Встановлення в терміналі")))+' · '+lk("https://code.claude.com/docs/en/terminal-guide",tr(T("Terminal guide for beginners","Термінал для початківців")))+'</div></li>')+
+    item("Git",T("to clone the repository and switch branches. On Windows install Git for Windows.","щоб клонувати репозиторій і перемикати гілки. На Windows встановіть Git for Windows."),"https://git-scm.com/downloads",[])+
+    item(T("SDD plugin","Плагін SDD"),T("run both commands once inside Claude Code.","виконайте обидві команди один раз усередині Claude Code."),"https://github.com/genkovich/sdd",["/plugin marketplace add genkovich/sdd","/plugin install sdd@sdd"])+
+    d.extra.map(function(x){return item(x[0],x[1],x[2],x[3]);}).join("")+'</ul>';
+  var servers=MCP.filter(function(m){return m.cells[k]!=="-";});
+  var mcp='<p>'+fmt(T("The servers are already listed in the repository's `.mcp.json`. After you open the project, run `/mcp` and sign in to each one with your own account.","Сервери вже описані в `.mcp.json` у репозиторії. Відкривши проєкт, виконайте `/mcp` і ввійдіть у кожен під своїм обліковим записом."))+'</p><ul class="setup-list">'+
+    servers.map(function(m){return '<li><div><b>'+esc(m.name)+'</b> <span class="tw">'+esc(tr(U[m.cells[k]]))+'</span><span class="v">'+esc(tr(m.what))+'</span></div><div class="cmds">'+cmdLine(m.cmd)+'</div></li>';}).join("")+'</ul>'+
+    (k==="qa"?'<p class="plain">'+esc(tr(T("Playwright covers the web admin in this example. Mobile apps need a different test driver; choose it during the pilot.","Playwright покриває вебадмінку з цього прикладу. Мобільним застосункам потрібен інший драйвер тестів; оберіть його під час пілота.")))+'</p>':'')+
+    '<p class="sources">'+lk("https://code.claude.com/docs/en/mcp",tr(T("MCP in Claude Code","MCP у Claude Code")))+lk("https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/","Atlassian Rovo MCP")+'</p>';
+  var repo='<p>'+fmt(T("Yes, you need it. SDD stages read and write files in the repository.","Так, він потрібен. Стадії SDD читають і пишуть файли в репозиторії."))+' '+fmt(d.why)+'</p>'+
+    '<div class="cmds">'+cmdLine("git clone "+REPO_URL)+cmdLine("cd YOUR-REPO")+(dev?cmdLine("claude"):"")+'</div>'+
+    '<p>'+fmt(dev?T("Work on the feature branch, for example `feature/tasks-issues`. `main` only changes through a pull request.","Працюйте у гілці фічі, наприклад `feature/tasks-issues`. `main` змінюється лише через pull request.")
+               :T("In the desktop app open the Code tab and choose the cloned folder as the project. Work on the feature branch, never on `main`. You do not need Git commands: ask Claude in plain words.","У десктоп-застосунку відкрийте вкладку Code й оберіть клоновану теку як проєкт. Працюйте у гілці фічі, не в `main`. Команди Git знати не потрібно: попросіть Claude звичайними словами."))+'</p>'+
+    '<div class="pblock"><div class="caprow"><p class="cap">'+esc(tr(T("Ask Claude:","Попросіть Claude:")))+'</p>'+copyBtn(tr(T("Switch to branch feature/tasks-issues and pull the latest changes.","Перейди на гілку feature/tasks-issues і підтягни останні зміни.")))+'</div><pre class="wrap">'+esc(tr(T("Switch to branch feature/tasks-issues and pull the latest changes.","Перейди на гілку feature/tasks-issues і підтягни останні зміни.")))+'</pre></div>'+
+    '<p class="sources">'+lk("https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository",tr(T("Cloning a repository","Клонування репозиторію")))+lk("https://git-scm.com/downloads",tr(T("Download Git","Завантажити Git")))+'</p>';
+  var flow='<ol class="loop-steps">'+
+    '<li>'+fmt(T("Open the repository in Claude Code and update the feature branch.","Відкрийте репозиторій у Claude Code й оновіть гілку фічі."))+'</li>'+
+    '<li>'+fmt(T("Run your stage. Start each one with `/clear` so it reads its inputs from disk.","Запустіть свою стадію. Кожну починайте з `/clear`, щоб вона читала вхідні файли з диска."))+(cmds.length?'<div class="chips" style="margin-top:4px">'+cmds.map(function(c){return '<code>'+esc(c)+'</code>';}).join("")+'</div>':'')+'</li>'+
+    '<li>'+fmt(d.flow3)+'</li>'+
+    '<li>'+fmt(dev?T("Accept the commits Claude proposes. `ship` opens the pull request; a person merges it.","Приймайте коміти, які пропонує Claude. `ship` відкриває pull request; мержить його людина.")
+                 :T("Accept the commit Claude proposes and push the branch.","Прийміть коміт, який пропонує Claude, і запуште гілку."))+'</li>'+
+    '<li>'+fmt(T("Paste the handoff block into the Jira ticket, so the next role knows what to review and what to run.","Вставте блок передачі в задачу Jira, щоб наступна роль знала, що переглянути й що запускати."))+'</li></ol>'+
+    '<div class="steps-in role-'+k+'">'+mine.map(function(x){return '<button type="button" class="step-link" data-nav="'+x.id+'">'+(x.row+1)+' · '+esc(tr(x.label))+'</button>';}).join("")+'</div>';
+  var json=JSON.stringify({permissions:{allow:d.allow,deny:d.deny}},null,2);
+  var perm='<ul class="rule-list">'+
+    '<li><b>'+esc(tr(U.inClaude))+'</b><span>'+fmt(dev?T("Manual mode by default; accept-edits mode is fine while `implement` runs. Do not use bypassPermissions on your own machine.","Типово режим Manual; режим accept-edits доречний, поки працює `implement`. Не вмикайте bypassPermissions на своїй машині.")
+        :T("Stay in Manual mode: Claude asks before every edit and command. Add the rules below to `.claude/settings.local.json` so it edits only your files.","Лишайтесь у режимі Manual: Claude питає перед кожною правкою й командою. Додайте правила нижче в `.claude/settings.local.json`, щоб він редагував лише ваші файли."))+'</span></li></ul>'+
+    '<div class="pblock"><div class="caprow"><p class="cap"><code>.claude/settings.local.json</code> · '+fmt(T("`/src/**` stands for your code folders","`/src/**` означає ваші теки з кодом"))+'</p>'+copyBtn(json)+'</div><pre>'+esc(json)+'</pre></div>'+
+    '<ul class="rule-list">'+
+    '<li><b>'+esc(tr(U.onGit))+'</b><span>'+fmt(T("Write access so you can push your branch. `main` is protected: changes land through a pull request with a review. CODEOWNERS sends ","Право Write, щоб пушити свою гілку. `main` захищена: зміни потрапляють через pull request з рев'ю. CODEOWNERS надсилає "))+fmt(d.owns)+fmt(T(" to your role for review."," на рев'ю вашій ролі."))+'</span></li>'+
+    '<li><b>'+esc(tr(U.inApps))+'</b><span>'+fmt(T("MCP uses your own sign-in, so Claude can do only what your account can.","MCP працює під вашим входом, тож Claude може лише те, що може ваш обліковий запис."))+'</span></li></ul>'+
+    '<p class="plain">'+fmt(T("Claude Code rules guide its file tools; they are not a security boundary. Branch protection and CODEOWNERS on the Git host are what enforce who can change what.","Правила Claude Code скеровують його файлові інструменти, але не є межею безпеки. Хто що може змінювати, насправді забезпечують захист гілок і CODEOWNERS на Git-хостингу."))+'</p>'+
+    '<p class="sources">'+lk("https://code.claude.com/docs/en/permissions",tr(T("Claude Code permissions","Права в Claude Code")))+lk("https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners","CODEOWNERS")+lk("https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches",tr(T("Protected branches","Захищені гілки")))+'</p>';
+  var files='<div class="grid2">'+cell(U.upd,'<div class="chips">'+d.updates.map(src).join("")+'</div>')+cell(U.rd,'<div class="chips">'+d.reads.map(function(x){var t=tr(x);return /[.\/_]/.test(t)&&!/ /.test(t.replace(/, /g,""))?'<code>'+esc(t)+'</code>':'<span class="src">'+esc(t)+'</span>';}).join("")+'</div>')+'</div>'+
+    '<div class="handline"><span class="k">'+esc(tr(U.noEdit))+'</span><span>'+fmt(d.noedit)+'</span></div>'+
+    '<p class="plain">'+fmt(T("Feature files sit in `docs/features/tasks-issues/`. Shared files such as `docs/roadmap.md` and `CONTEXT.md` sit above it.","Файли фічі лежать у `docs/features/tasks-issues/`. Спільні файли, як-от `docs/roadmap.md` і `CONTEXT.md`, лежать вище."))+'</p>';
+  return '<div class="rolepick" role="group" aria-label="'+esc(tr(U.setupIntro))+'">'+ROLE_ORDER.map(function(x){return '<button type="button" class="lane-btn role-'+x+'" data-setup="'+x+'" aria-pressed="'+String(x===k)+'">'+esc(tr(ROLES[x].l))+'</button>';}).join("")+'</div>'+
+    '<div class="d-top role-'+k+'"><h2>'+esc(tr(ROLES[k].name))+'</h2><p class="sum">'+esc(tr(ROLES[k].scope))+'</p></div>'+
+    '<div class="acc">'+sec("s1",U.sInstall,install,setupOpen==="s1")+sec("s2",U.sMcp,mcp,setupOpen==="s2")+sec("s3",U.sRepo,repo,setupOpen==="s3")+sec("s4",U.sFlow,flow,setupOpen==="s4")+sec("s5",U.sPerm,perm,setupOpen==="s5")+sec("s6",U.sFiles,files,setupOpen==="s6")+'</div>';
+}
+var setupOpen="s1";
+
+/* helpers */
+var TOOL=/^(Confluence|Jira|Figma|GitHub|Claude Design): (.*)$/;
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function fmt(s){return esc(tr(s)).replace(/`([^`]+)`/g,"<code>$1</code>");}
+function src(x){var s=tr(x),m=TOOL.exec(s);return m?'<span class="src"><b>'+esc(m[1])+'</b> '+esc(m[2])+'</span>':'<code>'+esc(s)+'</code>';}
+function art(x){var s=tr(x),m=TOOL.exec(s);return m?'<b>'+esc(m[1])+'</b> '+esc(m[2]):(/[.\/_*]/.test(s)?'<code>'+esc(s)+'</code>':esc(s));}
+function artChip(x){var s=tr(x),m=TOOL.exec(s);return m?'<span class="src"><b>'+esc(m[1])+'</b> '+esc(m[2])+'</span>':(/[.\/_*]/.test(s)?'<code>'+esc(s)+'</code>':'<span class="src">'+esc(s)+'</span>');}
+function rich(x){var s=tr(x),m=TOOL.exec(s);return m?'<b>'+esc(m[1])+'</b> '+fmt(m[2]):fmt(s);}
+function rchip(r){return '<span class="rchip role-'+r+'">'+esc(tr(ROLES[r].l))+'</span>';}
+function copyBtn(t){return '<button class="copy" type="button" data-copy="'+esc(t)+'">'+esc(tr(U.copy))+'</button>';}
+function cell(k,html){return '<div class="cell"><span class="k">'+esc(tr(k))+'</span>'+html+'</div>';}
+function plural(n){if(LANG==="en")return n===1?"step":"steps";var a=n%10,b=n%100;return a===1&&b!==11?"крок":(a>=2&&a<=4&&(b<12||b>14)?"кроки":"кроків");}
+var $=function(id){return document.getElementById(id);};
+
+var sel={kind:"step",id:"specify"},tab="step",openSec=null,hintNext=true,lastStep="specify",timer=null;
+var host=$("map"),lanesEl=$("lanes"),panel=$("panel"),mapcol=$("mapcol"),svg=null,lastW=0,lastH=0;
+var stacked=window.matchMedia("(max-width:759px)"),free=window.matchMedia("(max-width:759px),(max-height:639px)");
+var NS="http://www.w3.org/2000/svg";
+function el(n,a,p){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
+
+/* map: rows scale to the height the layout gives it */
+function build(){
+  var W=Math.floor(host.clientWidth); if(!W) return;
+  var compact=W<480;
+  if(free.matches){host.style.height=(8+16*(stacked.matches?(compact?40:42):34))+"px";} else host.style.height="";
+  var H=Math.floor(host.clientHeight); if(!H) return;
+  lastW=W; lastH=H;
+  var rowH=Math.min(50,(H-8)/16);
+  var nodeH=Math.max(15,Math.min(28,rowH-7));
+  var fs=(compact||rowH<25)?10:(rowH<30?11:12), ms=rowH<32?5:7;
+  var numW=compact?16:24, railW=compact?22:34, laneW=(W-numW-railW)/5;
+  var top=(H-16*rowH)/2;
+  lanesEl.style.paddingLeft=(numW+2)+"px"; lanesEl.style.paddingRight=(railW+2)+"px";
+  mapcol.classList.toggle("compact",compact||laneW<84);
+  host.textContent="";
+  svg=el("svg",{viewBox:"0 0 "+W+" "+H,width:W,height:H,role:"group","aria-label":tr(U.svgLabel)},host);
+  var defs=el("defs",{},svg);
+  [["ah",ms,"ah"],["ahs",ms,"ahs"],["ahb",ms,"ahb"],["ahh",ms+5,"ahs"]].forEach(function(m){
+    var mk=el("marker",{id:m[0],viewBox:"0 0 8 8",refX:7.2,refY:4,markerWidth:m[1],markerHeight:m[1],orient:"auto",markerUnits:"userSpaceOnUse"},defs);
+    el("path",{d:"M0 0.9 L7.6 4 L0 7.1 Z","class":m[2]},mk);
+  });
+  ROLE_ORDER.forEach(function(r,i){el("rect",{x:numW+i*laneW+2,y:0,width:laneW-4,height:H,rx:8,"class":"band role-"+r,"data-role":r,"aria-hidden":"true"},svg);});
+  for(var r=0;r<16;r++){var t=el("text",{x:numW/2,y:top+r*rowH+rowH/2+0.5,"text-anchor":"middle","dominant-baseline":"central","font-size":fs-1,"class":"rownum","aria-hidden":"true"},svg);t.textContent=r+1;}
+  var P={};
+  STEPS.forEach(function(s){
+    var lab=tr((compact&&s.short)?s.short:s.label);
+    var w=Math.max(38,Math.round(lab.length*fs*0.6+(compact?10:18)));
+    P[s.id]={cx:numW+(ROLE_ORDER.indexOf(s.role)+0.5)*laneW,cy:top+s.row*rowH+rowH/2,w:w,h:nodeH,lab:lab};
+  });
+  var wires=el("g",{"aria-hidden":"true"},svg);
+  for(var i=0;i<FLOW.length-1;i++){
+    var a=P[FLOW[i]],b=P[FLOW[i+1]],cross=BY[FLOW[i]].role!==BY[FLOW[i+1]].role;
+    var y1=a.cy+a.h/2,y2=b.cy-b.h/2-1,d;
+    if(Math.abs(a.cx-b.cx)<1) d="M"+a.cx+" "+y1+"V"+y2;
+    else {var my=Math.round((y1+y2)/2); d="M"+a.cx+" "+y1+"V"+my+"H"+b.cx+"V"+y2;}
+    el("path",{d:d,"class":"wire"+(cross?" hand":""),"data-a":FLOW[i],"data-b":FLOW[i+1],"data-m":(cross?"ahs":"ah"),"marker-end":"url(#"+(cross?"ahs":"ah")+")"},wires);
+  }
+  var end=numW+5*laneW, rail1=end+railW*0.4, rail2=end+railW*0.82;
+  var v=P.verify,f=P.fix,c=P.clarify,sc=P.screens,rv=P.review,im=P.implement;
+  var vr=v.cx+v.w/2,vl=v.cx-v.w/2,fr=f.cx+f.w/2,off=Math.min(5,nodeH/2-4);
+  function loop(k,d,solid){el("path",{d:d,"class":"loop"+(solid?" solid":""),"data-loop":k,"marker-end":"url(#ahb)"},wires);}
+  loop("regress","M"+(vl-1)+" "+(v.cy-off)+"H"+(fr+2),true);
+  loop("regress","M"+(fr+1)+" "+(f.cy+off)+"H"+(vl-2));
+  loop("ac","M"+vr+" "+(v.cy-off+1)+"H"+rail1+"V"+c.cy+"H"+(c.cx+c.w/2+2));
+  loop("screen","M"+vr+" "+(v.cy+off-1)+"H"+rail2+"V"+sc.cy+"H"+(sc.cx+sc.w/2+2));
+  var bx=Math.max(rv.cx+rv.w/2,im.cx+im.w/2)+(compact?14:22);
+  loop("review","M"+(rv.cx+rv.w/2+1)+" "+rv.cy+"C"+bx+" "+rv.cy+" "+bx+" "+im.cy+" "+(im.cx+im.w/2+2)+" "+im.cy);
+  STEPS.forEach(function(s){
+    var p=P[s.id];
+    var g=el("g",{"class":"node role-"+s.role+(s.team?" team":""),"data-id":s.id,tabindex:0,role:"button","aria-label":tr(U.stepOf).replace("{n}",s.row+1)+", "+tr(ROLES[s.role].name)+": "+tr(s.title)},svg);
+    el("rect",{x:p.cx-p.w/2,y:p.cy-p.h/2,width:p.w,height:p.h,rx:s.team?p.h/2:6},g);
+    var t=el("text",{x:p.cx,y:p.cy+0.5,"text-anchor":"middle","dominant-baseline":"central","font-size":fs},g);t.textContent=p.lab;
+  });
+  svg.addEventListener("click",function(e){var n=e.target.closest(".node");if(n)choose("step",n.getAttribute("data-id"),true);});
+  svg.addEventListener("keydown",function(e){if(e.key!=="Enter"&&e.key!==" ")return;var n=e.target.closest(".node");if(n){e.preventDefault();choose("step",n.getAttribute("data-id"),false);}});
+  applyState();
+}
+function applyState(){
+  if(!svg) return;
+  var lp=sel.kind==="loop"?LOOPS[sel.id]:null, st=sel.kind==="step"?sel.id:null;
+  svg.classList.toggle("has-loop",!!lp);
+  svg.classList.toggle("focus",!!lp||sel.kind==="role");
+  svg.querySelectorAll(".loop").forEach(function(p){p.classList.toggle("on",!!lp&&p.getAttribute("data-loop")===sel.id);});
+  svg.querySelectorAll(".wire").forEach(function(p){
+    var hot=!!st&&(p.getAttribute("data-a")===st||p.getAttribute("data-b")===st);
+    p.classList.toggle("hot",hot);
+    p.setAttribute("marker-end","url(#"+(hot?"ahh":p.getAttribute("data-m"))+")");
+    if(hot) p.parentNode.appendChild(p);
+  });
+  svg.querySelectorAll(".node").forEach(function(n){
+    var id=n.getAttribute("data-id"),s=BY[id];
+    n.classList.toggle("active",st===id);
+    n.classList.toggle("dim",(sel.kind==="role"&&s.role!==sel.id)||(!!lp&&lp.nodes.indexOf(id)<0));
+    n.classList.toggle("ring",!!lp&&lp.nodes.indexOf(id)>=0);
+  });
+  svg.querySelectorAll(".band").forEach(function(b){b.classList.toggle("on",sel.kind==="role"&&b.getAttribute("data-role")===sel.id);});
+  lanesEl.querySelectorAll(".lane-btn").forEach(function(b){b.setAttribute("aria-pressed",String(sel.kind==="role"&&b.getAttribute("data-role")===sel.id));});
+  document.querySelectorAll(".loop-btn").forEach(function(b){b.setAttribute("aria-pressed",String(sel.kind==="loop"&&b.getAttribute("data-loop")===sel.id));});
+  $("prep").setAttribute("aria-pressed",String(sel.kind==="prep"));
+}
+
+/* detail views */
+function sec(id,title,inner,open){return '<details name="acc" data-sec="'+id+'"'+(open?" open":"")+'><summary>'+esc(tr(title))+'</summary><div class="in">'+inner+'</div></details>';}
+function footRow(){return '<div class="foot"><button class="btn" type="button" data-nav="'+lastStep+'">← '+esc(tr(U.backTo))+' '+(BY[lastStep].row+1)+' · '+esc(tr(BY[lastStep].label))+'</button><button class="btn up" type="button" data-up="1">'+esc(tr(U.toMap))+'</button></div>';}
+function stepHTML(s){
+  var i=ORDER.indexOf(s.id),p=ORDER[i-1],n=ORDER[i+1];
+  var e=EST[s.id],u=usdRange(e);
+  var h='<div class="coststrip" title="'+esc(tr(U.costTip))+'">'+
+    '<span class="cv"><span class="k">'+esc(tr(U.model))+'</span><b>'+e[2]+'</b></span>'+
+    '<span class="cv money"><span class="k">'+esc(tr(U.tokensK))+'</span><b>≈ '+estText(e)+'</b></span>'+
+    '<span class="cv money"><span class="k">'+esc(tr(U.costK))+'</span><b>'+usdText(u[0],u[1])+'</b></span>'+
+    '<span class="cv"><span class="k">'+esc(tr(U.seatK))+'</span><b>Team '+esc(tr(SEATROLE[s.role]==="prem"?U.seatPrem:U.seatStd))+'</b></span>'+
+    '<button type="button" class="info-btn" data-info="1" aria-expanded="false" aria-controls="cost-pop">'+esc(tr(U.infoBtn))+'</button>'+
+    '<span class="cost-pop" id="cost-pop" role="note" hidden>'+esc(tr(U.costTip))+'</span></div>';
+  h+='<div class="d-top role-'+s.role+'"><div class="d-line">'+rchip(s.role)+'<span>'+esc(tr(U.stepOf).replace("{n}",s.row+1))+'</span><span class="tag">'+esc(tr(s.team?U.tagTeam:U.tagSdd))+'</span><span class="jira">Jira: <b>'+esc(s.jira)+'</b></span>'+
+    '<span class="walk"><button class="ib arrow" type="button" data-restart="1"'+(p?"":" disabled")+' aria-label="'+esc(tr(S.restart))+'" title="'+esc(tr(S.restart))+'">«</button>'+
+    '<button class="ib arrow" type="button" data-nav="'+(p||"")+'"'+(p?"":" disabled")+' aria-label="'+esc(tr(U.prev))+'">←</button>'+
+    '<button class="ib" type="button" data-play="1" aria-pressed="'+String(!!timer)+'">'+esc(tr(timer?U.pause:U.play))+'</button>'+
+    '<button class="ib arrow'+(hintNext&&n?" hint":"")+'" type="button" data-nav="'+(n||"")+'"'+(n?"":" disabled")+' aria-label="'+esc(tr(U.next))+'" title="'+esc(tr(U.next))+'"><span class="ar">→</span></button></span></div>'+
+    '<h2>'+esc(tr(s.title))+'</h2><p class="sum">'+esc(tr(SUM[s.id]))+'</p>'+
+    (s.cmds.length?'<div class="cmdrow">'+s.cmds.map(function(c){return '<span class="cmd"><code>'+esc(c)+'</code>'+copyBtn(c)+'</span>';}).join("")+'</div>':'')+'</div>';
+  var to=s.handoff.filter(function(x){return x[0]!==s.role;});
+  var info=cell(U.toolsHere,'<ul class="tools">'+toolsFor(s).map(function(t){var g=TOOLREG[t[0]];return '<li><b>'+esc(g.name)+'</b><span><span class="tw">'+esc(tr(g.where))+'</span>'+fmt(t[1])+'</span></li>';}).join("")+'</ul>');
+  info+='<div class="grid2">'+
+    cell(U.reads,'<div class="chips">'+s.reads.map(src).join("")+'</div>')+
+    cell(U.outShort,'<div class="chips">'+s.writes.map(function(w){return artChip(w[0]);}).join("")+'</div>')+
+    '</div>';
+  info+='<div class="handline"><span class="k">'+esc(tr(U.handShort))+'</span>'+(to.length?to.map(function(x){return rchip(x[0]);}).join(""):'<span class="plain">'+esc(tr(n?U.sameRole:U.endCycle))+'</span>')+'</div>';
+  var pr=PROMPT[s.id]||s.prompt, ex=EXADD[s.id]||s.example;
+  var parts=[["what",U.secWhat,'<ul>'+s.does.map(function(d){return '<li>'+fmt(d)+'</li>';}).join("")+'</ul>']];
+  if(pr){
+    var blocks=Array.isArray(pr)?pr:[[null,pr]];
+    parts.push(["prompt",U.secPrompt,'<p class="cap">'+esc(tr(U.promptBy))+' <b>'+esc(tr(ROLES[s.role].name))+'</b></p>'+blocks.map(function(bk){
+      return '<div class="pblock"><div class="caprow"><p class="cap">'+(bk[0]?esc(tr(bk[0])):"")+'</p>'+copyBtn(tr(bk[1]))+'</div><pre class="wrap">'+esc(tr(bk[1]))+'</pre></div>';}).join("")]);
+  }
+  if(CHAT[s.id]) parts.push(["chat",U.secChat,'<p class="cap">'+esc(tr(U.chatCap))+'</p><ul class="chat">'+CHAT[s.id].map(function(m){
+    return m[0]==="sec"?'<li class="c-sec">'+esc(tr(m[1]))+'</li>':'<li class="c-'+m[0]+'"><span class="who">'+(m[0]==="po"?esc(tr(ROLES[s.role].s)):m[0]==="cl"?"Claude":"")+'</span><span class="say">'+esc(tr(m[1]))+'</span></li>';}).join("")+'</ul>']);
+  if(ex) parts.push(["ex",U.secEx,(EXCAP[s.id]?'<p class="cap">'+esc(tr(EXCAP[s.id]))+'</p>':'')+'<pre>'+esc(tr(ex))+'</pre>']);
+  parts.push(["out",U.secOut,'<ul class="rows">'+s.writes.map(function(w){return '<li><span>'+art(w[0])+'</span><span class="v">'+esc(tr(w[1]))+'</span></li>';}).join("")+'</ul>'+
+    (s.handoff.length?'<ul class="rows">'+s.handoff.map(function(x){return '<li><span>→ '+rchip(x[0])+'</span><span>'+fmt(x[1])+'</span></li>';}).join("")+'</ul>':'')]);
+  var want=openSec===null?"what":openSec;
+  var cur=parts.some(function(x){return x[0]===want;})?want:(openSec==="none"?null:"what");
+  h+='<div class="more"><div class="more-tabs" role="group" aria-label="'+esc(tr(U.moreLabel))+'">'+parts.map(function(x){return '<button type="button" class="mt" data-sec="'+x[0]+'" aria-expanded="'+String(x[0]===cur)+'">'+esc(tr(x[1]))+'</button>';}).join("")+'</div>'+
+    parts.map(function(x){return '<div class="more-body" data-body="'+x[0]+'"'+(x[0]===cur?"":" hidden")+'>'+x[2]+'</div>';}).join("")+'</div>';
+  h+=info;
+  if(stacked.matches) h+='<div class="foot"><button class="btn up" type="button" data-up="1">'+esc(tr(U.toMap))+'</button></div>';
+  return h;
+}
+function roleHTML(k){
+  var r=ROLES[k];
+  var mine=STEPS.filter(function(s){return s.role===k;});
+  var mcp=MCP.filter(function(m){return m.cells[k]!=="-";});
+  var h='<div class="d-top role-'+k+'"><div class="d-line">'+rchip(k)+'<span>'+esc(tr(U.roleCard))+' · '+mine.length+' '+plural(mine.length)+' '+esc(tr(U.onMap))+'</span></div><h2>'+esc(tr(r.name))+'</h2><p class="sum">'+esc(tr(r.scope))+'</p>'+
+    '<div class="steps-in">'+mine.map(function(s){return '<button type="button" class="step-link" data-nav="'+s.id+'">'+(s.row+1)+' · '+esc(tr(s.label))+'</button>';}).join("")+'</div></div>';
+  h+='<div class="acc">'+
+    sec("r1",U.secTools,'<div class="grid2">'+
+      cell(U.tools,'<ul>'+r.tools.map(function(t){return '<li>'+esc(tr(t))+'</li>';}).join("")+'</ul>')+
+      cell("MCP",'<ul class="rows">'+mcp.map(function(m){return '<li><span class="kk">'+esc(m.name)+'</span><span class="v">'+esc(tr(U[m.cells[k]]))+'</span></li>';}).join("")+'</ul>')+'</div>',true)+
+    sec("r2",U.secCtx,'<div class="grid2">'+
+      cell(U.context,'<div class="chips">'+r.ctx.map(src).join("")+'</div>')+
+      cell(U.commands,'<div class="chips">'+r.cmds.map(function(c){return '<code>'+esc(tr(c))+'</code>';}).join("")+'</div>')+'</div>',false)+
+    sec("r3",U.secOutH,'<div class="grid2">'+
+      cell(U.out,'<ul>'+r.out.map(function(o){return '<li>'+rich(o)+'</li>';}).join("")+'</ul>')+
+      cell(U.handsTo,'<ul class="rows">'+r.to.map(function(x){return '<li><span>'+rchip(x[0])+'</span><span>'+fmt(x[1])+'</span></li>';}).join("")+'</ul>')+'</div>',false)+
+    '</div>';
+  h+='<div><button type="button" class="btn" data-setup="'+k+'">'+esc(tr(U.setupBtn))+'</button></div>';
+  return h+footRow();
+}
+function loopHTML(k){
+  var l=LOOPS[k];
+  var h='<div class="d-top" style="--rc:var(--bug)"><div class="d-line"><span>'+esc(tr(U.back))+'</span></div><h2>'+esc(tr(l.title))+'</h2><p class="trigger">'+esc(tr(l.trigger))+'</p></div>';
+  h+=cell(U.who,'<ol class="loop-steps">'+l.steps.map(function(s){return '<li>'+rchip(s[0])+' '+fmt(s[1])+'</li>';}).join("")+'</ol>');
+  h+='<div class="grid2">'+cell(U.updates,'<p>'+fmt(l.updates)+'</p>')+
+    cell(U.stepsOnMap,'<div class="steps-in">'+l.nodes.map(function(id){return '<button type="button" class="step-link role-'+BY[id].role+'" data-nav="'+id+'">'+(BY[id].row+1)+' · '+esc(tr(BY[id].label))+'</button>';}).join("")+'</div>')+'</div>';
+  return h+footRow();
+}
+function prepHTML(){
+  var h='<div class="d-top"><div class="d-line"><span>'+esc(tr(U.step0))+'</span><span class="tag">'+esc(tr(U.once))+'</span></div><h2>'+esc(tr(U.prepTitle))+'</h2><p class="sum">'+esc(tr(U.prepSub))+'</p>'+
+    '<div class="cmdrow"><span class="cmd"><code>/plugin marketplace add genkovich/sdd</code>'+copyBtn("/plugin marketplace add genkovich/sdd")+'</span><span class="cmd"><code>/plugin install sdd@sdd</code>'+copyBtn("/plugin install sdd@sdd")+'</span></div></div>';
+  h+=cell(U.whoPrep,'<ul class="rows">'+
+    '<li><span>'+rchip("dev")+'</span><span>'+tr(U.prepDev)+'</span></li>'+
+    '<li><span>'+rchip("des")+'</span><span>'+tr(U.prepDes)+'</span></li>'+
+    '<li><span>'+rchip("pm")+'</span><span>'+tr(U.prepPm)+'</span></li></ul>');
+  h+='<div class="acc">'+
+    sec("shared",U.shared,'<ul class="rows">'+
+      '<li><span><code>CLAUDE.md</code></span><span class="v">'+esc(tr(U.fClaude))+'</span></li>'+
+      '<li><span><code>.mcp.json</code></span><span class="v">'+esc(tr(U.fMcp))+'</span></li>'+
+      '<li><span><code>.claude/sdd.local.md</code></span><span class="v">'+esc(tr(U.fLocal))+'</span></li></ul>',true)+
+    sec("teamset",U.teamSet,'<pre>'+esc(tr(U.settings))+'</pre>',false)+'</div>';
+  return h+footRow();
+}
+/* reference tabs */
+function handHTML(){
+  var rows=[];
+  STEPS.forEach(function(s){s.handoff.forEach(function(x){if(x[0]!==s.role)rows.push([s,x]);});});
+  return '<p class="intro">'+tr(S.handIntro)+'</p><div class="scroll"><table><thead><tr><th>'+esc(tr(U.thAfter))+'</th><th>'+esc(tr(U.fromTo))+'</th><th>'+esc(tr(U.thWhat))+'</th></tr></thead><tbody>'+rows.map(function(r){
+    return '<tr><td class="nw"><button type="button" class="step-link role-'+r[0].role+'" data-nav="'+r[0].id+'">'+(r[0].row+1)+' · '+esc(tr(r[0].label))+'</button></td><td class="nw">'+rchip(r[0].role)+' → '+rchip(r[1][0])+'</td><td>'+fmt(r[1][1])+'</td></tr>';}).join("")+'</tbody></table></div>';
+}
+function mcpHTML(){
+  return '<p class="intro">'+tr(S.toolsIntro)+'</p><div class="acc">'+TOOLTAB.map(function(m,i){
+    var used=STEPS.filter(function(st){return toolsFor(st).some(function(t){return t[0]===m.key;});});
+    return '<details name="acc" data-sec="m'+i+'"'+(i===0?" open":"")+'><summary class="mcp-sum"><span class="mcp-name">'+esc(m.name)+'</span><span class="slots">'+ROLE_ORDER.map(function(r){var c=m.cells[r];return '<span class="slot role-'+r+' s-'+(c==="-"?"none":c)+'" title="'+esc(tr(ROLES[r].name))+'"><span class="r">'+esc(tr(ROLES[r].s))+'</span><span class="a">'+(c==="-"?"—":c)+'</span></span>';}).join("")+'</span></summary><div class="in"><p class="plain">'+esc(tr(m.what))+'</p>'+
+      '<div class="handline"><span class="k">'+esc(tr(U.usedAt))+'</span>'+used.map(function(st){return '<button type="button" class="step-link role-'+st.role+'" data-nav="'+st.id+'">'+(st.row+1)+' · '+esc(tr(st.label))+'</button>';}).join("")+'</div>'+
+      (m.cmds.length?'<div class="mcp-cmd">'+m.cmds.map(function(c){return '<span class="cmd"><code>'+esc(c)+'</code>'+copyBtn(c)+'</span>';}).join("")+'</div>':'')+
+      '</div></details>';}).join("")+
+    '</div><div class="keyline">'+tr(S.mcpLegend)+'</div>';
+}
+function filesHTML(){
+  return '<p class="intro">'+tr(S.artIntro)+'</p><div class="scroll"><table><thead><tr><th>'+esc(tr(U.thFile))+'</th><th>'+esc(tr(U.thWrites))+'</th><th>'+esc(tr(U.thReads))+'</th><th>'+esc(tr(U.thCopy))+'</th></tr></thead><tbody>'+ARTS.map(function(a){
+    return '<tr><td><code>'+esc(a[0])+'</code></td><td class="nw">'+rchip(a[1])+'</td><td>'+esc(tr(a[2]))+'</td><td>'+esc(tr(a[3]))+'</td></tr>';}).join("")+'</tbody></table></div>';
+}
+function rulesHTML(){
+  return '<h2>'+esc(tr(S.rulesH))+'</h2><ul class="rule-list"><li>'+tr(S.rule1)+'</li><li>'+tr(S.rule2)+'</li><li>'+tr(S.rule3)+'</li></ul>'+
+    '<p class="intro">'+esc(tr(U.roleProposal))+'</p>'+
+    '<div class="acc">'+sec("hb",U.handBlock,'<figure><pre>'+esc(tr(S.figPre))+'</pre><figcaption>'+esc(tr(S.figCap))+'</figcaption></figure>',false)+
+    sec("dec",S.decH,'<ul class="decide">'+tr(S.decList)+'</ul>',false)+'</div>'+
+    '<p class="sources"><span>'+esc(tr(S.srcLabel))+'</span><a href="https://github.com/genkovich/sdd">genkovich/sdd</a><a href="https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/">Atlassian Rovo MCP Server</a><a href="https://shopify.dev/docs/apps/build/devmcp">Shopify Dev MCP</a><a href="https://claude.ai/design">Claude Design</a></p>';
+}
+function renderPane(){
+  $("tabs").innerHTML=TABS.map(function(t){return '<button type="button" class="tab" role="tab" data-tab="'+t[0]+'" aria-selected="'+String(tab===t[0])+'">'+esc(tr(t[1]))+'</button>';}).join("");
+  panel.innerHTML=tab==="hand"?handHTML():tab==="mcp"?mcpHTML():tab==="files"?filesHTML():tab==="cost"?costHTML():tab==="rules"?rulesHTML():tab==="setup"?setupHTML():
+    (sel.kind==="step"?stepHTML(BY[sel.id]):sel.kind==="role"?roleHTML(sel.id):sel.kind==="loop"?loopHTML(sel.id):prepHTML());
+  /* keep the pane free of scrolling: a section opened by default closes again if it does not fit */
+  if(!free.matches&&tab==="step"&&!(sel.kind==="step"&&openSec!==null)&&panel.scrollHeight>panel.clientHeight+2){
+    var o=panel.querySelector(".acc details[open]"); if(o) o.open=false;
+    var mb=panel.querySelector(".more-body:not([hidden])");
+    if(mb){mb.hidden=true; var bt=panel.querySelector('.mt[aria-expanded="true"]'); if(bt) bt.setAttribute("aria-expanded","false");}
+  }
+}
+function stopPlay(){if(timer){clearInterval(timer);timer=null;}}
+function choose(kind,id,scroll,fromPlay){
+  if(!fromPlay) stopPlay();
+  if(kind==="step"&&!(sel.kind==="step"&&sel.id===id)) hintNext=false;
+  if(sel.kind===kind&&sel.id===id&&kind!=="step"){sel={kind:"step",id:lastStep};}
+  else sel={kind:kind,id:id};
+  if(sel.kind==="step") lastStep=sel.id;
+  tab="step";
+  applyState(); renderPane(); panel.scrollTop=0;
+  if(scroll&&stacked.matches) $("pane").scrollIntoView({block:"start"});
+}
+function step(delta){
+  var i=ORDER.indexOf(sel.kind==="step"?sel.id:lastStep)+delta;
+  if(i>=0&&i<ORDER.length) choose("step",ORDER[i],false);
+}
+function togglePlay(){
+  if(timer){stopPlay();renderPane();return;}
+  if(ORDER.indexOf(sel.id)>=ORDER.length-1) choose("step",ORDER[0],false);
+  timer=setInterval(function(){
+    var i=ORDER.indexOf(sel.id);
+    if(sel.kind!=="step"||i<0||i>=ORDER.length-1){stopPlay();renderPane();return;}
+    choose("step",ORDER[i+1],false,true);
+    if(ORDER.indexOf(sel.id)>=ORDER.length-1){stopPlay();renderPane();}
+  },2800);
+  renderPane();
+}
+
+/* everything that depends on the language */
+function renderChrome(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll("[data-i18n]").forEach(function(e){e.innerHTML=tr(S[e.getAttribute("data-i18n")]);});
+  document.querySelectorAll(".lang").forEach(function(g){g.setAttribute("aria-label",tr(U.langLabel));});
+  document.querySelectorAll("[data-lang]").forEach(function(b){b.setAttribute("aria-pressed",String(b.getAttribute("data-lang")===LANG));});
+  var tt=totals(),mx=seatMix();
+  $("hchips").innerHTML='<button type="button" class="hchip money" data-cost="c1" title="'+esc(tr(U.costTip))+'">'+esc(tr(U.hFeature))+' <b>≈ '+tt.tok+'</b> '+esc(tr(U.tokens))+' · <b>≈ '+tt.usd+'</b></button>'+
+    '<button type="button" class="hchip" data-cost="c3">'+esc(tr(U.hPlan))+': <b>'+mx.std+' Standard + '+mx.prem+' Premium</b> · <b>$'+mx.month+'</b>'+esc(tr(U.perMonth))+'</button>';
+  $("intro-roles").innerHTML=ROLE_ORDER.map(function(r){return '<li><span>'+rchip(r)+'</span><span>'+esc(tr(INTRO_ROLE[r]))+'</span></li>';}).join("");
+  lanesEl.innerHTML=ROLE_ORDER.map(function(r){return '<button type="button" class="lane-btn role-'+r+'" data-role="'+r+'" aria-pressed="false" title="'+esc(tr(ROLES[r].name))+'"><span class="l">'+esc(tr(ROLES[r].l))+'</span><span class="s">'+esc(tr(ROLES[r].s))+'</span></button>';}).join("");
+  $("loopbtns").innerHTML=Object.keys(LOOPS).map(function(k){return '<button type="button" class="chipbtn loop-btn" data-loop="'+k+'" aria-pressed="false" title="'+esc(tr(LOOPS[k].btn))+'">'+esc(tr(LB[k]))+'</button>';}).join("");
+  lastW=0; build(); renderPane();
+}
+function setLang(l){
+  if(l!=="en"&&l!=="uk") return;
+  LANG=l;
+  try{localStorage.setItem("sdlc-map-lang",l);}catch(e){}
+  renderChrome();
+}
+
+/* events */
+var intro=$("intro");
+function openIntro(){if(intro.open)return;try{intro.showModal();}catch(e){intro.setAttribute("open","");}}
+function closeIntro(){if(!intro.open)return;try{intro.close();}catch(e){intro.removeAttribute("open");}}
+intro.addEventListener("click",function(e){
+  if(e.target!==intro) return;
+  var r=intro.getBoundingClientRect();
+  if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) closeIntro();
+});
+lanesEl.addEventListener("click",function(e){var b=e.target.closest(".lane-btn");if(b)choose("role",b.getAttribute("data-role"),true);});
+$("loopbtns").addEventListener("click",function(e){var b=e.target.closest(".loop-btn");if(b)choose("loop",b.getAttribute("data-loop"),true);});
+$("prep").addEventListener("click",function(){choose("prep","prep",true);});
+$("tabs").addEventListener("click",function(e){var b=e.target.closest("[data-tab]");if(b){stopPlay();tab=b.getAttribute("data-tab");renderPane();panel.scrollTop=0;}});
+panel.addEventListener("toggle",function(e){
+  var d=e.target; if(!d.matches||!d.matches("details[data-sec]")||!d.open) return;
+  d.parentNode.querySelectorAll("details[open]").forEach(function(o){if(o!==d)o.open=false;});
+  if(tab==="setup"&&/^s\d$/.test(d.getAttribute("data-sec"))) setupOpen=d.getAttribute("data-sec");
+},true);
+panel.addEventListener("click",function(e){
+  var b=e.target.closest(".mt"); if(!b) return;
+  var id=b.getAttribute("data-sec");
+  openSec=b.getAttribute("aria-expanded")==="true"?"none":id;
+  renderPane();
+  var again=panel.querySelector('.mt[data-sec="'+id+'"]'); if(again) again.focus();
+});
+document.addEventListener("click",function(e){
+  var lg=$("lg"); if(lg.open&&!lg.contains(e.target)) lg.open=false;
+  var ib=e.target.closest("[data-info]"),pop=$("cost-pop");
+  if(pop&&!pop.contains(e.target)){
+    var show=!!ib&&pop.hidden; pop.hidden=!show;
+    var btn=panel.querySelector("[data-info]"); if(btn) btn.setAttribute("aria-expanded",String(show));
+    if(ib) return;
+  }
+  var c=e.target.closest("[data-copy]");
+  if(c){
+    var t=c.getAttribute("data-copy"),reset=function(){setTimeout(function(){c.textContent=tr(U.copy);},1400);};
+    var done=function(){c.textContent=tr(U.copied);reset();};
+    var fallback=function(){var codeEl=c.parentNode.querySelector("code")||((c.closest(".pblock")||c.parentNode.parentNode||c.parentNode).querySelector("pre"));if(codeEl){var r=document.createRange();r.selectNodeContents(codeEl);var s=window.getSelection();s.removeAllRanges();s.addRange(r);c.textContent=tr(U.selected);reset();}};
+    try{navigator.clipboard.writeText(t).then(done,fallback);}catch(err){fallback();}
+    return;
+  }
+  var lb=e.target.closest("[data-lang]");
+  if(lb){if(lb.getAttribute("data-lang")!==LANG)setLang(lb.getAttribute("data-lang"));return;}
+  if(e.target.closest("[data-about]")){stopPlay();openIntro();return;}
+  var su=e.target.closest("[data-setup]");
+  if(su){stopPlay();tab="setup";setupRole=su.getAttribute("data-setup");renderPane();panel.scrollTop=0;if(stacked.matches)$("pane").scrollIntoView({block:"start"});return;}
+  var cc=e.target.closest("[data-cost]");
+  if(cc){stopPlay();tab="cost";costOpen=cc.getAttribute("data-cost");renderPane();panel.scrollTop=0;if(stacked.matches)$("pane").scrollIntoView({block:"start"});return;}
+  if(e.target.closest("[data-close]")) closeIntro();
+  if(e.target.closest("[data-restart]")){choose("step",ORDER[0],true);return;}
+  if(e.target.closest("[data-play]")){togglePlay();return;}
+  if(e.target.closest("[data-up]")){$("app").scrollIntoView({block:"start"});return;}
+  var n=e.target.closest("[data-nav]");
+  if(n&&n.getAttribute("data-nav")) choose("step",n.getAttribute("data-nav"),false);
+});
+document.addEventListener("keydown",function(e){
+  if(e.key==="Escape"){var cp=$("cost-pop");if(cp&&!cp.hidden){cp.hidden=true;var ibn=panel.querySelector("[data-info]");if(ibn){ibn.setAttribute("aria-expanded","false");ibn.focus();}}return;}
+  if(intro.open||e.altKey||e.ctrlKey||e.metaKey||e.shiftKey) return;
+  if(e.key!=="ArrowRight"&&e.key!=="ArrowLeft") return;
+  var tg=e.target&&e.target.tagName; if(tg==="INPUT"||tg==="TEXTAREA"||tg==="SELECT") return;
+  e.preventDefault(); step(e.key==="ArrowRight"?1:-1);
+});
+if(window.ResizeObserver){new ResizeObserver(function(){var w=Math.floor(host.clientWidth),h=Math.floor(host.clientHeight);if(w!==lastW||(!free.matches&&h!==lastH))build();}).observe(host);}
+else window.addEventListener("resize",build);
+renderChrome();
+openIntro();
+})();
+</script>

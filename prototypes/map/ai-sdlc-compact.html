@@ -1,0 +1,1453 @@
+<title>AI-SDLC One-Screen Map</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Onest:wght@400;500;600&family=Unbounded:wght@500;600&display=swap">
+<style>
+/* Layout: a one-screen app. A slim top bar, then two panes that share the viewport height: the role-lane map on the left (rows scale to the height), a tabbed detail pane on the right with collapsible sections. */
+:root{
+  --bg:#EDF0F3; --surface:#FFFFFF; --sunk:#E2E7EC; --ink:#17212B; --muted:#566472; --line:#CDD5DD; --wire:#8492A0; --accent:#0C6B73;
+  --po:#A65F00; --pm:#6247CF; --des:#B82C78; --dev:#1C68C4; --qa:#127A52; --bug:#C2352B; --on-role:#FFFFFF;
+  --f-display:'Unbounded','Arial Black',system-ui,sans-serif;
+  --f-body:'Onest','Segoe UI',system-ui,-apple-system,sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F141A; --surface:#171E27; --sunk:#1F2833; --ink:#E4EAF0; --muted:#94A2B1; --line:#2B3644; --wire:#6C7A8A; --accent:#56C5CE;
+    --po:#F2B24C; --pm:#AC9BFF; --des:#F47DB9; --dev:#74B4FF; --qa:#55D3A0; --bug:#FF8073; --on-role:#0F141A;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F141A; --surface:#171E27; --sunk:#1F2833; --ink:#E4EAF0; --muted:#94A2B1; --line:#2B3644; --wire:#6C7A8A; --accent:#56C5CE;
+  --po:#F2B24C; --pm:#AC9BFF; --des:#F47DB9; --dev:#74B4FF; --qa:#55D3A0; --bug:#FF8073; --on-role:#0F141A;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{box-sizing:border-box;height:100%}
+body{height:100%;background:var(--bg);color:var(--ink);font:400 14.5px/1.5 var(--f-body)}
+.role-po{--rc:var(--po)} .role-pm{--rc:var(--pm)} .role-des{--rc:var(--des)} .role-dev{--rc:var(--dev)} .role-qa{--rc:var(--qa)}
+h1,h2,h3,p,ul,ol,pre,figure{margin:0}
+ul,ol{padding-left:1.15em}
+code,pre{font-family:var(--f-mono);font-size:.86em}
+code{background:var(--sunk);padding:.08em .36em;border-radius:4px;overflow-wrap:anywhere}
+a{color:var(--accent)}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.muted{color:var(--muted)}
+
+.app{height:100%;max-width:1480px;margin-inline:auto;padding-inline:clamp(16px,2vw,28px);padding-block:12px;display:flex;flex-direction:column;gap:10px}
+
+/* top bar */
+.bar{display:flex;justify-content:space-between;align-items:flex-start;gap:6px 18px}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
+h1{font:600 1.08rem/1.25 var(--f-display);letter-spacing:-.01em}
+.h1row{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+.ver{flex:none;font:700 .8rem/1.5 var(--f-body);letter-spacing:.02em;white-space:nowrap;color:var(--surface);background:var(--accent);border-radius:99px;padding:1px 10px}
+.sub{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;font-size:.86rem;color:var(--muted)}
+.sub b{color:var(--ink);font-weight:600}
+.sub .meta{display:inline-flex;flex-wrap:wrap;gap:2px 10px}
+.bar-right{flex:none;display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px 10px}
+.btn.restart{padding:3px 12px;font-size:.84rem}
+.hchips{display:inline-flex;flex-wrap:wrap;gap:6px}
+.hchip{border:1px solid color-mix(in srgb,var(--accent) 45%,var(--surface));background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:var(--ink);border-radius:99px;padding:1px 10px;font-size:.8rem;line-height:1.5;cursor:pointer;white-space:nowrap}
+.hchip:hover{border-color:var(--accent)}
+.hchip b{color:var(--accent);font-weight:600}
+.coststrip{display:flex;flex-wrap:wrap;gap:2px 14px;align-items:baseline;background:color-mix(in srgb,var(--accent) 11%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 40%,var(--surface));border-radius:9px;padding:5px 10px}
+.coststrip .cv{display:inline-flex;gap:6px;align-items:baseline;white-space:nowrap}
+.coststrip b{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.coststrip{position:relative}
+.info-btn{margin-left:auto;border:1px solid color-mix(in srgb,var(--accent) 55%,var(--surface));background:var(--surface);color:var(--accent);border-radius:99px;padding:0 9px;font-size:.76rem;font-weight:600;line-height:1.5;cursor:pointer}
+.info-btn:hover,.info-btn[aria-expanded="true"]{background:var(--accent);color:var(--surface)}
+.cost-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:4;width:min(380px,100%);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.86rem;line-height:1.45;box-shadow:0 6px 18px rgba(10,14,20,.18)}
+.coststrip .money b{color:var(--bug);font-weight:700;font-size:1.04em}
+.hchip.money b{color:var(--bug);font-weight:700}
+.coststrip .est{margin-left:auto;font:500 .66rem/1.3 var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.lang{flex:none;display:inline-flex;border:1.5px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.lang button{border:0;background:transparent;padding:4px 11px;font:500 .76rem/1.4 var(--f-mono);cursor:pointer;color:var(--muted)}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.lang button:focus-visible{outline-offset:-2px}
+
+/* stage */
+.stage{flex:1;min-height:0;display:grid;grid-template-columns:minmax(340px,.8fr) minmax(0,1.2fr);gap:16px}
+.mapcol{display:flex;flex-direction:column;gap:6px;min-height:0;min-width:0}
+.hintrow{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 12px;position:relative}
+.hr-right{display:inline-flex;align-items:center;gap:12px}
+.hint{font-size:.8rem;color:var(--muted)}
+.lanes{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+.lane-btn{border:1.5px solid var(--rc);color:var(--rc);background:color-mix(in srgb,var(--rc) 9%,var(--surface));border-radius:7px;padding:3px 2px;font-weight:600;font-size:.8rem;cursor:pointer;min-width:0;white-space:nowrap;overflow:hidden}
+.lane-btn[aria-pressed="true"]{background:var(--rc);color:var(--on-role)}
+.lane-btn .s{display:none}
+.compact .lane-btn .l{display:none} .compact .lane-btn .s{display:inline}
+#map{flex:1;min-height:0;position:relative}
+#map svg{position:absolute;left:0;top:0;display:block}
+.band{fill:var(--rc);fill-opacity:.07} .band.on{fill-opacity:.17}
+.rownum{fill:var(--muted);font-family:var(--f-mono)}
+.wire{fill:none;stroke:var(--wire);stroke-width:1.3}
+.wire.hand{stroke:var(--ink);stroke-width:1.7}
+.wire{transition:stroke-width .18s ease}
+.wire.hot{stroke:var(--ink);stroke-width:3.4}
+@media (prefers-reduced-motion:reduce){.wire{transition:none}}
+.ah{fill:var(--wire)} .ahs{fill:var(--ink)} .ahb{fill:var(--bug)}
+.loop{fill:none;stroke:var(--bug);stroke-width:1.4;stroke-dasharray:5 4;opacity:.55}
+.loop.solid{stroke-dasharray:none}
+.focus .wire{opacity:.28}
+.has-loop .loop{opacity:.16}
+.has-loop .loop.on{opacity:1;stroke-width:2.3}
+.node{cursor:pointer}
+.node rect{fill:var(--surface);stroke:var(--rc);stroke-width:1.5}
+.node text{fill:var(--ink);font-family:var(--f-mono);font-weight:500}
+.node.team text{font-family:var(--f-body)}
+.node:hover rect{stroke-width:2.6}
+.node:focus{outline:none}
+.node:focus-visible rect{stroke:var(--ink);stroke-width:3}
+.node.active rect{fill:var(--rc)}
+.node.active text{fill:var(--on-role);font-weight:600}
+.node.dim{opacity:.28}
+.node.ring rect{stroke:var(--bug);stroke-width:2.6}
+.under{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.under .lbl{font-size:.8rem;color:var(--muted)}
+.chipbtn{border:1.5px solid var(--line);background:var(--surface);border-radius:7px;padding:3px 9px;cursor:pointer;font-size:.8rem;white-space:nowrap}
+.chipbtn b{font-family:var(--f-mono);font-weight:600;font-size:.92em}
+.chipbtn[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--bg)}
+.loop-btn{border-style:dashed;border-color:var(--bug)}
+.loop-btn[aria-pressed="true"]{border-style:solid;border-color:var(--bug);background:var(--bug);color:var(--on-role)}
+.lg summary{list-style:none;cursor:pointer;font-size:.8rem;color:var(--muted);border-bottom:1px dotted var(--muted)}
+.lg summary::-webkit-details-marker{display:none}
+.lg .legend{position:absolute;right:0;top:calc(100% + 6px);z-index:3;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:.82rem;max-width:300px}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.lg-box{flex:none;width:22px;height:13px;border:1.5px solid var(--muted);border-radius:3px;background:var(--surface)}
+.lg-pill{flex:none;width:22px;height:13px;border:1.5px solid var(--muted);border-radius:99px;background:var(--surface)}
+.lg-line{flex:none;width:22px;height:0;border-top:2px solid var(--ink)}
+.lg-thin{flex:none;width:22px;height:0;border-top:1.3px solid var(--wire)}
+.lg-dash{flex:none;width:22px;height:0;border-top:2px dashed var(--bug)}
+
+/* pane */
+.pane{container-type:inline-size;display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.tabs{display:flex;gap:2px;padding:4px 8px 0;border-bottom:1px solid var(--line);overflow-x:auto;flex:none}
+.tab{border:0;background:transparent;padding:7px 9px 6px;border-bottom:2px solid transparent;font-weight:500;font-size:.88rem;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.tab:focus-visible{outline-offset:-2px}
+.pane-body{flex:1;min-height:0;overflow:auto;padding:12px 18px 12px;display:flex;flex-direction:column;gap:12px}
+.d-top{display:flex;flex-direction:column;gap:6px;border-left:3px solid var(--rc,var(--ink));padding-left:12px}
+.d-line{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:.82rem;color:var(--muted)}
+.tag{font:500 .7rem/1 var(--f-mono);border:1px solid var(--line);border-radius:99px;padding:3px 8px;color:var(--muted)}
+.walk{margin-left:auto;display:inline-flex;gap:4px}
+.ib{border:1.5px solid var(--line);background:var(--surface);border-radius:8px;padding:3px 12px;cursor:pointer;font-weight:600;font-size:.92rem;line-height:1.5;min-width:46px}
+.ib.arrow{font-size:1.3rem;line-height:1.1;padding:3px 12px 5px}
+.ib .ar{display:inline-block}
+.ib.hint{border-color:var(--accent);background:var(--accent);color:var(--surface);animation:ring 1.15s ease-out infinite}
+.ib.hint .ar{animation:nudge 1.15s ease-in-out infinite}
+@keyframes ring{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 60%,transparent)}100%{box-shadow:0 0 0 9px color-mix(in srgb,var(--accent) 0%,transparent)}}
+@keyframes nudge{0%,100%{transform:translateX(-2px)}50%{transform:translateX(4px)}}
+@media (prefers-reduced-motion:reduce){.ib.hint,.ib.hint .ar{animation:none}}
+.ib:hover:not(:disabled){border-color:var(--ink)}
+.ib:disabled{opacity:.4;cursor:default}
+.ib[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pane h2{font:600 1.2rem/1.25 var(--f-body);text-wrap:balance}
+.sum{max-width:62ch}
+.cmdrow{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.cmd{display:inline-flex;align-items:center;gap:6px;max-width:100%}
+.cmd code{padding:3px 8px;border-radius:6px;font-weight:500}
+.copy{border:1px solid var(--line);background:transparent;border-radius:6px;padding:1px 7px;font-size:.74rem;color:var(--muted);cursor:pointer;white-space:nowrap}
+.copy:hover{color:var(--ink);border-color:var(--ink)}
+.jira{font-size:.84rem;color:var(--muted)} .jira b{color:var(--ink);font-weight:600}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 20px}
+@container (max-width:470px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.tools{list-style:none;padding:0;display:flex;flex-direction:column;gap:4px}
+.tools li{display:grid;grid-template-columns:11.5em minmax(0,1fr);gap:1px 12px;align-items:baseline;font-size:.9rem}
+.tools b{font-weight:600}
+.tw{display:inline-block;background:var(--sunk);border-radius:5px;padding:0 6px;margin-right:6px;font-size:.78rem;color:var(--muted)}
+@container (max-width:470px){.tools li{grid-template-columns:minmax(0,1fr)}}
+.handline{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.cell{display:flex;flex-direction:column;gap:5px;min-width:0}
+.k{font:500 .68rem/1.3 var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chips code,.src{background:var(--sunk);border-radius:5px;padding:1px 7px;font-size:.82rem;overflow-wrap:anywhere}
+.src b{font-weight:600}
+.plain{font-size:.88rem;color:var(--muted)}
+.rows{list-style:none;padding:0;display:flex;flex-direction:column;gap:5px}
+.rows li{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:3px 12px;align-items:baseline}
+.rows .kk{font-weight:600}
+.rows .v{color:var(--muted)}
+.rchip{display:inline-block;padding:0 8px;border-radius:99px;border:1.5px solid var(--rc);color:var(--rc);font-weight:600;font-size:.76rem;line-height:1.55;background:color-mix(in srgb,var(--rc) 9%,var(--surface));white-space:nowrap}
+.more{display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--line);padding-bottom:12px}
+.more-tabs{display:flex;flex-wrap:wrap;gap:6px}
+.mt{border:1.5px solid var(--line);background:var(--surface);border-radius:99px;padding:2px 12px;font-size:.84rem;font-weight:500;cursor:pointer;color:var(--muted)}
+.mt::after{content:" +";font-family:var(--f-mono)}
+.mt:hover{border-color:var(--ink);color:var(--ink)}
+.mt[aria-expanded="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.mt[aria-expanded="true"]::after{content:" \2013"}
+.more-body{display:flex;flex-direction:column;gap:8px}
+.cap{font-size:.84rem;color:var(--muted)}
+.rolepick{display:flex;flex-wrap:wrap;gap:6px}
+.rolepick .lane-btn{padding:3px 12px;font-size:.84rem}
+.setup-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:9px}
+.setup-list li{display:flex;flex-direction:column;gap:4px}
+.setup-list .v{color:var(--muted)}
+.acc .in > p{max-width:70ch}
+.caprow{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 12px}
+.more-body pre{line-height:1.42}
+.pblock{display:flex;flex-direction:column;gap:4px}
+.pblock .cap{flex:1;min-width:0}
+.chat{list-style:none;padding:0;display:flex;flex-direction:column;gap:5px;font-size:.9rem}
+.chat li{display:grid;grid-template-columns:4.4em minmax(0,1fr);gap:2px 10px;align-items:baseline}
+.chat .who{font:600 .74rem/1.5 var(--f-mono);letter-spacing:.04em}
+.chat .say{white-space:pre-wrap;overflow-wrap:anywhere}
+.chat .c-po .who{color:var(--po)}
+.chat .c-po .say{background:color-mix(in srgb,var(--po) 9%,var(--surface));border-radius:7px;padding:2px 9px;justify-self:start}
+.chat .c-cl .who{color:var(--accent)}
+.chat .c-note .say{color:var(--muted);font-style:italic}
+.chat .c-sec{display:block;margin-top:6px;padding-top:6px;border-top:1px solid var(--line);font:500 .68rem/1.3 var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.chat .c-sec:first-child{margin-top:0;padding-top:0;border-top:0}
+.cap b{color:var(--ink);font-weight:600}
+.more-body ul:not(.rows){display:flex;flex-direction:column;gap:4px}
+.acc{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.acc details{border-bottom:1px solid var(--line)}
+.acc summary{list-style:none;cursor:pointer;padding:8px 2px;display:flex;justify-content:space-between;align-items:center;gap:10px;font:500 .7rem/1.3 var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.acc summary::-webkit-details-marker{display:none}
+.acc summary::after{content:"+";font-size:1rem;line-height:1;letter-spacing:0}
+.acc details[open] > summary{color:var(--ink)}
+.acc details[open] > summary::after{content:"\2013"}
+.acc .in{padding:0 2px 12px;display:flex;flex-direction:column;gap:10px}
+.acc .in ul:not(.rows){display:flex;flex-direction:column;gap:4px}
+pre{background:var(--sunk);border-radius:8px;padding:10px 12px;overflow-x:auto;line-height:1.5;white-space:pre;max-width:100%}
+pre.wrap{white-space:pre-wrap;overflow-wrap:anywhere}
+.step-link{border:1.5px solid var(--rc,var(--line));background:var(--surface);border-radius:6px;padding:1px 8px;font:500 .82rem/1.5 var(--f-mono);cursor:pointer;white-space:nowrap}
+.step-link:hover{background:color-mix(in srgb,var(--rc,var(--ink)) 12%,var(--surface))}
+.steps-in{display:flex;flex-wrap:wrap;gap:5px}
+.loop-steps{padding-left:1.3em;display:flex;flex-direction:column;gap:7px}
+.trigger{border-left:3px solid var(--bug);padding-left:12px}
+.foot{display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1.5px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 12px;cursor:pointer;font-weight:500;font-size:.88rem}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--bg);padding:7px 22px;font-size:.95rem}
+dialog.intro{border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);padding:0;width:920px;max-width:calc(100vw - 32px);height:fit-content;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:hidden}
+dialog.intro[open]{display:flex;flex-direction:column}
+.intro-body{flex:0 1 auto;min-height:0;overflow:auto;padding:20px 26px 16px;display:flex;flex-direction:column;gap:13px}
+.intro-foot{flex:none;display:flex;flex-wrap:wrap;gap:8px;padding:12px 26px 16px;border-top:1px solid var(--line)}
+.intro-body > p{max-width:92ch}
+dialog.intro::backdrop{background:rgba(10,14,20,.58)}
+.intro-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+dialog.intro h2{font:500 1.12rem/1.3 var(--f-display);text-wrap:balance}
+.abbr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 22px;border-block:1px solid var(--line);padding-block:12px}
+.abbr > div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.abbr p{font-size:.9rem}
+.ab{font:600 1rem/1.2 var(--f-mono);letter-spacing:.04em}
+.intro-block{display:flex;flex-direction:column;gap:5px}
+.intro-block .rows{margin-top:4px;font-size:.92rem}
+.intro-block .rows li{grid-template-columns:7.6em minmax(0,1fr)}
+@media (max-width:560px){.abbr{grid-template-columns:minmax(0,1fr)} .intro-body{padding:16px 16px 14px} .intro-foot{padding:10px 16px 14px}}
+.btn:hover{border-color:var(--ink)}
+.btn.up{display:none}
+.intro{color:var(--muted);font-size:.9rem;max-width:66ch}
+
+/* reference tabs */
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:500px;font-size:.9rem}
+th,td{text-align:left;padding:6px 10px;vertical-align:top;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+th{font:500 .68rem/1.3 var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+td.nw{white-space:nowrap}
+td.num,th.num{font-variant-numeric:tabular-nums}
+table.tight{font-size:.86rem}
+table.tight th,table.tight td{padding:2px 9px}
+table.tight .step-link{line-height:1.3;border-width:1px;font-size:.8rem}
+.models li{display:grid;grid-template-columns:4.2em minmax(0,1fr);gap:2px 10px;align-items:baseline}
+.models b{font-family:var(--f-mono);font-weight:600}
+.acc summary.mcp-sum{flex-wrap:wrap;padding-block:6px;text-transform:none;letter-spacing:0;font:600 .95rem/1.3 var(--f-body);color:var(--ink)}
+.mcp-name{flex:1;min-width:0}
+.slots{display:grid;grid-template-columns:repeat(5,58px);gap:4px}
+.slot{display:flex;justify-content:center;align-items:baseline;gap:5px;border:1.5px solid var(--rc);border-radius:7px;padding:2px 0;line-height:1.3;font-size:.74rem}
+.slot .r{font-weight:600;color:var(--rc)}
+.slot .a{font-family:var(--f-mono);font-size:.7rem;color:var(--muted)}
+.slot.s-rw{background:var(--rc)} .slot.s-rw .r,.slot.s-rw .a{color:var(--on-role)}
+.slot.s-none{border-color:var(--line);border-style:dashed} .slot.s-none .r{color:var(--muted);font-weight:400}
+.mcp-cmd{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0}
+.mcp-cmd code{padding:4px 8px;border-radius:6px;max-width:100%}
+.keyline{display:flex;flex-wrap:wrap;gap:4px 16px;color:var(--muted);font-size:.82rem}
+.rule-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:10px}
+.rule-list b{display:block;font-weight:600}
+.rule-list span{color:var(--muted)}
+.decide{display:flex;flex-direction:column;gap:7px}
+.sources{color:var(--muted);font-size:.84rem;display:flex;flex-wrap:wrap;gap:4px 14px}
+figcaption{color:var(--muted);font-size:.82rem;margin-top:5px}
+
+/* windows too small for the one-screen layout fall back to normal page scrolling */
+@media (max-width:759px),(max-height:639px){
+  html,body{height:auto}
+  .app{height:auto}
+  .stage{align-items:start}
+  #map{flex:none}
+  .pane{overflow:visible}
+  .pane-body{overflow:visible}
+}
+@media (max-width:759px){
+  .bar{flex-wrap:wrap}
+  .stage{display:flex;flex-direction:column;align-items:stretch}
+  .pane-body{padding:14px}
+  .btn.up{display:inline-block}
+  .grid2{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:no-preference){ html{scroll-behavior:smooth} }
+</style>
+
+<div class="app" id="app">
+  <header class="bar">
+    <div class="brand">
+      <div class="h1row"><h1 data-i18n="h1"></h1><strong class="ver" data-i18n="ver"></strong></div>
+      <p class="sub"><span data-i18n="exShort"></span><b data-i18n="featName"></b><span class="meta" data-i18n="featMeta"></span><span class="hchips" id="hchips"></span></p>
+    </div>
+    <div class="bar-right">
+      <button class="btn restart" id="about" type="button" data-about="1" data-i18n="aboutBtn"></button>
+      <button class="btn restart" id="restart" type="button" data-restart="1" data-i18n="restart"></button>
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" id="lang-en" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" id="lang-uk" data-lang="uk" aria-pressed="false">УКР</button>
+      </div>
+    </div>
+  </header>
+  <main class="stage">
+    <section class="mapcol" id="mapcol">
+      <div class="hintrow">
+        <p class="hint" data-i18n="hintShort"></p>
+        <span class="hr-right">
+          <button class="chipbtn" id="prep" type="button" aria-pressed="false" data-i18n="prepShort"></button>
+          <details class="lg" id="lg">
+            <summary data-i18n="legendWord"></summary>
+            <div class="legend">
+              <span><i class="lg-box"></i><span data-i18n="lgSdd"></span></span>
+              <span><i class="lg-pill"></i><span data-i18n="lgTeam"></span></span>
+              <span><i class="lg-line"></i><span data-i18n="lgHand"></span></span>
+              <span><i class="lg-thin"></i><span data-i18n="lgSame"></span></span>
+              <span><i class="lg-dash"></i><span data-i18n="lgBack"></span></span>
+            </div>
+          </details>
+        </span>
+      </div>
+      <div class="lanes" id="lanes"></div>
+      <div id="map"></div>
+      <div class="under">
+        <span class="lbl" data-i18n="offLabel"></span>
+        <span id="loopbtns" style="display:contents"></span>
+      </div>
+    </section>
+    <section class="pane" id="pane">
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="pane-body" id="panel" role="tabpanel" aria-live="polite"></div>
+    </section>
+  </main>
+</div>
+
+<dialog class="intro" id="intro" aria-labelledby="intro-h">
+  <div class="intro-body">
+  <div class="intro-top">
+    <span class="k" data-i18n="introEyebrow"></span>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="uk" aria-pressed="false">УКР</button>
+    </div>
+  </div>
+  <h2 id="intro-h" data-i18n="introH"></h2>
+  <p data-i18n="introLead"></p>
+  <div class="abbr">
+    <div><span class="ab">SDD</span><p data-i18n="introSdd"></p></div>
+    <div><span class="ab">TDD</span><p data-i18n="introTdd"></p></div>
+  </div>
+  <div class="intro-block">
+    <span class="k" data-i18n="introFeatK"></span>
+    <p><b data-i18n="featName"></b></p>
+    <p class="muted" data-i18n="introFeat"></p>
+  </div>
+  <div class="intro-block">
+    <span class="k" data-i18n="introShowK"></span>
+    <p data-i18n="introShow"></p>
+    <ul class="rows" id="intro-roles"></ul>
+  </div>
+  </div>
+  <div class="intro-foot">
+    <button class="btn primary" type="button" data-close="1" data-i18n="introStart"></button>
+  </div>
+</dialog>
+
+<script>
+(function(){
+"use strict";
+var LANG="en";
+try{var saved=localStorage.getItem("sdlc-map-lang");if(saved==="uk"||saved==="en")LANG=saved;}catch(e){}
+function T(en,uk){return {en:en,uk:uk};}
+function tr(x){return (x&&typeof x==="object"&&!Array.isArray(x)&&("en" in x))?x[LANG]:x;}
+
+var SLUG="tasks-issues";
+var D="docs/features/"+SLUG+"/";
+var ROLE_ORDER=["po","pm","des","dev","qa"];
+
+/* static copy */
+var S={
+ h1:T("Who does what when AI carries the feature","Хто що робить, коли фічу веде ШІ"),
+ lede:T("One development cycle on the SDD flow: five roles, sixteen steps. Each step leaves a file the next one reads. Select a step, a role or a QA return path to see the context, the MCP servers, the output and who gets it next.",
+        "Один цикл розробки за флоу SDD: п'ять ролей, шістнадцять кроків. Кожен крок лишає файл, який читає наступний. Натисніть крок, роль або сценарій повернення від QA, щоб побачити контекст, MCP, результат і кому він іде далі."),
+ featLabel:T("Example used across the map","Приклад на всій карті"),
+ featName:T("Tasks & issues in the Marketplace admin","«Завдання й проблеми» в адмінці маркетплейсу"),
+ featMeta:T("<span>slug <code>tasks-issues</code></span><span>size M</span><span>route standard</span><span>epic SHOP-412</span>",
+            "<span>slug <code>tasks-issues</code></span><span>розмір M</span><span>маршрут standard</span><span>епік SHOP-412</span>"),
+ featFine:T("Staff who manage orders create a task or an issue for a colleague right from an order, a product or a customer, and follow it until it is done. Issue numbers, page names and criteria wording here are illustrative.",
+            "Працівники, які ведуть замовлення, створюють колезі завдання або проблему прямо із замовлення, товару чи клієнта й стежать за ним до виконання. Номери задач, назви сторінок і тексти критеріїв тут умовні."),
+ mapH:T("The feature cycle from idea to release","Цикл фічі від ідеї до релізу"),
+ hint:T("Time runs top to bottom, columns are roles. A role name at the top opens its card. SDD does not bind stages to roles: the split, and the steps with Jira, Confluence and the preview environment, are a proposal for your team.",
+        "Час іде згори вниз, стовпці відповідають ролям. Назва ролі вгорі відкриває її картку. SDD не закріплює стадії за ролями: розподіл і кроки з Jira, Confluence та стендом запропоновані під вашу команду."),
+ prep:T("<b>Step 0</b> · repository setup, once","<b>Крок 0</b> · підготовка репозиторію, один раз"),
+ lgSdd:T("SDD command","команда SDD"), lgTeam:T("team step outside SDD","крок команди поза SDD"),
+ lgHand:T("handoff to another role","передача іншій ролі"), lgSame:T("same role","та сама роль"), lgBack:T("return path","повернення"),
+ loopsH:T("What happens when something is off","Що відбувається, коли щось не так"),
+ handH:T("Handoffs between roles","Передачі між ролями"),
+ handIntro:T("Every point where work passes from one role to another. The step name opens it on the map.","Усі місця, де робота переходить від однієї ролі до іншої. Назва кроку відкриває його на карті."),
+ mcpH:T("Who connects which MCP servers","Хто які MCP підключає"),
+ mcpIntro:T("Servers are declared once in <code>.mcp.json</code> in the repository (<code>claude mcp add --scope project …</code>). Everyone signs in with their own account through <code>/mcp</code>, so Claude sees in Jira and Confluence exactly what that person is allowed to see.",
+            "Сервери описані один раз у <code>.mcp.json</code> у репозиторії (<code>claude mcp add --scope project …</code>). Кожен входить під своїм обліковим записом через <code>/mcp</code>, тому Claude бачить у Jira й Confluence рівно те, що дозволено цій людині."),
+ mcpLegend:T("<span><code>rw</code> reads and writes</span><span><code>r</code> read only</span><span><code>run</code> runs</span><span>— not connected</span>",
+             "<span><code>rw</code> читає й пише</span><span><code>r</code> лише читає</span><span><code>run</code> запускає</span><span>— не підключає</span>"),
+ artH:T("What lives where","Що де лежить"),
+ artIntro:T("The source of truth sits in the repository, in <code>docs/features/tasks-issues/</code>. Confluence, Jira and Figma hold copies, mockups and discussion.",
+            "Джерело правди лежить у репозиторії, у теці <code>docs/features/tasks-issues/</code>. У Confluence, Jira й Figma живуть копії, макети та обговорення."),
+ rulesH:T("Why context survives the handoffs","Чому контекст не губиться між людьми"),
+ rule1:T("<b>A file instead of a retelling</b><span>A stage writes a file and the next one reads it from disk. If the file is missing, the stage refuses to run and names what to run first.</span>",
+         "<b>Файл замість переказу</b><span>Стадія пише файл, наступна читає його з диска. Якщо файла немає, стадія відмовляється працювати й називає, що запустити спершу.</span>"),
+ rule2:T("<b><code>/clear</code> between stages</b><span>Each stage starts with a clean context. Whatever did not make it into a file does not exist downstream, so nothing important is left in a chat.</span>",
+         "<b><code>/clear</code> між стадіями</b><span>Кожна стадія починає з чистого контексту. Те, що не потрапило у файл, далі не існує, тому в чаті не лишається нічого важливого.</span>"),
+ rule3:T("<b>A handoff block at the end</b><span>Every stage ends the same way: what was done, what to review, what to run next. The block pastes well into a Jira comment.</span>",
+         "<b>Блок передачі в кінці</b><span>Стадія завершується однаково: що зроблено, що переглянути, що запускати далі. Цей блок зручно вставити в коментар до задачі в Jira.</span>"),
+ figPre:T("## clarify — tasks-issues\n\n**What I did**\n- tightened docs/features/tasks-issues/spec.md\n  2 questions closed, 1 deferred\n\n**Review before continuing**\n- docs/features/tasks-issues/spec.md — §5 AC\n\n**Run next**\n1. /clear\n2. /sdd:ux-flows tasks-issues",
+          "## clarify — tasks-issues\n\n**What I did**\n- tightened docs/features/tasks-issues/spec.md\n  2 питання закрито, 1 відкладено\n\n**Review before continuing**\n- docs/features/tasks-issues/spec.md — §5 AC\n\n**Run next**\n1. /clear\n2. /sdd:ux-flows tasks-issues"),
+ figCap:T("Handoff block after clarify. The format comes from SDD, the content is illustrative.","Блок передачі після clarify. Формат із SDD, зміст умовний."),
+ decH:T("What to decide before you start","Що вирішити до старту"),
+ decList:T(
+  "<li><b>Whether the analyst, designer and tester work directly in the repository.</b> The flow assumes it, because stages read files from disk. Claude Code runs in the terminal, on desktop and on the web, so no IDE is needed for this.</li>"+
+  "<li><b>Sync direction.</b> One way is simpler: from the repository to Confluence and Jira. The analyst carries edits made in Confluence back into <code>spec.md</code>.</li>"+
+  "<li><b>Mockup tool.</b> <code>docs/design-system.md</code> fixes it once for the whole team: Figma MCP, Pencil MCP or markdown wireframes.</li>"+
+  "<li><b>Document language.</b> <code>artifact_language</code> in <code>.claude/sdd.local.md</code> takes <code>en</code> or <code>uk</code>. Section headings and machine tokens stay in English either way.</li>"+
+  "<li><b>Who merges.</b> <code>ship</code> opens the PR and stops. Merging and releasing stay with people.</li>",
+  "<li><b>Чи працюють аналітик, дизайнер і тестувальник прямо в репозиторії.</b> Флоу на це розрахований, бо стадії читають файли з диска. Claude Code є в терміналі, десктопі та вебі, тож IDE для цього не потрібна.</li>"+
+  "<li><b>Напрям синхронізації.</b> Простіше в один бік: з репозиторію в Confluence і Jira. Правки з Confluence аналітик вносить у <code>spec.md</code> сам.</li>"+
+  "<li><b>Інструмент макетів.</b> Його один раз на всю команду фіксує <code>docs/design-system.md</code>: Figma MCP, Pencil MCP або wireframe в markdown.</li>"+
+  "<li><b>Мова документів.</b> <code>artifact_language</code> у <code>.claude/sdd.local.md</code> приймає <code>en</code> або <code>uk</code>. Заголовки секцій і машинні токени в обох випадках лишаються англійською.</li>"+
+  "<li><b>Хто мержить.</b> <code>ship</code> відкриває PR і зупиняється. Мерж і реліз лишаються за людьми.</li>"),
+ srcLabel:T("Sources:","Джерела:")
+};
+/* panel and table labels */
+var U={
+ stepOf:T("Step {n} of 16","Крок {n} з 16"), tagTeam:T("team convention","домовленість команди"), tagSdd:T("SDD stage","стадія SDD"),
+ jira:T("Jira status:","Статус у Jira:"), what:T("What happens","Що відбувається"), ctx:T("Context: what it reads","Контекст: що читає"),
+ mcpNone:T("Not needed: everything is read from disk.","Не потрібен: усе читається з диска."),
+ out:T("Output","На виході"), hand:T("Hands off to","Передає далі"), ex:T("In the example feature","На прикладі фічі"), prompt:T("Prompt for Claude","Промпт до Claude"),
+ copy:T("copy","копіювати"), copied:T("copied","скопійовано"), selected:T("selected","виділено"),
+ start:T("start","початок"), end:T("end","кінець"), toMap:T("to the map ↑","до карти ↑"), startFrom:T("Start from step 1 →","Почати з кроку 1 →"),
+ roleCard:T("Role card","Картка ролі"), onMap:T("on the map","на карті"), stepsOnMap:T("Steps on the map","Кроки на карті"),
+ tools:T("Tools","Інструменти"), context:T("Context","Контекст"), commands:T("Commands","Команди"), handsTo:T("Hands off to","Кому передає"),
+ rw:T("reads and writes","читає й пише"), r:T("read only","лише читає"), run:T("runs","запускає"),
+ back:T("Return path","Повернення"), example:T("Example","Приклад"), who:T("Who does what","Хто що робить"), updates:T("What gets updated","Що оновлюється"),
+ step0:T("Step 0","Крок 0"), once:T("once per repository","один раз на репозиторій"), prepTitle:T("Repository setup","Підготовка репозиторію"),
+ prepSub:T("Shared context that every later stage reads. Done before the first feature.","Спільний контекст, який читають усі наступні стадії. Робиться до першої фічі."),
+ plugin:T("SDD plugin","Плагін SDD"), whoPrep:T("Who prepares what","Хто що готує"), shared:T("Shared files","Спільні файли"), teamSet:T("Team settings","Налаштування для команди"),
+ prepDev:T("<code>/sdd:survey</code> scans the code and writes <code>docs/architecture-map.md</code>: modules, layers, datastores, conventions. Every later stage reads it.",
+           "<code>/sdd:survey</code> сканує код і пише <code>docs/architecture-map.md</code>: модулі, шари, сховища, конвенції. Його читає кожна наступна стадія."),
+ prepDes:T("<code>/sdd:design-system</code> fixes <code>docs/design-system.md</code>: the mockup tool (Figma MCP), the platform posture, the token source, the component inventory.",
+           "<code>/sdd:design-system</code> фіксує <code>docs/design-system.md</code>: інструмент макетів (Figma MCP), платформу, джерело токенів, перелік компонентів."),
+ prepPm:T("The roadmap skill keeps <code>docs/roadmap.md</code>: steps, dependencies with reasons, execution waves. No dates and no scoring: order is the priority.",
+          "Скіл roadmap веде <code>docs/roadmap.md</code>: кроки, залежності з поясненням, хвилі виконання. Без дат і скорингу, порядок і є пріоритет."),
+ fClaude:T("project rules Claude Code reads in every session","правила проєкту, які Claude Code читає в кожній сесії"),
+ fMcp:T("MCP servers, the same for the whole team","MCP-сервери, однакові для всієї команди"),
+ fLocal:T("personal settings, in .gitignore","особисті налаштування, у .gitignore"),
+ settings:T("artifact_language: en     # or uk for Ukrainian documents\ninterview_depth: medium   # easy | medium | hard\njudgment_model: opus      # model for review and critique\nteam_mode: false          # true: agent team in implement",
+            "artifact_language: uk     # документи українською\ninterview_depth: medium   # easy | medium | hard\njudgment_model: opus      # модель для рев'ю й критики\nteam_mode: false          # true: команда агентів у implement"),
+ thAfter:T("After step","Після кроку"), thFrom:T("From","Від"), thTo:T("To","Кому"), thWhat:T("What is handed off","Що передає"),
+ thFile:T("File","Файл"), thWrites:T("Written by","Пише"), thReads:T("Read by","Читають"), thCopy:T("Copy outside the repo","Копія назовні"),
+ svgLabel:T("Development cycle map: sixteen steps across five role lanes","Карта циклу розробки: шістнадцять кроків у п'яти доріжках ролей"),
+ langLabel:T("Language","Мова")
+};
+
+var ROLES={
+  po:{name:T("Product owner / analyst","PO / аналітик"),l:T("PO / Analyst","PO / аналітик"),s:"PO",
+    scope:T("Frames the business problem, user stories and acceptance criteria. Closes ambiguities. Accepts the finished feature.","Формулює бізнес-задачу, історії користувачів і критерії приймання. Закриває неоднозначності. Приймає готову фічу."),
+    tools:[T("Claude Code with the SDD plugin","Claude Code з плагіном SDD"),"Confluence","Jira"],
+    ctx:[T("Confluence: research, PRD","Confluence: дослідження, PRD"),T("Jira: customer tickets","Jira: звернення клієнтів"),"docs/architecture-map.md","docs/roadmap.md","CONTEXT.md"],
+    cmds:["/sdd:interview","/sdd:specify","/sdd:clarify","/sdd:glossary"],
+    out:[T("`spec.md` with stories and AC","`spec.md` з історіями й AC"),"`CONTEXT.md`",T("Confluence: spec page","Confluence: сторінка spec"),T("Jira: epic","Jira: епік")],
+    to:[["pm",T("epic, size, route","епік, розмір, маршрут")],["des","`spec.md`"],["dev","`spec.md`"]]},
+  pm:{name:T("Project manager","Project manager"),l:"PM",s:"PM",
+    scope:T("Order of work and dependencies, sprint contents, statuses, release window. Keeps Jira in line with the repository.","Порядок робіт і залежності, склад спринту, статуси, вікно релізу. Стежить, щоб Jira відповідала репозиторію."),
+    tools:[T("Claude Code, or Claude with the Atlassian connector","Claude Code або Claude з конектором Atlassian"),"Jira","Confluence"],
+    ctx:["docs/roadmap.md",".size, .route","tasks.json",T("Jira: sprint capacity","Jira: місткість спринту"),T("review record, QA report","review record, звіт QA")],
+    cmds:["/sdd:classify-size",T("roadmap skill (docs/roadmap.md)","скіл roadmap (docs/roadmap.md)")],
+    out:[T("Jira: epic and stories linked to AC and SCR","Jira: епік і задачі з посиланнями на AC і SCR"),T("Confluence: sprint plan, release notes","Confluence: план спринту, нотатки до релізу"),"`docs/roadmap.md`"],
+    to:[["des",T("epic, start of ux-flows","епік, старт ux-flows")],["dev",T("stories in the sprint","задачі в спринті")],["qa",T("epic in the sprint","епік у спринті")],["po",T("status and readiness for acceptance","статус і готовність до приймання")]]},
+  des:{name:T("Designers","Дизайнери"),l:T("Design","Дизайн"),s:T("Des","Диз."),
+    scope:T("User flows, every screen in every state, design-system components.","Шляхи користувача, екрани в усіх станах, компоненти дизайн-системи."),
+    tools:[T("Claude Design: prototypes and variants on a canvas, one-bundle handoff to Claude Code","Claude Design: прототипи й варіанти на полотні, передача в Claude Code одним пакетом"),"Figma",T("Claude Code with the SDD plugin","Claude Code з плагіном SDD")],
+    ctx:["spec.md","docs/design-system.md",T("Figma: component library","Figma: бібліотека компонентів"),"contracts/openapi.yaml"],
+    cmds:[T("/sdd:design-system (once per repo)","/sdd:design-system (раз на репозиторій)"),"/sdd:ux-flows","/sdd:screens"],
+    out:[T("`ux-flows.md` with the SCR inventory","`ux-flows.md` з реєстром SCR"),"`screens.md`",T("Figma: frames","Figma: фрейми"),T("Claude Design: prototype","Claude Design: прототип")],
+    to:[["dev",T("`ux-flows.md`, later `screens.md` and frames","`ux-flows.md`, потім `screens.md` і фрейми")],["qa",T("screen states to verify","стани екранів для перевірки")]]},
+  dev:{name:T("Developers","Розробники"),l:T("Engineering","Розробка"),s:"Dev",
+    scope:T("Technical design, data model, contract, tasks, code through TDD, review, PR. The tech lead runs the stages up to tasks, the team runs implement.","Технічний дизайн, модель даних, контракт, задачі, код через TDD, рев'ю, PR. Техлід веде стадії до tasks, команда веде implement."),
+    tools:[T("Claude Code with the SDD plugin","Claude Code з плагіном SDD"),"git, GitHub, CI",T("SDD agents: test-author, implementer, reviewer","агенти SDD: test-author, implementer, reviewer")],
+    ctx:["CLAUDE.md","docs/architecture-map.md","spec.md, ux-flows.md, screens.md",T("repository code","код репозиторію")],
+    cmds:[T("/sdd:survey (once per repo)","/sdd:survey (раз на репозиторій)"),"/sdd:design (tech-design)","/sdd:sequences","/sdd:data-model","/sdd:api","/sdd:tasks","/sdd:implement","/sdd:review","/sdd:ship","/sdd:fix","/sdd:decide-adr"],
+    out:["`sad.md`, `adr/*`",T("`data-model.md`, migrations","`data-model.md`, міграції"),"`contracts/openapi.yaml`","`tasks.json`",T("code and tests","код і тести"),"review record, changelog, PR"],
+    to:[["des",T("contract with error codes","контракт з кодами помилок")],["pm","`tasks.json`"],["qa",T("PR, preview environment, review record","PR, стенд, review record")]]},
+  qa:{name:T("Testers","Тестувальники"),l:"QA",s:"QA",
+    scope:T("Test plan derived from AC, verification on the preview environment, e2e, bugs traced to AC, retest. Decides what counts as a bug: the model proposes, the tester confirms.","План тестів від AC, перевірка на стенді, e2e, баги з прив'язкою до AC, ретест. Вирішує, що є багом: модель пропонує, тестувальник підтверджує."),
+    tools:[T("Claude Code with the SDD plugin","Claude Code з плагіном SDD"),"Playwright","Jira"],
+    ctx:["spec.md (AC)","ux-flows.md","screens.md","test-plan.md","contracts/openapi.yaml",T("PR and preview environment","PR і preview-стенд")],
+    cmds:["/sdd:plan-tests",T("own prompts for exploratory testing","власні промпти для дослідницького тестування")],
+    out:["`test-plan.md`",T("e2e tests","e2e-тести"),T("Jira: bugs with AC, steps and evidence","Jira: баги з AC, кроками й доказами"),T("Confluence: test run report","Confluence: звіт про проходження")],
+    to:[["dev",T("bug → `/sdd:fix`","баг → `/sdd:fix`")],["po",T("questions about AC","питання до AC")],["des",T("mismatch with the mockup","розбіжність із макетом")],["pm",T("report: passed or not","звіт: пройдено чи ні")]]}
+};
+
+var JD="UX & Tech Design";
+var ATL="Atlassian Rovo", SHO="Shopify Dev";
+var STEPS=[
+ {id:"specify",row:0,role:"po",label:"specify",title:T("Spec from an interview","Специфікація з інтерв'ю"),jira:"Discovery",
+  cmds:["/sdd:interview "+SLUG,"/sdd:specify "+SLUG],
+  does:[T("Claude asks 3–5 questions about the problem, the users and what success looks like. You bring the idea, not a document. `interview` before this is optional: it stress-tests the idea itself.","Claude ставить 3–5 питань про проблему, користувачів і ознаки успіху. Готовий документ приносити не треба, лише ідею. `interview` перед цим необов'язковий: він перевіряє саму ідею на міцність."),
+        T("Writes `spec.md` with user stories and acceptance criteria (AC). AC describe behaviour only, with no technology in them.","Пише `spec.md` з історіями користувачів і критеріями приймання (AC). В AC немає технологій, лише поведінка."),
+        T("Before writing, a critic agent in a clean context checks coherence.","Перед записом агент-критик у чистому контексті перевіряє зв'язність."),
+        T("Sets the size and route itself. Here that is M and standard.","Сам визначає розмір і маршрут. Тут це M і standard.")],
+  reads:["docs/architecture-map.md","docs/roadmap.md",T("Confluence: “Research: order problems handed over in chat”","Confluence: «Дослідження: проблеми із замовленнями в чатах»"),T("Jira: tickets labelled order-followup","Jira: звернення з міткою order-followup")],
+  mcp:[[ATL,T("reads research from Confluence, finds related tickets in Jira, publishes a copy of the spec","читає дослідження з Confluence, шукає пов'язані звернення в Jira, публікує копію spec")]],
+  writes:[[D+"spec.md",T("source of truth","джерело правди")],[".size, .route","M, standard"],[T("Confluence: “Tasks & issues · Spec”","Confluence: «Tasks & issues · Spec»"),T("copy for discussion","копія для обговорення")]],
+  handoff:[],
+  example:T("US-1  A staff member creates a task from an order and\n      assigns it to a colleague.\nUS-2  The assignee sees all their tasks in one list.\nUS-3  The author sees on the order when the task is done.\n\nAC-3  The assignee gets one notification when a task is\n      assigned to them.\nAC-4  Only staff with access to the order see its tasks.","US-1  Працівник створює завдання із замовлення\n      й призначає колезі.\nUS-2  Виконавець бачить усі свої завдання в одному списку.\nUS-3  Автор бачить на замовленні, що завдання виконано.\n\nAC-3  Виконавець отримує одне сповіщення, коли завдання\n      призначили йому.\nAC-4  Завдання бачать лише ті, хто має доступ до замовлення."),
+  prompt:T("Before the interview, read the Confluence page “Research: order problems handed over in chat” and the Jira tickets labelled order-followup from the last 90 days. After writing spec.md, publish a copy to the SHOP space and add a link to the commit.","Перед інтерв'ю прочитай сторінку Confluence «Дослідження: проблеми із замовленнями в чатах» і звернення в Jira з міткою order-followup за останні 90 днів. Після запису spec.md опублікуй копію в просторі SHOP і додай у неї посилання на коміт.")},
+ {id:"clarify",row:1,role:"po",label:"clarify",title:T("Closing ambiguities","Закриття неоднозначностей"),jira:"Spec Ready",
+  cmds:["/sdd:clarify "+SLUG,"/sdd:glossary"],
+  does:[T("The devils-advocate agent hunts for gaps and contradictions in the spec.","Агент devils-advocate шукає в spec дірки й суперечності."),
+        T("The analyst closes or explicitly defers each question. No silent assumptions remain.","Кожне питання аналітик закриває або явно відкладає. Мовчазних припущень не лишається."),
+        T("New terms go into `CONTEXT.md` so everyone downstream uses the same words.","Нові терміни потрапляють у `CONTEXT.md`, щоб далі всі називали речі однаково.")],
+  reads:[D+"spec.md"],
+  mcp:[[ATL,T("updates the Confluence page, creates epic SHOP-412 linked to the spec","оновлює сторінку в Confluence, створює епік SHOP-412 з посиланням на spec")]],
+  writes:[["spec.md",T("tightened","уточнений")],["CONTEXT.md",T("terms: task, issue, assignee","терміни: завдання, проблема, виконавець")],[T("Jira: epic SHOP-412","Jira: епік SHOP-412"),T("status Spec Ready","статус Spec Ready")]],
+  handoff:[["pm",T("Epic SHOP-412 linked to `spec.md`, size M, route standard.","Епік SHOP-412 з посиланням на `spec.md`, розмір M, маршрут standard.")]],
+  example:T("Question  Is an issue a separate entity or a kind of task?\nDecision  One entity with a type: task or issue.\n\nQuestion  What can a task be linked to?\nDecision  An order, a product or a customer. One link per task.\n\nDeferred  Comments and attachments. Not in this feature.","Питання     Проблема окрема сутність чи вид завдання?\nРішення     Одна сутність із типом: task або issue.\n\nПитання     До чого можна прив'язати завдання?\nРішення     До замовлення, товару або клієнта. Одна прив'язка.\n\nВідкладено  Коментарі й вкладення. Не в цій фічі.")},
+ {id:"epic",row:2,role:"pm",label:T("epic","епік"),team:true,title:T("Epic, size, place in the roadmap","Епік, розмір, місце в roadmap"),jira:"Spec Ready → "+JD,
+  cmds:["/sdd:classify-size "+SLUG],
+  does:[T("Checks the size and route. Reclassifies if the scope has changed.","Перевіряє розмір і маршрут. Якщо обсяг змінився, перекласифіковує."),
+        T("Places the feature in `docs/roadmap.md`: dependencies and execution wave. SDD marks the step spec'd on its own after specify.","Ставить фічу в `docs/roadmap.md`: залежності й хвиля виконання. Статус spec'd SDD проставляє сам після specify."),
+        T("Assigns a designer and a tech lead.","Призначає дизайнера й техліда.")],
+  reads:["spec.md",".size, .route","docs/roadmap.md",T("Jira: team capacity","Jira: місткість команди")],
+  mcp:[[ATL,T("fills in the epic, assigns people, reads sprint load","заповнює епік, призначає людей, читає завантаження спринту")]],
+  writes:[[T("Jira: epic SHOP-412","Jira: епік SHOP-412"),T("assignees, links to the spec and Confluence","виконавці, посилання на spec і Confluence")],["docs/roadmap.md",T("step with dependencies","крок із залежностями")]],
+  handoff:[["des",T("Epic linked to `spec.md`. Start with ux-flows.","Епік з посиланням на `spec.md`. Починати з ux-flows.")],["dev",T("For the tech lead: get ready for tech-design right after ux-flows.","Техліду: готуватися до tech-design одразу після ux-flows.")]],
+  example:T("Roadmap, wave 3\n  tasks-issues (M)\n    depends on staff-permissions (shipped)\n    parallel with bulk-order-export: different modules and UI zones","Roadmap, хвиля 3\n  tasks-issues (M)\n    залежить від staff-permissions (shipped)\n    паралельно з bulk-order-export: різні модулі й зони UI")},
+ {id:"uxflows",row:3,role:"des",label:"ux-flows",title:T("User flows","Шляхи користувача"),jira:JD,
+  cmds:["/sdd:ux-flows "+SLUG],
+  does:[T("One diagram per user story that touches the UI: the happy path plus the error branches the AC demand.","По одній схемі на кожну історію з інтерфейсом: щасливий шлях і гілки помилок, яких вимагають AC."),
+        T("Builds the `SCR-NN` screen inventory and an AC → flow map.","Складає реєстр екранів `SCR-NN` і карту AC → шлях."),
+        T("In parallel the designer explores variants in Claude Design: quick prototypes on a canvas built from your design-system components.","Паралельно дизайнер пробує варіанти в Claude Design: швидкі прототипи на полотні з компонентів вашої дизайн-системи.")],
+  reads:["spec.md","docs/design-system.md",T("Figma: component library","Figma: бібліотека компонентів")],
+  mcp:[["Figma",T("reads the library: components, tokens","читає бібліотеку: компоненти, токени")],[ATL,T("reads the epic, leaves questions for the analyst in comments","читає епік, лишає питання аналітику в коментарях")]],
+  writes:[[D+"ux-flows.md",T("mermaid diagrams, SCR inventory","mermaid-схеми, реєстр SCR")],[T("Claude Design: prototype","Claude Design: прототип"),T("link in the epic","посилання в епіку")]],
+  handoff:[["dev",T("`ux-flows.md` with the SCR-01…03 inventory. The tech lead reads it as evidence of which surfaces the feature touches.","`ux-flows.md` з реєстром SCR-01…03. Техлід читає його як доказ, які поверхні зачіпає фіча.")]],
+  example:T("SCR-01  Order page: tasks block\nSCR-02  Task form\nSCR-03  My tasks\n\nUS-1 → SCR-01 → SCR-02 → the task shows on the order\n               └ assignee has no access to the order →\n                 error in the form (AC-4)","SCR-01  Сторінка замовлення: блок завдань\nSCR-02  Форма завдання\nSCR-03  Мої завдання\n\nUS-1 → SCR-01 → SCR-02 → завдання видно на замовленні\n               └ виконавець не має доступу до замовлення →\n                 помилка у формі (AC-4)")},
+ {id:"design",row:4,role:"dev",label:"tech-design",title:T("Technical design: SAD, C4, ADR","Технічний дизайн: SAD, C4, ADR"),jira:JD,
+  cmds:["/sdd:design "+SLUG,"/sdd:sequences "+SLUG],
+  does:[T("In SDD this stage is called `design`, so the command stays `/sdd:design`. The map calls it tech-design because it is about architecture. Screens belong to the designers' stages.","У SDD ця стадія називається `design`, тому команда лишається `/sdd:design`. На карті вона tech-design, бо йдеться про архітектуру. Екрани належать до стадій дизайнерів."),
+        T("Fits the feature into the existing architecture from `architecture-map.md` instead of designing from scratch.","Вписує фічу в наявну архітектуру з `architecture-map.md`, а не проєктує з нуля."),
+        T("Declares the target surfaces (`target_surfaces`). Later stages read that decision and never re-derive it.","Оголошує цільові поверхні (`target_surfaces`). Наступні стадії читають це рішення й не виводять його заново."),
+        T("Decisions that are expensive to reverse become ADRs.","Рішення, які дорого відкотити, стають ADR."),
+        T("`sequences` draws the runtime flows. Every story and every AC maps to a flow, a branch or an explicit N/A.","`sequences` малює runtime-потоки. Кожна історія й кожен AC мають потік, гілку або явне N/A.")],
+  reads:["spec.md","ux-flows.md","CONTEXT.md","docs/architecture-map.md"],
+  mcp:[[SHO,T("if you build on Shopify: docs and the Admin GraphQL schema","якщо будуєте на Shopify: документація й схема Admin GraphQL")],[ATL,T("publishes the SAD to Confluence for architecture review","публікує SAD у Confluence для рев'ю архітектури")]],
+  writes:[["sad.md",T("Arc42 and C4, sequence diagrams in §6","Arc42 і C4, у §6 sequence-діаграми")],["adr/*","ADR-001"],[T("Confluence: “Tasks & issues · SAD”","Confluence: «Tasks & issues · SAD»"),T("a copy","копія")]],
+  handoff:[],
+  example:T("target_surfaces: [web-frontend, backend-service, worker]\n\nADR-001  Notifications go through the existing queue,\n         not a direct call from the request.\nWhy      Creating a task must not fail or slow down\n         when email delivery is slow.","target_surfaces: [web-frontend, backend-service, worker]\n\nADR-001  Сповіщення йдуть через наявну чергу,\n         а не прямим викликом із запиту.\nЧому     Створення завдання не має падати чи гальмувати,\n         коли пошта відповідає повільно.")},
+ {id:"datamodel",row:5,role:"dev",label:"data-model",title:T("Data schema and migrations","Схема даних і міграції"),jira:JD,
+  cmds:["/sdd:data-model "+SLUG],
+  does:[T("Designs the schema and writes forward and rollback migrations.","Проєктує схему й пише міграції вперед і назад."),
+        T("Migrations are staged in the feature folder, not in the live tree. `implement` promotes them.","Міграції лежать у теці фічі, а не в живому дереві. У живе їх перенесе `implement`.")],
+  reads:["spec.md","sad.md"],
+  mcp:[],
+  writes:[["data-model.md",""],["migrations/*.up.sql, *.down.sql",T("in the feature folder","у теці фічі")]],
+  handoff:[],
+  example:T("staff_tasks\n  type, title, status, assignee_id, author_id, due_at\n  subject_type, subject_id          order | product | customer\n  INDEX (assignee_id, status)       “My tasks” list\n  INDEX (subject_type, subject_id)  tasks on the order, AC-5","staff_tasks\n  type, title, status, assignee_id, author_id, due_at\n  subject_type, subject_id          order | product | customer\n  INDEX (assignee_id, status)       список «Мої завдання»\n  INDEX (subject_type, subject_id)  завдання на замовленні, AC-5")},
+ {id:"api",row:6,role:"dev",label:"api",title:T("API contract","Контракт API"),jira:JD,
+  cmds:["/sdd:api "+SLUG],
+  does:[T("Derives the OpenAPI contract from the data model, the flows and the spec.","Виводить OpenAPI-контракт із моделі даних, потоків і spec."),
+        T("Error codes in the contract become screen states for the designer and negative tests for QA.","Коди помилок із контракту стають станами екранів у дизайнера й негативними тестами в QA.")],
+  reads:["data-model.md","sad.md §6","spec.md"],
+  mcp:[[SHO,T("if you build on Shopify: checks Admin API fields and types","якщо будуєте на Shopify: перевірка полів і типів Admin API")]],
+  writes:[["contracts/openapi.yaml",""]],
+  handoff:[["des",T("`contracts/openapi.yaml`. Responses 403 and 422 need their own states in SCR-02.","`contracts/openapi.yaml`. Відповіді 403 і 422 мають отримати свої стани в SCR-02.")],["qa",T("The same contract for API tests.","Той самий контракт для API-тестів.")]],
+  example:"POST   /admin/tasks               201 | 403 | 422\nPATCH  /admin/tasks/{id}          200 | 403 | 409\nGET    /admin/orders/{id}/tasks   200\nGET    /admin/tasks?assignee=me   200"},
+ {id:"screens",row:7,role:"des",label:"screens",title:T("Every screen in every state","Екрани в усіх станах"),jira:JD,
+  cmds:["/sdd:screens "+SLUG],
+  does:[T("Each screen in each state: default, loading, empty, error, success, validation. States are derived from the AC, the sequence branches and the contract's error responses.","Кожен екран у кожному стані: default, loading, empty, error, success, validation. Стани виводяться з AC, гілок sequence і помилок контракту."),
+        T("Existing components first. A new component appears only with a reason why no existing one fits.","Спершу наявні компоненти. Новий компонент з'являється лише з поясненням, чому жоден наявний не підходить."),
+        T("Mockups live in Figma and the manifest holds node references. If Figma MCP is unavailable the stage is not blocked: it draws wireframes right in markdown.","Макети лежать у Figma, у маніфесті стоять посилання на вузли. Якщо Figma MCP недоступний, стадія не блокується й малює wireframe прямо в markdown.")],
+  reads:["ux-flows.md","sad.md","contracts/openapi.yaml","docs/design-system.md"],
+  mcp:[["Figma",T("node references to mockups, library components","посилання на вузли макетів, компоненти з бібліотеки")],[ATL,T("adds mockup links to the epic","додає посилання на макети в епік")]],
+  writes:[["screens.md",T("manifest: screen, state, components","маніфест: екран, стан, компоненти")],[T("Figma: frames SCR-01…03","Figma: фрейми SCR-01…03"),""]],
+  handoff:[["dev",T("`screens.md` and the Figma frames. Each ui task will cite SCR ids and states.","`screens.md` і фрейми Figma. Кожна ui-задача посилатиметься на SCR і стани.")],["qa",T("The list of states to verify on the preview environment.","Перелік станів для перевірки на стенді.")]],
+  example:T("SCR-02  Task form\n  default     TextField, Select, DatePicker from the design system\n  validation  empty title, due date in the past (422)\n  loading     button busy\n  success     the task shows in the order's block\n  error       assignee has no access to the order (403), InlineBanner","SCR-02  Форма завдання\n  default     TextField, Select, DatePicker з дизайн-системи\n  validation  порожня назва, термін у минулому (422)\n  loading     кнопка зайнята\n  success     завдання з'являється в блоці замовлення\n  error       виконавець без доступу до замовлення (403), InlineBanner")},
+ {id:"tasks",row:8,role:"dev",label:"tasks",title:T("Tasks and the dependency graph","Задачі й граф залежностей"),jira:"Ready for Dev",
+  cmds:["/sdd:tasks "+SLUG],
+  does:[T("Splits the work into atomic tasks of a day or less.","Ділить роботу на атомарні задачі до одного дня кожна."),
+        T("Writes `tasks.json`: the dependency graph `implement` takes its order and parallelism from.","Пише `tasks.json`: граф залежностей, з якого `implement` бере порядок і паралельність."),
+        T("Each ui task names the SCR ids and states it must cover.","Кожна ui-задача називає SCR і стани, які має покрити.")],
+  reads:["spec.md","sad.md","data-model.md","contracts/openapi.yaml","screens.md"],
+  mcp:[],
+  writes:[["tasks/*",""],["tasks.json",T("dependency graph","граф залежностей")]],
+  handoff:[["pm",T("`tasks.json` to carry over into Jira.","`tasks.json` для перенесення в Jira.")]],
+  example:T("T-01  staff_tasks migration\nT-02  POST and PATCH tasks        ← T-01\nT-03  notify on assignment        ← T-02\nT-04  ui: SCR-01, SCR-02          ← T-02\nT-05  ui: SCR-03 My tasks         ← T-01","T-01  міграція staff_tasks\nT-02  POST і PATCH завдань        ← T-01\nT-03  сповіщення про призначення  ← T-02\nT-04  ui: SCR-01, SCR-02          ← T-02\nT-05  ui: SCR-03 Мої завдання     ← T-01")},
+ {id:"sprint",row:9,role:"pm",label:T("sprint","спринт"),team:true,title:T("Stories in Jira and the sprint plan","Задачі в Jira і план спринту"),jira:"Ready for Dev",
+  cmds:[],
+  does:[T("Claude reads `tasks.json` and creates stories under the epic through Atlassian MCP: AC, SCR, dependencies.","Claude читає `tasks.json` і через Atlassian MCP створює задачі під епіком: AC, SCR, залежності."),
+        T("The PM lays them out in the sprint following the graph: T-03, T-04 and T-05 can run in parallel.","PM розкладає їх по спринту з урахуванням графа: T-03, T-04 і T-05 можна вести паралельно."),
+        T("Sync goes one way, from the repository to Jira. SDD itself has no two-way tracker sync yet.","Синхронізація йде в один бік, з репозиторію в Jira. У самому SDD двосторонньої синхронізації з трекером поки немає.")],
+  reads:["tasks.json",".size",T("Jira: sprint capacity","Jira: місткість спринту")],
+  mcp:[[ATL,T("creates stories and blocks links, adds them to the sprint","створює задачі, зв'язки blocks, додає у спринт")]],
+  writes:[["Jira: SHOP-413…417",T("one per task in tasks.json","по одній на задачу з tasks.json")],[T("Confluence: sprint plan","Confluence: план спринту"),""]],
+  handoff:[["dev",T("Stories in the sprint, ordered by the graph.","Задачі в спринті, порядок за графом.")],["qa",T("The epic is in the sprint: time to prepare the test plan.","Епік у спринті: час готувати план тестів.")]],
+  prompt:T("Read docs/features/tasks-issues/tasks.json. For each task create a Story in project SHOP under epic SHOP-412: title, AC from spec.md, links to the SCR ids from screens.md. Carry dependencies over as blocks links. If a story with that task id already exists, update it instead of creating a duplicate.",
+           "Прочитай docs/features/tasks-issues/tasks.json. Для кожної задачі створи Story у проєкті SHOP під епіком SHOP-412: назва, AC зі spec.md, посилання на SCR зі screens.md. Залежності перенеси як зв'язки blocks. Якщо задача з таким ідентифікатором уже є, онови її й не створюй дубль.")},
+ {id:"plantests",row:10,role:"qa",label:"plan-tests",title:T("Test plan from acceptance criteria","План тестів від критеріїв приймання"),jira:"Ready for Dev",
+  cmds:["/sdd:plan-tests "+SLUG],
+  does:[T("Every AC maps to at least one test.","Кожному AC відповідає щонайменше один тест."),
+        T("E2E paths through the UI come from `ux-flows.md`, component states from `screens.md`.","E2E-шляхи через інтерфейс беруться з `ux-flows.md`, стани компонентів зі `screens.md`."),
+        T("The tester adds what the model does not know: past bugs, risky areas, test data for the environment.","Тестувальник додає те, чого модель не знає: минулі баги, ризикові місця, дані для стенду.")],
+  reads:["spec.md","data-model.md","ux-flows.md","screens.md","contracts/openapi.yaml"],
+  mcp:[[ATL,T("searches past bugs in similar features, publishes the plan to Confluence","шукає минулі баги в схожих фічах, публікує план у Confluence")]],
+  writes:[["test-plan.md",T("for size M and up; for XS and S the plan sits inside spec.md","для розміру M і більше; для XS і S план лежить у spec.md")],[T("Confluence: “Tasks & issues · Test plan”","Confluence: «Tasks & issues · Test plan»"),T("a copy","копія")]],
+  handoff:[["dev",T("`test-plan.md`. `implement` writes tests to this plan.","`test-plan.md`. `implement` пише тести за цим планом.")]],
+  example:T("AC-3    integration  reassigning twice → one notification each\nAC-4    integration  no access to the order → 403, not listed\nAC-1    e2e          order page → create task → shows in the block\nSCR-02  component    all five states","AC-3    integration  два перепризначення → по одному сповіщенню\nAC-4    integration  немає доступу до замовлення → 403\nAC-1    e2e          замовлення → створити завдання → видно в блоці\nSCR-02  component    усі п'ять станів")},
+ {id:"implement",row:11,role:"dev",label:"implement",title:T("Implementation through TDD","Реалізація через TDD"),jira:"In Progress",
+  cmds:["/sdd:implement "+SLUG],
+  does:[T("Each task runs SELECT → RED → GREEN → REFACTOR → GATE → COMMIT. First a test that fails for the right reason, then the minimal code.","На кожну задачу цикл SELECT → RED → GREEN → REFACTOR → GATE → COMMIT. Спершу тест, що падає з правильної причини, потім мінімальний код."),
+        T("A gate on every task: unit, integration, lint, vet.","Гейт на кожній задачі: unit, integration, lint, vet."),
+        T("Commits carry `SDD-Task` and `SDD-AC` trailers, so code traces back to a criterion.","Коміти мають трейлери `SDD-Task` і `SDD-AC`, тож код простежується до критерію."),
+        T("In agent-team mode test-author → implementer → reviewer work in turn, each in its own git worktree.","У режимі команди агентів працюють test-author → implementer → reviewer, кожен у своєму git worktree.")],
+  reads:["tasks.json","test-plan.md","screens.md","docs/architecture-map.md","CLAUDE.md"],
+  mcp:[["Figma",T("reads mockup nodes for ui tasks","читає вузли макетів для ui-задач")],[ATL,T("moves stories to In Progress and onward","переводить задачі в In Progress і далі")],[SHO,T("if on Shopify: docs while writing code","якщо на Shopify: документація під час написання коду")]],
+  writes:[[T("code and tests","код і тести"),T("one commit per task","коміт на задачу")],["migrations/",T("promoted from the feature folder","перенесені з теки фічі")]],
+  handoff:[],
+  example:T("T-03  notify on assignment\n  RED     test_assign_sends_one_notification fails: 0 sent\n  GREEN   enqueue a notification when the assignee changes\n  GATE    unit ok · integration ok · lint ok · vet ok\n  COMMIT  SDD-Task: T-03 · SDD-AC: AC-3","T-03  сповіщення про призначення\n  RED     test_assign_sends_one_notification падає: надіслано 0\n  GREEN   сповіщення в чергу, коли змінюється виконавець\n  GATE    unit ok · integration ok · lint ok · vet ok\n  COMMIT  SDD-Task: T-03 · SDD-AC: AC-3")},
+ {id:"review",row:12,role:"dev",label:"review",title:T("Independent review of the whole change","Незалежне рев'ю всієї зміни"),jira:"Code Review",
+  cmds:["/sdd:review "+SLUG],
+  does:[T("A reviewer agent in a clean context reads the whole diff and checks it against the spec, the AC and code quality.","Агент-рев'юер у чистому контексті читає весь diff і звіряє його зі spec, AC та якістю коду."),
+        T("Traces every story and AC through all artifacts: spec → sequences → data-model → api → tasks → code.","Простежує кожну історію й AC через усі артефакти: spec → sequences → data-model → api → tasks → код."),
+        T("Compares the built screens with `screens.md`.","Звіряє зібрані екрани зі `screens.md`."),
+        T("The verdict is PASS or CHANGES REQUESTED. The second sends the work back to `implement`.","Вердикт PASS або CHANGES REQUESTED. Другий повертає роботу в `implement`.")],
+  reads:[T("branch diff","diff гілки"),"spec.md","screens.md"],
+  mcp:[["GitHub",T("reads the diff and commit history through gh","читає diff і історію комітів через gh")]],
+  writes:[["review record",T("verdict and findings with line references","вердикт і знахідки з посиланнями на рядки")]],
+  handoff:[],
+  example:T("CHANGES REQUESTED\n  AC-5 (open-task counter on the order): no test.\n  SCR-02 error: built without InlineBanner.\n→ implement, then review again","CHANGES REQUESTED\n  AC-5 (лічильник відкритих завдань на замовленні): тесту немає.\n  SCR-02 error: зібрано без InlineBanner.\n→ implement, потім review ще раз")},
+ {id:"ship",row:13,role:"dev",label:"ship",title:T("Run it, changelog, PR","Запуск, changelog, PR"),jira:"QA",
+  cmds:["/sdd:ship "+SLUG],
+  does:[T("Runs the feature for real and verifies it against the AC. Green tests alone are not enough for that.","Запускає фічу по-справжньому й перевіряє її проти AC. Зелених тестів для цього мало."),
+        T("Writes the changelog and opens the PR. Never merges on its own.","Пише changelog і відкриває PR. Сам ніколи не мержить.")],
+  reads:[T("reviewed branch","гілка після рев'ю"),"spec.md"],
+  mcp:[["GitHub",T("opens the PR through gh","відкриває PR через gh")],[ATL,T("moves the epic to QA, adds links to the PR and the preview environment","переводить епік у QA, додає посилання на PR і стенд")]],
+  writes:[["PR",T("with changelog and review record","з changelog і review record")],[T("preview environment","preview-стенд"),T("brought up by your CI","піднімає ваш CI")]],
+  handoff:[["qa",T("PR, preview environment URL, review record, changelog.","PR, адреса preview-стенду, review record, changelog.")]],
+  example:T("PR “tasks-issues”\n  changelog  tasks and issues on orders, products, customers,\n             assignment with a notification,\n             “My tasks” list in the admin\n  review     PASS · AC-1…AC-5 traced","PR «tasks-issues»\n  changelog  завдання й проблеми на замовленнях, товарах, клієнтах,\n             призначення зі сповіщенням,\n             список «Мої завдання» в адмінці\n  review     PASS · AC-1…AC-5 простежено")},
+ {id:"verify",row:14,role:"qa",label:T("verify","перевірка"),short:T("verify","тести"),team:true,title:T("AI-assisted verification on the preview environment","Перевірка на стенді з ШІ"),jira:"QA",
+  cmds:[],
+  does:[T("Claude Code opens the environment in a browser through Playwright MCP and walks every path in `ux-flows.md`.","Claude Code через Playwright MCP відкриває стенд у браузері й проходить кожен шлях з `ux-flows.md`."),
+        T("Compares screen states with `screens.md` and the Figma mockups, and API responses with the contract.","Звіряє стани екранів зі `screens.md` і макетами у Figma, а відповіді API з контрактом."),
+        T("The tester runs an exploratory session: asks the model for edge cases the AC do not cover and decides which of them are bugs.","Тестувальник веде дослідницьку сесію: просить модель придумати краї, яких немає в AC, і сам вирішує, що з них баг."),
+        T("Each finding becomes a Jira bug traced to an AC. Stable scenarios stay as e2e tests in the PR.","Кожна знахідка стає багом у Jira з прив'язкою до AC. Стабільні сценарії лишаються як e2e-тести в PR.")],
+  reads:["spec.md (AC)","ux-flows.md","screens.md","test-plan.md","contracts/openapi.yaml",T("PR and preview environment","PR і preview-стенд")],
+  mcp:[["Playwright",T("drives the browser on the environment, captures evidence","керує браузером на стенді, знімає докази")],[ATL,T("creates bugs, updates statuses","створює баги, оновлює статуси")],["Figma",T("compares a screen with its mockup","порівнює екран з макетом")],["GitHub",T("reads the PR, adds e2e tests","читає PR, додає e2e-тести")]],
+  writes:[[T("Jira: bugs under SHOP-412","Jira: баги під SHOP-412"),T("AC, steps, expected, actual, screenshot","AC, кроки, очікуване, фактичне, скриншот")],[T("e2e tests","e2e-тести"),T("in the same PR","у тому ж PR")],[T("Confluence: test run report","Confluence: звіт про проходження"),T("a result for every AC","результат на кожен AC")]],
+  handoff:[["dev",T("A bug traced to an AC. Next: `/sdd:fix`.","Баг із прив'язкою до AC. Далі `/sdd:fix`.")],["po",T("A question about an AC when the criterion can be read two ways.","Питання до AC, якщо критерій можна прочитати двояко.")],["des",T("A screen that differs from the manifest or the mockup.","Розбіжність екрана з маніфестом або макетом.")],["pm",T("Report: all AC passed or not.","Звіт: усі AC пройдено чи ні.")]],
+  prompt:T("Open the preview environment from the PR. Walk every path in docs/features/tasks-issues/ux-flows.md and check AC-1…AC-5 from spec.md. For each AC give a verdict: passed, failed or cannot verify, with evidence. Then propose 10 edge cases the AC do not cover. Do not create Jira bugs yet: show me the list first.",
+           "Відкрий preview-стенд із PR. Пройди кожен шлях із docs/features/tasks-issues/ux-flows.md і перевір AC-1…AC-5 зі spec.md. Для кожного AC дай вердикт: пройдено, не пройдено або не можу перевірити, з доказом. Потім запропонуй 10 крайових випадків, яких немає в AC. Баги в Jira поки не створюй: спершу покажи список мені.")},
+ {id:"fix",row:14,role:"dev",label:"fix",title:T("Fixing through fix","Виправлення через fix"),jira:"In Progress → QA",
+  cmds:["/sdd:fix "+SLUG],
+  does:[T("Reproduces the bug and traces the symptom to the AC: regression, ambiguous AC or uncovered gap.","Відтворює баг і відносить симптом до AC: регресія, нечіткий AC або непокрита прогалина."),
+        T("Pins it with a failing test and applies the minimal fix through the same gate `implement` uses.","Фіксує його тестом, що падає, і робить мінімальне виправлення через той самий гейт, що й `implement`."),
+        T("Patches the spec and writes a record under `_fixes/`.","Оновлює spec і лишає запис у `_fixes/`.")],
+  reads:[T("Jira: bug","Jira: баг"),"spec.md",T("repository code","код репозиторію")],
+  mcp:[[ATL,T("reads the bug, returns it to QA with a link to the commit","читає баг, повертає його в QA з посиланням на коміт")]],
+  writes:[[T("test and fix","тест і виправлення"),T("commit","коміт")],["_fixes/",T("record: cause, AC, test","запис: причина, AC, тест")],["spec.md",T("clarification if the AC was incomplete","уточнення, якщо AC був неповний")]],
+  handoff:[["qa",T("Bug ready for retest, with a link to the commit and the new test.","Баг на ретест з посиланням на коміт і новий тест.")]],
+  example:T("SHOP-431  Task visible without access\n  Cause  “My tasks” checks the assignee only,\n         not access to the linked order\n  AC     AC-4, uncovered gap\n  Test   test_my_tasks_hides_task_after_access_revoked\n  Fix    add the access check to the list query","SHOP-431  Завдання видно без доступу\n  Причина  «Мої завдання» перевіряє лише виконавця,\n           а не доступ до замовлення\n  AC       AC-4, непокрита прогалина\n  Тест     test_my_tasks_hides_task_after_access_revoked\n  Фікс     перевірка доступу в запиті списку")},
+ {id:"release",row:15,role:"po",label:T("release","реліз"),team:true,title:T("Acceptance and release","Приймання і реліз"),jira:"Done",
+  cmds:[],
+  does:[T("The analyst walks the AC on the preview environment and confirms this is the feature they described.","Аналітик проходить AC на стенді й підтверджує, що це та фіча, яку він описав."),
+        T("The PM checks that stories are closed and there are no blockers, and schedules the release window.","PM перевіряє, що задачі закриті й блокерів немає, і призначає вікно релізу."),
+        T("A human merges the PR. The changelog becomes the release notes in Confluence.","PR мержить людина. Changelog стає нотатками до релізу в Confluence.")],
+  reads:[T("Confluence: QA report","Confluence: звіт QA"),"changelog","spec.md",T("Jira: epic state","Jira: стан епіка")],
+  mcp:[[ATL,T("closes the epic, publishes the release notes","закриває епік, публікує нотатки до релізу")]],
+  writes:[["Jira: SHOP-412","Done"],[T("Confluence: release notes","Confluence: нотатки до релізу"),""],["docs/roadmap.md",T("marked shipped by ship","статус shipped проставив ship")]],
+  handoff:[]}
+];
+var BY={}; STEPS.forEach(function(s){BY[s.id]=s;});
+var FLOW=["specify","clarify","epic","uxflows","design","datamodel","api","screens","tasks","sprint","plantests","implement","review","ship","verify","release"];
+var ORDER=FLOW.slice(0,15).concat(["fix","release"]);
+
+var LOOPS={
+ regress:{btn:T("QA found a bug","QA знайшов баг"),nodes:["verify","fix"],title:T("Bug: behaviour breaks a criterion","Баг: поведінка порушує критерій"),
+  trigger:T("SHOP-431. A staff member whose access to an order was revoked still sees its task, with order details, in “My tasks”.","SHOP-431. Працівник, якому забрали доступ до замовлення, досі бачить його завдання з деталями замовлення у «Мої завдання»."),
+  steps:[["qa",T("Files a Jira bug: AC-4, steps, expected, actual, a screen recording from the preview environment.","Заводить баг у Jira: AC-4, кроки, очікуване, фактичне, запис екрана зі стенду.")],
+         ["dev",T("Runs `/sdd:fix tasks-issues` with a link to the bug. Claude reproduces it, writes a failing test and applies the minimal fix.","Запускає `/sdd:fix tasks-issues` з посиланням на баг. Claude відтворює, пише тест, що падає, робить мінімальне виправлення.")],
+         ["dev",T("Writes a record under `_fixes/`, commits, returns the bug to QA.","Лишає запис у `_fixes/`, комітить, повертає баг у QA.")],
+         ["qa",T("Repeats the same scenario and the neighbouring AC. The scenario stays in the e2e suite.","Повторює той самий сценарій і суміжні AC. Сценарій лишається в e2e-наборі.")]],
+  updates:T("code, tests, `_fixes/`, and `spec.md` when needed","код, тести, `_fixes/`, за потреби `spec.md`")},
+ ac:{btn:T("An AC reads two ways","AC можна прочитати двояко"),nodes:["verify","clarify","fix"],title:T("Ambiguous acceptance criterion","Нечіткий критерій приймання"),
+  trigger:T("The assignee's account was deactivated. Their open tasks stay open with nobody responsible. The AC say nothing about this.","Обліковий запис виконавця вимкнули. Його відкриті завдання висять без відповідального. AC про це мовчать."),
+  steps:[["qa",T("Does not file a bug against the developer. Asks the analyst in the epic and describes the case.","Не заводить баг на розробника. Ставить питання аналітику в епіку й описує випадок.")],
+         ["po",T("Runs `/sdd:clarify tasks-issues`, decides, and adds AC-6: when an assignee is deactivated, their open tasks return to the author with a notification.","Запускає `/sdd:clarify tasks-issues`, приймає рішення й додає AC-6: коли виконавця вимикають, його відкриті завдання повертаються авторові зі сповіщенням.")],
+         ["qa",T("Adds a test for AC-6 to `test-plan.md`.","Додає в `test-plan.md` тест на AC-6.")],
+         ["dev",T("`/sdd:fix` with the new AC: test, fix, record.","`/sdd:fix` з новим AC: тест, виправлення, запис.")],
+         ["qa",T("Retest.","Ретест.")]],
+  updates:T("`spec.md`, `test-plan.md`, code, tests","`spec.md`, `test-plan.md`, код, тести")},
+ screen:{btn:T("Screen differs from the mockup","Екран не такий, як у макеті"),nodes:["verify","screens","fix"],title:T("Screen does not match the manifest","Екран не збігається з маніфестом"),
+  trigger:T("SCR-02 has no state for a 403 response. The user picks an assignee without access and the form does nothing.","У SCR-02 немає стану для відповіді 403. Користувач обирає виконавця без доступу, а форма нічого не робить."),
+  steps:[["qa",T("Compares the environment with `screens.md` and the Figma mockup, files a design bug.","Порівнює стенд зі `screens.md` і макетом у Figma, заводить баг на дизайн.")],
+         ["des",T("If the state is missing from the manifest, runs `/sdd:screens tasks-issues` and adds the state and a Figma frame. If the state exists and was built differently, passes the bug to the developer with no mockup changes.","Якщо стану немає в маніфесті, запускає `/sdd:screens tasks-issues` і додає стан та фрейм у Figma. Якщо стан є, а зібрано інакше, передає баг розробнику без змін у макеті.")],
+         ["dev",T("`/sdd:fix`: builds the state from design-system components.","`/sdd:fix`: збирає стан із компонентів дизайн-системи.")],
+         ["qa",T("Checks the screen in every state.","Перевіряє екран у всіх станах.")]],
+  updates:T("`screens.md`, Figma, code","`screens.md`, Figma, код")},
+ review:{btn:T("Review sent the work back","Рев'ю повернуло роботу"),nodes:["review","implement"],title:T("Review: CHANGES REQUESTED","Рев'ю: CHANGES REQUESTED"),
+  trigger:T("AC-5 has no test, SCR-02 was built without the error state.","Для AC-5 немає тесту, SCR-02 зібрано без стану error."),
+  steps:[["dev",T("Stays in the same context with no `/clear`. This is the one transition where context is kept.","Лишається в тому ж контексті без `/clear`. Це єдиний перехід, де контекст зберігають.")],
+         ["dev",T("`/sdd:implement` closes the findings with the same TDD cycle.","`/sdd:implement` закриває знахідки тим самим циклом TDD.")],
+         ["dev",T("`/sdd:review` again. The feature reaches QA only with a PASS verdict.","`/sdd:review` ще раз. До QA фіча доходить лише з вердиктом PASS.")]],
+  updates:T("code, tests, review record","код, тести, review record")}
+};
+
+var MCP=[
+ {name:"Atlassian Rovo MCP",what:T("Jira and Confluence: search, read, create and update issues and pages.","Jira і Confluence: пошук, читання, створення й оновлення задач і сторінок."),cmd:"claude mcp add --transport http atlassian https://mcp.atlassian.com/v1/mcp/authv2",cells:{po:"rw",pm:"rw",des:"r",dev:"rw",qa:"rw"}},
+ {name:"Figma MCP",what:T("Mockup context: frames, components, tokens, node references. Writing to the canvas depends on the server version and your plan.","Контекст макетів: фрейми, компоненти, токени, посилання на вузли. Запис на полотно залежить від версії сервера й тарифу."),cmd:"claude mcp add --transport http figma https://mcp.figma.com/mcp",cells:{po:"-",pm:"-",des:"rw",dev:"r",qa:"r"}},
+ {name:"GitHub",what:T("PRs, diffs, check status. Simplest through the gh CLI, which Claude Code runs itself.","PR, diff, статус перевірок. Найпростіше через gh CLI, який Claude Code запускає сам."),cmd:"gh auth login",cells:{po:"-",pm:"r",des:"-",dev:"rw",qa:"rw"}},
+ {name:"Playwright MCP",what:T("Browser control: walking paths on the preview environment, screenshots, e2e.","Керування браузером: проходження шляхів на стенді, скриншоти, e2e."),cmd:"claude mcp add playwright -- npx @playwright/mcp@latest",cells:{po:"-",pm:"-",des:"-",dev:"run",qa:"run"}},
+ {name:"Shopify Dev MCP",what:T("Only if you build on Shopify: search across shopify.dev and the Admin GraphQL schema.","Лише якщо будуєте на Shopify: пошук у shopify.dev і схема Admin GraphQL."),cmd:"claude mcp add --transport stdio shopify-dev-mcp -- npx -y @shopify/dev-mcp@latest",cells:{po:"-",pm:"-",des:"-",dev:"r",qa:"-"}}
+];
+
+var ARTS=[
+ ["docs/architecture-map.md","dev",T("all stages","усі стадії"),T("Confluence: “Architecture”","Confluence: «Архітектура»")],
+ ["docs/design-system.md","des","ux-flows, screens, implement",T("Figma: library","Figma: бібліотека")],
+ ["docs/roadmap.md","pm",T("PO, tech lead","PO, техлід"),T("Jira: epics","Jira: епіки")],
+ ["spec.md","po",T("everyone","усі"),T("Confluence: Spec · Jira: epic","Confluence: Spec · Jira: епік")],
+ ["CONTEXT.md","po",T("tech-design, everyone","tech-design, усі"),T("Confluence: glossary","Confluence: глосарій")],
+ ["ux-flows.md","des","tech-design, plan-tests, QA",T("Claude Design: prototype","Claude Design: прототип")],
+ ["sad.md, adr/*","dev","data-model, api, QA","Confluence: SAD"],
+ ["data-model.md, migrations/","dev","api, implement","—"],
+ ["contracts/openapi.yaml","dev","screens, QA","—"],
+ ["screens.md","des","tasks, implement, review, QA",T("Figma: frames","Figma: фрейми")],
+ ["tasks.json","dev","implement, PM",T("Jira: stories","Jira: задачі")],
+ ["test-plan.md","qa","implement, QA","Confluence: Test plan"],
+ ["review record, changelog","dev","QA, PM, PO",T("GitHub: PR · Confluence: release notes","GitHub: PR · Confluence: реліз")],
+ ["_fixes/","dev","QA, PO",T("Jira: bug","Jira: баг")]
+];
+
+/* prompts, example captions and extra examples for the tasks-issues feature */
+var PROMPT={
+ specify:[[T("Optional first step: stress-test the idea. The slug alone is enough: Claude then asks you to state the idea in one sentence.","Необов'язковий перший крок: перевірити ідею на міцність. Достатньо самого slug: далі Claude попросить сформулювати ідею одним реченням."),T("/sdd:interview tasks-issues","/sdd:interview tasks-issues")],[T("Faster: give the idea together with the command.","Швидше: дати ідею разом із командою."),T("/sdd:interview tasks-issues\n\nIn the Marketplace admin, staff who manage orders hand problems over to colleagues in chat, and requests get lost. I want them to create a task or an issue right from an order, a product or a customer, assign it to a colleague and see when it is done.","/sdd:interview tasks-issues\n\nВ адмінці маркетплейсу працівники, які ведуть замовлення, передають проблеми колегам у чаті, і прохання губляться. Хочу, щоб вони створювали завдання або проблему прямо із замовлення, товару чи клієнта, призначали колезі й бачили, коли це виконано.")],[T("Then write the spec. Everything after the command is optional: without it Claude asks for the idea and the sources itself.","Потім написати spec. Усе після команди необов'язкове: без нього Claude сам запитає про ідею та джерела."),T("/sdd:specify tasks-issues\n\nIdea: in the Marketplace admin, staff who manage orders need a way to give a colleague a task or flag an issue right from an order, a product or a customer, and to see when it is done.\nProblem today: these requests go through chat and get lost; nobody sees what is still open on an order.\nUsers: order managers, support agents, warehouse staff.\nSuccess: every request has an owner, a due date and a status, and is visible on the order.\nNot now: comments, attachments, tasks for customers.\n\nContext: read the Confluence page “Research: order problems handed over in chat” and the Jira tickets labelled order-followup from the last 90 days. When spec.md is written, publish a copy to the SHOP space in Confluence with a link to the commit.","/sdd:specify tasks-issues\n\nІдея: в адмінці маркетплейсу працівникам, які ведуть замовлення, потрібен спосіб дати колезі завдання або позначити проблему прямо із замовлення, товару чи клієнта й бачити, коли це виконано.\nПроблема зараз: такі прохання йдуть через чат і губляться; ніхто не бачить, що на замовленні ще відкрито.\nКористувачі: менеджери замовлень, підтримка, склад.\nУспіх: кожне прохання має відповідального, термін і статус та видно на замовленні.\nНе зараз: коментарі, вкладення, завдання для покупців.\n\nКонтекст: прочитай сторінку Confluence «Дослідження: проблеми із замовленнями в чатах» і звернення в Jira з міткою order-followup за останні 90 днів. Коли spec.md буде записано, опублікуй копію в просторі SHOP у Confluence з посиланням на коміт.")]],
+ clarify:T("/sdd:clarify tasks-issues\n\nWalk me through every open question one at a time. My positions so far: an issue is a kind of task, not a separate entity; a task links to exactly one order, product or customer; comments and attachments are out of scope. Challenge these if the spec contradicts them. Then create the epic in Jira project SHOP with a link to spec.md.","/sdd:clarify tasks-issues\n\nПроведи мене по кожному відкритому питанню по одному. Мої позиції зараз: проблема є видом завдання, а не окремою сутністю; завдання прив'язане рівно до одного замовлення, товару або клієнта; коментарі й вкладення поза обсягом. Заперечуй, якщо spec цьому суперечить. Потім створи епік у Jira-проєкті SHOP з посиланням на spec.md."),
+ epic:T("/sdd:classify-size tasks-issues\n\nCheck that size M and route standard still fit the clarified spec. Then update docs/roadmap.md: this feature depends on staff-permissions and can run in parallel with bulk-order-export. In Jira, set the designer and the tech lead on epic SHOP-412 and link the spec page in Confluence.","/sdd:classify-size tasks-issues\n\nПеревір, чи розмір M і маршрут standard досі відповідають уточненому spec. Потім онови docs/roadmap.md: фіча залежить від staff-permissions і може йти паралельно з bulk-order-export. У Jira признач дизайнера й техліда на епік SHOP-412 і додай посилання на сторінку spec у Confluence."),
+ uxflows:T("/sdd:ux-flows tasks-issues\n\nThe entry point is the order page in the admin. Staff create a task without leaving the order. Assignees work from a “My tasks” list. Use components from our Figma library and name each screen SCR-NN. Show the error branch where the chosen assignee has no access to the order.","/sdd:ux-flows tasks-issues\n\nТочка входу — сторінка замовлення в адмінці. Працівник створює завдання, не виходячи із замовлення. Виконавці працюють зі списку «Мої завдання». Бери компоненти з нашої бібліотеки Figma й називай кожен екран SCR-NN. Покажи гілку помилки, коли обраний виконавець не має доступу до замовлення."),
+ design:T("/sdd:design tasks-issues\n\nConstraints: reuse the existing notification queue and the staff-permissions module, with no new service. A task must link to an order, a product or a customer without three separate tables. Record as an ADR anything that is expensive to reverse. Afterwards run /sdd:sequences tasks-issues and publish the SAD to Confluence for architecture review.","/sdd:design tasks-issues\n\nОбмеження: використовуй наявну чергу сповіщень і модуль staff-permissions, без нового сервісу. Завдання має прив'язуватися до замовлення, товару або клієнта без трьох окремих таблиць. Усе, що дорого відкотити, запиши як ADR. Після цього запусти /sdd:sequences tasks-issues і опублікуй SAD у Confluence для рев'ю архітектури."),
+ datamodel:T("/sdd:data-model tasks-issues\n\nOne table for tasks and issues, with a type column. Expect two frequent queries: tasks by assignee and status, and open tasks for one order. Write forward and rollback migrations and keep them staged in the feature folder.","/sdd:data-model tasks-issues\n\nОдна таблиця для завдань і проблем з колонкою type. Очікуй два частих запити: завдання за виконавцем і статусом та відкриті завдання одного замовлення. Напиши міграції вперед і назад і залиш їх у теці фічі."),
+ api:T("/sdd:api tasks-issues\n\nAdmin API only, with the same auth as the other /admin endpoints. Return 403 when the caller or the assignee has no access to the linked object, 422 for validation errors, 409 when the task is already closed. List every error response: the designer needs them for screen states.","/sdd:api tasks-issues\n\nЛише адмінський API, з тією самою авторизацією, що й в інших /admin-ендпоінтів. Повертай 403, коли той, хто викликає, або виконавець не має доступу до пов'язаного об'єкта, 422 для помилок валідації, 409, коли завдання вже закрите. Перелічи всі відповіді з помилками: дизайнеру вони потрібні для станів екранів."),
+ screens:T("/sdd:screens tasks-issues\n\nDraw SCR-01…03 in Figma from our library and link each frame in screens.md. Every screen needs default, loading, empty and error states. The task form also needs validation (422) and no access (403) from contracts/openapi.yaml. Reuse existing components and flag any new one with the reason.","/sdd:screens tasks-issues\n\nНамалюй SCR-01…03 у Figma з нашої бібліотеки й додай посилання на кожен фрейм у screens.md. Кожному екрану потрібні стани default, loading, empty та error. Формі завдання ще потрібні validation (422) і «немає доступу» (403) з contracts/openapi.yaml. Використовуй наявні компоненти, а кожен новий познач і поясни причину."),
+ tasks:T("/sdd:tasks tasks-issues\n\nSplit the work so the migration and the API land first, then notifications and the two UI tasks can run in parallel. Each task takes a day or less. Every ui task must cite its SCR ids and states.","/sdd:tasks tasks-issues\n\nРозбий роботу так, щоб спершу йшли міграція й API, а потім сповіщення та дві UI-задачі могли йти паралельно. Кожна задача не довша за день. Кожна ui-задача має називати свої SCR і стани."),
+ sprint:T("Read docs/features/tasks-issues/tasks.json. For each task create a Story in Jira project SHOP under epic SHOP-412: the title, the AC from spec.md it covers, links to the SCR ids from screens.md. Carry dependencies over as “blocks” links. If a story for that task already exists, update it instead of creating a duplicate. Then list the stories that can start in parallel.","Прочитай docs/features/tasks-issues/tasks.json. Для кожної задачі створи Story у Jira-проєкті SHOP під епіком SHOP-412: назва, AC зі spec.md, які вона закриває, посилання на SCR зі screens.md. Залежності перенеси як зв'язки «blocks». Якщо Story для цієї задачі вже є, онови її й не створюй дубль. Потім перелічи задачі, які можна почати паралельно."),
+ plantests:T("/sdd:plan-tests tasks-issues\n\nMap every AC to at least one test and say at which level each test sits. Pay extra attention to access rules (AC-4) and notifications (AC-3): look up past Jira bugs about staff permissions and duplicate notifications, and cover them. Add the e2e paths from ux-flows.md and all states of SCR-02. Publish the plan to Confluence.","/sdd:plan-tests tasks-issues\n\nЗістав кожен AC щонайменше з одним тестом і вкажи рівень кожного тесту. Особливу увагу приділи правам доступу (AC-4) і сповіщенням (AC-3): знайди в Jira минулі баги про права працівників і дублі сповіщень та покрий їх. Додай e2e-шляхи з ux-flows.md і всі стани SCR-02. Опублікуй план у Confluence."),
+ implement:T("/sdd:implement tasks-issues\n\nWork through tasks.json in dependency order, one task per commit. Stop and ask me if a test cannot pass without changing the contract or the spec. Move the Jira stories to In Progress and then Code Review as you go.","/sdd:implement tasks-issues\n\nІди по tasks.json у порядку залежностей, одна задача на один коміт. Зупинись і запитай мене, якщо тест не вдається пройти без зміни контракту або spec. Дорогою переводь задачі в Jira в In Progress, а потім у Code Review."),
+ review:T("/sdd:review tasks-issues\n\nReview the whole branch against spec.md and screens.md in a clean context. For every AC name the test that proves it, or say that none does. Flag anything that was built but that the spec does not ask for.","/sdd:review tasks-issues\n\nПеревір усю гілку проти spec.md і screens.md у чистому контексті. Для кожного AC назви тест, який його доводить, або скажи, що такого немає. Познач усе, що зроблено, але чого spec не просить."),
+ ship:T("/sdd:ship tasks-issues\n\nRun the feature locally and walk AC-1…AC-5 for real before opening the PR. Write the changelog for Marketplace staff, not for developers. Open the PR and do not merge it. Move epic SHOP-412 to QA with links to the PR and the preview environment.","/sdd:ship tasks-issues\n\nЗапусти фічу локально й по-справжньому пройди AC-1…AC-5 перед відкриттям PR. Changelog пиши для працівників маркетплейсу, а не для розробників. Відкрий PR і не мерж його. Переведи епік SHOP-412 у QA з посиланнями на PR і preview-стенд."),
+ verify:T("Open the preview environment from the tasks-issues PR, signed in as an order manager. Walk every path in docs/features/tasks-issues/ux-flows.md and check AC-1…AC-5 from spec.md. For each AC give a verdict: passed, failed or cannot verify, with a screenshot. Then propose 10 edge cases the AC do not cover, such as revoked access or a deactivated assignee. Do not create Jira bugs yet: show me the list first.","Відкрий preview-стенд із PR для tasks-issues під обліковим записом менеджера замовлень. Пройди кожен шлях із docs/features/tasks-issues/ux-flows.md і перевір AC-1…AC-5 зі spec.md. Для кожного AC дай вердикт: пройдено, не пройдено або не можу перевірити, зі скриншотом. Потім запропонуй 10 крайових випадків, яких немає в AC, наприклад відкликаний доступ або вимкнений виконавець. Баги в Jira поки не створюй: спершу покажи список мені."),
+ fix:T("/sdd:fix tasks-issues\n\nBug SHOP-431 in Jira: a staff member whose access to an order was revoked still sees its task in “My tasks”. Reproduce it and tell me which AC it breaks and whether it is a regression or a gap in the spec. Pin it with a failing test before fixing. Return the bug to QA with a link to the commit.","/sdd:fix tasks-issues\n\nБаг SHOP-431 у Jira: працівник, якому забрали доступ до замовлення, досі бачить його завдання у «Мої завдання». Відтвори його й скажи, який AC порушено і чи це регресія, чи прогалина в spec. Зафіксуй тестом, що падає, і лише тоді виправляй. Поверни баг у QA з посиланням на коміт."),
+ release:T("Read the changelog in the tasks-issues PR and the QA report in Confluence. Write release notes for Marketplace staff: what is new, where to find it in the admin, what is not included yet. Publish them to the SHOP space and close epic SHOP-412 once the PR is merged.","Прочитай changelog у PR для tasks-issues і звіт QA в Confluence. Напиши нотатки до релізу для працівників маркетплейсу: що нового, де це знайти в адмінці, чого ще немає. Опублікуй їх у просторі SHOP і закрий епік SHOP-412, щойно PR змерджено.")
+};
+var CHAT={specify:[["sec",T("Interview, optional. Nothing is written to disk.","Інтерв'ю, необов'язкове. На диск нічого не пишеться.")],["po",T("/sdd:interview tasks-issues","/sdd:interview tasks-issues")],["cl",T("Depth: medium, about 6–10 questions, one at a time. First, state the idea in one sentence.","Глибина: medium, приблизно 6–10 питань, по одному. Спершу сформулюйте ідею одним реченням.")],["po",T("Staff who manage orders create a task or an issue for a colleague right from an order and see when it is done.","Працівники, які ведуть замовлення, створюють колезі завдання або проблему прямо із замовлення й бачать, коли це виконано.")],["cl",T("Who suffers most without it?\n  1. Order managers who hand problems over in chat (Recommended)\n  2. Support agents answering customers\n  3. Warehouse staff","Кому без цього найгірше?\n  1. Менеджерам замовлень, які передають проблеми в чаті (Рекомендовано)\n  2. Підтримці, яка відповідає покупцям\n  3. Складу")],["po",T("1","1")],["cl",T("Hidden assumption: assignees will check a new list every day. What if they do not?\n  1. Notify the assignee when a task is assigned (Recommended)\n  2. Show tasks only on the order page\n  3. Send a daily digest","Приховане припущення: виконавці щодня заглядатимуть у новий список. А якщо ні?\n  1. Сповіщати виконавця про призначення (Рекомендовано)\n  2. Показувати завдання лише на сторінці замовлення\n  3. Надсилати щоденний дайджест")],["po",T("1","1")],["cl",T("Three shapes this idea could take:\n  1. Tasks linked to an order, a product or a customer (Recommended)\n  2. A comment thread on the order, with no assignee\n  3. Integration with an external tracker","Три форми, яких може набути ця ідея:\n  1. Завдання, прив'язані до замовлення, товару чи клієнта (Рекомендовано)\n  2. Гілка коментарів на замовленні без виконавця\n  3. Інтеграція із зовнішнім трекером")],["po",T("1","1")],["cl",T("Summary\n  Revised idea: tasks and issues with one assignee, linked to one object, with a notification on assignment.\n  Weakest spot: nothing stops tasks piling up with no due date.\n  Next: /sdd:specify tasks-issues","Підсумок\n  Уточнена ідея: завдання й проблеми з одним виконавцем, прив'язані до одного об'єкта, зі сповіщенням про призначення.\n  Найслабше місце: ніщо не заважає завданням накопичуватися без терміну.\n  Далі: /sdd:specify tasks-issues")],["sec",T("Specify. Writes spec.md.","Specify. Пише spec.md.")],["po",T("/sdd:specify tasks-issues --depth=medium","/sdd:specify tasks-issues --depth=medium")],["cl",T("Size M, route standard. Confirm?","Розмір M, маршрут standard. Підтверджуєте?")],["po",T("Yes.","Так.")],["cl",T("Describe the idea in 1–3 sentences.","Опишіть ідею в 1–3 реченнях.")],["po",T("(the revised idea from the interview)","(уточнена ідея з інтерв'ю)")],["cl",T("Is an issue a separate thing or a kind of task? What tells you the feature works: fewer lost requests, faster fixes, something else?","Проблема є окремою сутністю чи видом завдання? Що покаже, що фіча працює: менше загублених прохань, швидші виправлення, щось інше?")],["po",T("A kind of task. Fewer requests lost in chat.","Вид завдання. Менше прохань, загублених у чаті.")],["cl",T("Which extra sources should I read?\n  Module code · Project docs · Jira and Confluence · None","Які додаткові джерела прочитати?\n  Код модуля · Документи проєкту · Jira й Confluence · Жодних")],["po",T("Jira and Confluence: the page “Research: order problems handed over in chat” and the tickets labelled order-followup.","Jira й Confluence: сторінка «Дослідження: проблеми із замовленнями в чатах» і звернення з міткою order-followup.")],["note",T("Claude drafts the spec, walks every user story and acceptance criterion with you, runs the critic, writes docs/features/tasks-issues/spec.md and proposes the commit “spec: tasks-issues”.","Claude пише чернетку spec, проходить з вами кожну історію й кожен критерій приймання, запускає критика, записує docs/features/tasks-issues/spec.md і пропонує коміт «spec: tasks-issues».")]]};
+BY.specify.does=[T("`/sdd:interview` is optional and writes no files. The slug alone starts it: Claude asks you to state the idea in one sentence, then asks 6–10 multiple-choice questions, one at a time, about hidden assumptions and trade-offs. It ends with the weakest spot of the idea and the next step.","`/sdd:interview` необов'язковий і не пише файлів. Достатньо самого slug: Claude просить сформулювати ідею одним реченням, а потім ставить 6–10 питань з варіантами відповіді, по одному, про приховані припущення й компроміси. Наприкінці називає найслабше місце ідеї та наступний крок."),T("`/sdd:specify` asks for the idea in 1–3 sentences unless you passed it with the command, then 3–5 deeper questions about the problem, success and constraints.","`/sdd:specify` просить ідею в 1–3 реченнях, якщо ви не дали її разом із командою, а потім ставить 3–5 глибших питань про проблему, успіх та обмеження."),T("It asks which extra sources to read: module code, project docs, Jira and Confluence. That is where the research page and the tickets come in.","Питає, які додаткові джерела прочитати: код модуля, документи проєкту, Jira й Confluence. Саме тут підключаються сторінка дослідження та звернення."),T("Writes `spec.md` with user stories and acceptance criteria (AC). AC describe behaviour only, with no technology in them.","Пише `spec.md` з історіями користувачів і критеріями приймання (AC). В AC лише поведінка, без технологій."),T("A critic agent in a clean context checks the draft before it is written. Size and route are set in the same run: here M and standard.","Перед записом чернетку перевіряє агент-критик у чистому контексті. Розмір і маршрут визначаються в тому ж запуску: тут M і standard.")];
+var EXCAP={
+ specify:T("Excerpt from spec.md, written by Claude after the interview","Уривок зі spec.md, який Claude пише після інтерв'ю"),
+ clarify:T("Questions Claude raised and the analyst's decisions","Питання, які підняв Claude, і рішення аналітика"),
+ epic:T("The feature's entry in docs/roadmap.md","Запис фічі в docs/roadmap.md"),
+ uxflows:T("Screen inventory and one flow from ux-flows.md","Перелік екранів і один шлях із ux-flows.md"),
+ design:T("The surfaces declared in sad.md and the first ADR","Поверхні, оголошені в sad.md, і перший ADR"),
+ datamodel:T("The table from data-model.md","Таблиця з data-model.md"),
+ api:T("Endpoints from contracts/openapi.yaml with their response codes","Ендпоінти з contracts/openapi.yaml з кодами відповідей"),
+ screens:T("One screen from screens.md with all its states","Один екран зі screens.md з усіма станами"),
+ tasks:T("Task list from tasks.json; the arrow shows what a task waits for","Список задач із tasks.json; стрілка показує, на що чекає задача"),
+ sprint:T("Stories Claude created in Jira from tasks.json","Задачі, які Claude створив у Jira з tasks.json"),
+ plantests:T("Rows from test-plan.md: criterion, test level, what is checked","Рядки з test-plan.md: критерій, рівень тесту, що перевіряється"),
+ implement:T("One task going through the TDD cycle","Одна задача в циклі TDD"),
+ review:T("The review verdict","Вердикт рев'ю"),
+ ship:T("The pull request that ship opens","Pull request, який відкриває ship"),
+ verify:T("QA report: the result for each criterion","Звіт QA: результат по кожному критерію"),
+ fix:T("The fix record written under _fixes/","Запис про виправлення в _fixes/"),
+ release:T("Release notes for Marketplace staff","Нотатки до релізу для працівників маркетплейсу")
+};
+var EXADD={
+ specify:T("US-1  A staff member creates a task from an order and assigns it to a colleague.\nUS-2  The assignee sees all their tasks in one list.\nUS-3  The author sees on the order when the task is done.\n\nAC-1  A task is created from an order page and stays linked to that order.\nAC-2  A task has one assignee, a due date and a status.\nAC-3  The assignee gets one notification per assignment.\nAC-4  Only staff with access to the order see its tasks.\nAC-5  The order page shows a counter of its open tasks.","US-1  Працівник створює завдання із замовлення й призначає колезі.\nUS-2  Виконавець бачить усі свої завдання в одному списку.\nUS-3  Автор бачить на замовленні, що завдання виконано.\n\nAC-1  Завдання створюється зі сторінки замовлення й лишається прив'язаним до нього.\nAC-2  Завдання має одного виконавця, термін і статус.\nAC-3  Виконавець отримує одне сповіщення на кожне призначення.\nAC-4  Завдання бачать лише ті, хто має доступ до замовлення.\nAC-5  Сторінка замовлення показує лічильник відкритих завдань."),
+ sprint:T("SHOP-413  T-01 staff_tasks migration                    blocks 414, 417\nSHOP-414  T-02 POST and PATCH tasks     AC-1, AC-2      blocks 415, 416\nSHOP-415  T-03 notify on assignment     AC-3\nSHOP-416  T-04 ui: task block and form  SCR-01, SCR-02\nSHOP-417  T-05 ui: My tasks             SCR-03","SHOP-413  T-01 міграція staff_tasks                        блокує 414, 417\nSHOP-414  T-02 POST і PATCH завдань        AC-1, AC-2      блокує 415, 416\nSHOP-415  T-03 сповіщення про призначення  AC-3\nSHOP-416  T-04 ui: блок і форма завдань    SCR-01, SCR-02\nSHOP-417  T-05 ui: Мої завдання            SCR-03"),
+ verify:T("AC-1  passed  task created from order 1042, shows in the block\nAC-2  passed  assignee, due date and status all change\nAC-3  passed  each assignee got exactly one notification\nAC-4  failed  access revoked, task still in “My tasks” → SHOP-431\nAC-5  passed  counter went 2 → 1 after closing a task","AC-1  пройдено     завдання створено із замовлення 1042, видно в блоці\nAC-2  пройдено     виконавець, термін і статус змінюються\nAC-3  пройдено     кожен виконавець отримав рівно одне сповіщення\nAC-4  не пройдено  доступ відкликано, завдання досі в «Мої завдання» → SHOP-431\nAC-5  пройдено     лічильник змінився 2 → 1 після закриття завдання"),
+ release:T("New: tasks and issues in the admin\n  Create one from any order, product or customer page.\n  Find yours under “My tasks”. You get a notification when one is assigned to you.\nNot included yet: comments and attachments.","Нове: завдання й проблеми в адмінці\n  Створюйте їх зі сторінки будь-якого замовлення, товару чи клієнта.\n  Свої шукайте в «Мої завдання». Про призначення прийде сповіщення.\nЩе немає: коментарів і вкладень.")
+};
+
+
+
+/* copy specific to the one-screen layout */
+S.exShort=T("Example:","Приклад:");
+S.featMeta=T("","");
+S.restart=T("Start from step 1","Почати з кроку 1");
+S.aboutBtn=T("About","Про приклад");
+S.ver=T("Version 1","Версія 1");
+S.introEyebrow=T("About this example","Про цей приклад");
+S.introH=T("One feature, built with spec-driven development and an AI coding assistant","Одна фіча, зроблена через spec-driven development з ШІ-асистентом");
+S.introLead=T("How a team builds a feature when an LLM assistant does most of the writing and people make the decisions. Shown in Claude Code; the same SDD plugin also installs into Codex CLI and Cursor.",
+  "Як команда робить фічу, коли більшість тексту й коду пише LLM-асистент, а рішення приймають люди. Показано в Claude Code; той самий плагін SDD ставиться також у Codex CLI та Cursor.");
+S.introSdd=T("<b>Spec-Driven Development.</b> The feature moves through fixed stages. Each stage writes a file (spec, design, contract, tasks), and the next stage and the code are derived from it. <a href='https://github.com/genkovich/sdd' target='_blank' rel='noopener'>What SDD is: genkovich/sdd</a>",
+  "<b>Spec-Driven Development, розробка від специфікації.</b> Фіча проходить фіксовані стадії. Кожна стадія пише файл (spec, дизайн, контракт, задачі), а наступна стадія й код виводяться з нього. <a href='https://github.com/genkovich/sdd' target='_blank' rel='noopener'>Що таке SDD: genkovich/sdd</a>");
+S.introTdd=T("<b>Test-Driven Development.</b> First a test that fails, then the code that makes it pass. The implement stage of SDD writes every task this way. <a href='https://en.wikipedia.org/wiki/Test-driven_development' target='_blank' rel='noopener'>What TDD is</a>",
+  "<b>Test-Driven Development, розробка через тести.</b> Спершу тест, що падає, потім код, який його проходить. Так стадія implement у SDD пише кожну задачу. <a href='https://en.wikipedia.org/wiki/Test-driven_development' target='_blank' rel='noopener'>Що таке TDD</a>");
+S.introFeatK=T("Example: how it works on the following feature","Приклад: як це працює на такій фічі");
+S.introFeat=T("Staff who manage orders create a task or an issue for a colleague straight from an order, a product or a customer, and follow it until it is done.",
+  "Працівники, які ведуть замовлення, створюють колезі завдання або проблему прямо із замовлення, товару чи клієнта й стежать за ним до виконання.");
+S.introShowK=T("What you will see","Що ви побачите");
+S.introShow=T("The whole development of this feature in 16 steps, from idea to release, by role: what each role does, with which tools, what it produces and whom it hands off to. Plus the return paths when QA or review finds a problem.",
+  "Уся розробка цієї фічі за 16 кроків, від ідеї до релізу, по ролях: що робить кожна роль, якими інструментами, що лишає на виході й кому передає. А ще шляхи повернення, коли QA або рев'ю знаходить проблему.");
+S.introStart=T("Let's go","Почнімо");
+var INTRO_ROLE={
+ po:T("turns the idea into a spec with acceptance criteria and accepts the result","перетворює ідею на spec із критеріями приймання й приймає результат"),
+ pm:T("confirms the size, moves the tasks into Jira, plans the sprint and the release","підтверджує розмір, переносить задачі в Jira, планує спринт і реліз"),
+ des:T("designs the user flows and every screen in every state","проєктує шляхи користувача й кожен екран у кожному стані"),
+ dev:T("technical design, API contract, code through TDD, review and the PR","технічний дизайн, контракт API, код через TDD, рев'ю і PR"),
+ qa:T("test plan from the criteria, AI-assisted verification, bugs traced to the criteria","план тестів від критеріїв, перевірка з ШІ, баги з прив'язкою до критеріїв")
+};
+S.hintShort=T("Select a step or a role. ← → walks the cycle.","Натисніть крок або роль. ← → ведуть по циклу.");
+S.prepShort=T("<b>Step 0</b> · setup","<b>Крок 0</b> · підготовка");
+S.offLabel=T("Return paths:","Повернення:");
+S.legendWord=T("Legend","Легенда");
+U.reads=T("Reads","Читає"); U.outShort=T("Output","На виході"); U.handShort=T("Hands off to","Передає");
+U.sameRole=T("the same role continues","далі та сама роль"); U.endCycle=T("end of the cycle","кінець циклу"); U.diskOnly=T("none, disk only","немає, лише диск");
+U.secWhat=T("What happens","Що відбувається"); U.secMcp=T("MCP in detail","MCP детально"); U.secOut=T("Output in detail","Результат детально"); U.moreLabel=T("More about this step","Більше про цей крок");
+U.secEx=T("Example","Приклад"); U.secPrompt=T("Prompt","Промпт"); U.promptBy=T("Typed in Claude Code by:","У Claude Code це вводить:"); U.secChat=T("Dialogue","Діалог"); U.chatCap=T("A shortened session. The wording is illustrative; the order of questions follows the two skills.","Скорочена сесія. Формулювання умовні; порядок питань відповідає двом скілам.");
+U.play=T("Play","Авто"); U.pause=T("Pause","Стоп"); U.prev=T("Previous step","Попередній крок"); U.next=T("Next step","Наступний крок");
+U.backTo=T("Back to step","Назад до кроку"); U.roleProposal=T("SDD does not bind stages to roles. The split by role, and the steps with Jira, Confluence and the preview environment, are a proposal for your team.","SDD не закріплює стадії за ролями. Розподіл по ролях і кроки з Jira, Confluence та стендом запропоновані під вашу команду.");
+U.fromTo=T("From → to","Від → кому"); U.handBlock=T("Handoff block","Блок передачі");
+var TABS=[["step",T("Details","Деталі")],["hand",T("Handoffs","Передачі")],["mcp",T("Tools","Інструменти")],["files",T("Files","Файли")],["cost",T("Cost","Вартість")],["rules",T("How it works","Як це працює")],["setup",T("Role setup","Інструкції")]];
+var LB={regress:T("Bug","Баг"),ac:T("Unclear AC","Нечіткий AC"),screen:T("Screen ≠ mockup","Екран ≠ макет"),review:T("Review","Рев'ю")};
+U.secTools=T("Tools and MCP","Інструменти й MCP"); U.secCtx=T("Context and commands","Контекст і команди"); U.secOutH=T("Output and handoffs","Результат і передачі");
+var SUM={
+ specify:T("Claude interviews the analyst and writes the spec: user stories and acceptance criteria.","Claude розпитує аналітика й пише spec: історії користувачів і критерії приймання."),
+ clarify:T("A devil's-advocate pass finds the gaps; the analyst closes or defers each one.","Агент-опонент шукає дірки в spec; аналітик кожну закриває або відкладає."),
+ epic:T("The PM confirms size and route, places the feature in the roadmap and assigns people.","PM підтверджує розмір і маршрут, ставить фічу в roadmap і призначає людей."),
+ uxflows:T("The designer maps one flow per user story and lists every screen the feature needs.","Дизайнер описує шлях на кожну історію й складає перелік потрібних екранів."),
+ design:T("The tech lead fits the feature into the existing architecture. This is architecture, not UI.","Техлід вписує фічу в наявну архітектуру. Це архітектура, а не UI."),
+ datamodel:T("Schema plus forward and rollback migrations, staged in the feature folder.","Схема й міграції вперед і назад, поки що в теці фічі."),
+ api:T("The OpenAPI contract is derived from the data model, the flows and the spec.","OpenAPI-контракт виводиться з моделі даних, потоків і spec."),
+ screens:T("The designer specifies every screen in every state and links the Figma frames.","Дизайнер описує кожен екран у кожному стані й додає фрейми Figma."),
+ tasks:T("Work is split into tasks of a day or less, with a dependency graph.","Робота ділиться на задачі до одного дня з графом залежностей."),
+ sprint:T("Claude turns tasks.json into Jira stories and the PM plans the sprint.","Claude переносить tasks.json у задачі Jira, PM планує спринт."),
+ plantests:T("QA maps every acceptance criterion to at least one test.","QA зіставляє кожен критерій приймання щонайменше з одним тестом."),
+ implement:T("Code is written task by task through TDD, with a gate before every commit.","Код пишеться задача за задачею через TDD, з гейтом перед кожним комітом."),
+ review:T("A clean-context reviewer checks the whole change against the spec and the AC.","Рев'юер у чистому контексті звіряє всю зміну зі spec і AC."),
+ ship:T("The feature is run for real, the changelog is written and a PR is opened.","Фічу запускають по-справжньому, пишуть changelog і відкривають PR."),
+ verify:T("QA and Claude walk the preview environment in a browser and file bugs traced to AC.","QA з Claude проходять стенд у браузері й заводять баги з прив'язкою до AC."),
+ fix:T("A bug is reproduced, pinned with a failing test and fixed through the same gate.","Баг відтворюють, фіксують тестом, що падає, і виправляють через той самий гейт."),
+ release:T("The analyst accepts the feature, a human merges the PR and the release goes out.","Аналітик приймає фічу, людина мержить PR, реліз виходить.")
+};
+
+/* tools per step: the plugin or app that does the work, what it does here, and where it runs */
+U.toolsHere=T("Tools at this step: what for and where","Інструменти на цьому кроці: для чого і де");
+U.usedAt=T("Used at","Де використовується");
+S.toolsIntro=T("The SDD plugin runs the stages inside Claude Code, Claude Design covers prototypes, and MCP servers, declared once in <code>.mcp.json</code>, connect Claude to your apps. Open a tool to see what it is for and where it is used.",
+  "Плагін SDD запускає стадії всередині Claude Code, Claude Design закриває прототипи, а MCP-сервери, описані один раз у <code>.mcp.json</code>, з'єднують Claude з вашими застосунками. Відкрийте інструмент, щоб побачити, для чого він і де використовується.");
+var TOOLREG={
+ sdd:{name:"SDD plugin",where:T("Claude Code, in the repo","Claude Code, у репозиторії")},
+ cc:{name:"Claude Code",where:T("terminal, desktop or web","термінал, десктоп або веб")},
+ cd:{name:"Claude Design",where:"claude.ai/design"},
+ atl:{name:"Atlassian Rovo MCP",where:"Jira · Confluence"},
+ fig:{name:"Figma MCP",where:"Figma"},
+ gh:{name:"GitHub (gh CLI)",where:"GitHub"},
+ pw:{name:"Playwright MCP",where:T("preview environment","стенд")},
+ shop:{name:"Shopify Dev MCP",where:"shopify.dev"}
+};
+var MCPKEY={"Atlassian Rovo":"atl","Figma":"fig","Shopify Dev":"shop","Playwright":"pw","GitHub":"gh"};
+var STOOL={
+ specify:["sdd",T("runs the interview and writes `spec.md`","веде інтерв'ю й пише `spec.md`")],
+ clarify:["sdd",T("finds ambiguities and tightens `spec.md`","шукає неоднозначності й уточнює `spec.md`")],
+ epic:["sdd",T("re-checks size and route, keeps `docs/roadmap.md`","перевіряє розмір і маршрут, веде `docs/roadmap.md`")],
+ uxflows:["sdd",T("derives the user flows and the screen inventory","виводить шляхи користувача й перелік екранів")],
+ design:["sdd",T("writes the SAD and ADRs, draws the sequence diagrams","пише SAD і ADR, малює sequence-діаграми")],
+ datamodel:["sdd",T("designs the schema and writes the migrations","проєктує схему й пише міграції")],
+ api:["sdd",T("derives the OpenAPI contract","виводить OpenAPI-контракт")],
+ screens:["sdd",T("writes the screen manifest with every state","пише маніфест екранів з усіма станами")],
+ tasks:["sdd",T("splits the work and writes `tasks.json`","ділить роботу й пише `tasks.json`")],
+ sprint:["cc",T("reads `tasks.json` and prepares the Jira stories","читає `tasks.json` і готує задачі для Jira")],
+ plantests:["sdd",T("maps every AC to tests and writes `test-plan.md`","зіставляє кожен AC з тестами й пише `test-plan.md`")],
+ implement:["sdd",T("runs the TDD cycle per task with the test-author, implementer and reviewer agents","веде цикл TDD на кожну задачу з агентами test-author, implementer, reviewer")],
+ review:["sdd",T("reviews the whole diff in a clean context","рев'ює весь diff у чистому контексті")],
+ ship:["sdd",T("runs the feature for real and writes the changelog","запускає фічу по-справжньому й пише changelog")],
+ verify:["cc",T("walks the flows and checks each AC from the tester's own prompts","проходить шляхи й перевіряє кожен AC за промптами тестувальника")],
+ fix:["sdd",T("reproduces the bug, adds a failing test and the fix","відтворює баг, додає тест, що падає, і виправлення")],
+ release:["cc",T("turns the changelog into release notes","перетворює changelog на нотатки до релізу")]
+};
+var CDTOOL={
+ uxflows:T("quick prototypes of the flows from your design-system components","швидкі прототипи шляхів із компонентів вашої дизайн-системи"),
+ screens:T("screen variants before the final frames go to Figma","варіанти екранів до того, як фінальні фрейми потраплять у Figma")
+};
+function toolsFor(s){
+  var out=[STOOL[s.id]];
+  if(CDTOOL[s.id]) out.push(["cd",CDTOOL[s.id]]);
+  s.mcp.forEach(function(m){out.push([MCPKEY[m[0]],m[1]]);});
+  return out;
+}
+/* rough per-step estimates: [low, high] in millions of tokens processed (cached re-reads included), suggested model, why */
+var EST={
+ specify:[0.8,1.5,"opus",T("judgment: spec and critic","судження: spec і критик")],
+ clarify:[0.5,1,"opus",T("judgment: hunting ambiguity","судження: пошук неоднозначностей")],
+ epic:[0.1,0.3,"haiku",T("simple sizing and bookkeeping","просте оцінювання й облік")],
+ uxflows:[0.6,1.2,"sonnet",T("derived from the spec","виводиться зі spec")],
+ design:[1.5,3,"opus",T("architecture decisions","архітектурні рішення")],
+ datamodel:[0.6,1.2,"sonnet",T("derived from the design","виводиться з дизайну")],
+ api:[0.5,1,"sonnet",T("derived from the data model","виводиться з моделі даних")],
+ screens:[1,2,"sonnet",T("derived, many screen states","виводиться, багато станів")],
+ tasks:[0.5,1,"sonnet",T("derived, task split","виводиться, поділ на задачі")],
+ sprint:[0.3,0.6,"haiku",T("mechanical Jira entry","механічне внесення в Jira")],
+ plantests:[0.5,1,"sonnet",T("mapping AC to tests","зіставлення AC з тестами")],
+ implement:[8,20,"sonnet",T("tests and code; reviewer agent on opus","тести й код; агент-рев'юер на opus")],
+ review:[1,2.5,"opus",T("judgment over the whole diff","судження про весь diff")],
+ ship:[0.8,1.5,"sonnet",T("run, changelog, PR","запуск, changelog, PR")],
+ verify:[3,8,"sonnet",T("many browser steps","багато кроків у браузері")],
+ fix:[1.5,3,"sonnet",T("per bug; opus if the cause is unclear","на один баг; opus, якщо причина неясна")],
+ release:[0.1,0.3,"haiku",T("short notes","короткі нотатки")]
+};
+function num(x){var t=String(x);return LANG==="uk"?t.replace(".",","):t;}
+function estText(e){return num(e[0])+"–"+num(e[1])+(LANG==="uk"?" млн":"M");}
+U.model=T("Model","Модель"); U.tokens=T("tokens","токенів"); U.estNote=T("rough estimate, not measured","груба оцінка, не вимір");
+U.thStep=T("Step","Крок"); U.thTokens=T("Tokens, est.","Токени, оцінка"); U.thShare=T("Share","Частка"); U.thWhy=T("Why this model","Чому ця модель");
+U.cTokens=T("Tokens and model per step","Токени й модель на кожен крок"); U.cModels=T("Which model for what","Яка модель для чого"); U.cPlan=T("Plan for your team","Тариф для вашої команди");
+S.costIntro=T("Rough estimates for one M-size feature on one platform, counting every token the model processes, cached re-reads included. They are not measured on your project: run one pilot feature and read the real numbers with <code>/usage</code>.",
+  "Грубі оцінки для однієї фічі розміру M на одній платформі з урахуванням усіх токенів, які обробляє модель, разом із перечитаним кешем. На вашому проєкті їх не вимірювали: проведіть одну пілотну фічу й подивіться справжні числа через <code>/usage</code>.");
+S.costModels=T(
+ "<li><b>opus</b><span>Judgment: specify, clarify, tech-design, review. Decisions that are expensive to get wrong. In SDD this is <code>judgment_model: opus</code>, the default.</span></li>"+
+ "<li><b>sonnet</b><span>Derivation and execution: ux-flows, data-model, api, screens, tasks, plan-tests, implement, ship, verify, fix. Handles most coding work at half the per-token price of Opus.</span></li>"+
+ "<li><b>haiku</b><span>Mechanical work: sizing, Jira entry, release notes, and the codebase scans SDD runs through its explorer agent.</span></li>"+
+ "<li><b>fable</b><span>Not needed for a feature this size. Keep it for root-cause investigations and very long autonomous runs.</span></li>",
+ "<li><b>opus</b><span>Судження: specify, clarify, tech-design, review. Рішення, де помилка коштує дорого. У SDD це <code>judgment_model: opus</code>, значення за замовчуванням.</span></li>"+
+ "<li><b>sonnet</b><span>Виведення й виконання: ux-flows, data-model, api, screens, tasks, plan-tests, implement, ship, verify, fix. Справляється з більшістю роботи з кодом за половину ціни Opus за токен.</span></li>"+
+ "<li><b>haiku</b><span>Механічна робота: оцінювання розміру, внесення в Jira, нотатки до релізу та сканування коду, які SDD робить через агента explorer.</span></li>"+
+ "<li><b>fable</b><span>Для фічі такого розміру не потрібна. Лишіть її для пошуку першопричин і дуже довгих автономних запусків.</span></li>");
+S.costModelTip=T("On Team and Enterprise seats Claude Code starts on Opus 5.5. SDD stages run on the session model, so switch with <code>/model sonnet</code> before derivation and execution stages, or use <code>/model opusplan</code> (Opus while planning, Sonnet while executing). The seat allowance then lasts longer.",
+  "На місцях Team та Enterprise Claude Code стартує на Opus 5.5. Стадії SDD працюють на моделі сесії, тому перед стадіями виведення й виконання перемикайтесь через <code>/model sonnet</code> або вмикайте <code>/model opusplan</code> (Opus під час планування, Sonnet під час виконання). Так ліміту місця вистачає надовше.");
+var SEATS=[
+ ["po",T("PO / analyst","PO / аналітик"),1,"std",T("short interview and spec stages","короткі стадії інтерв'ю та spec")],
+ ["pm","PM",1,"std",T("sizing and Jira entry","оцінювання й внесення в Jira")],
+ ["des",T("Designers","Дизайнери"),2,"std",T("ux-flows, screens, Claude Design","ux-flows, screens, Claude Design")],
+ ["qa","QA",4,"std",T("browser checks are heavy: turn on usage credits, upgrade a seat that keeps hitting the limit","перевірки в браузері важкі: увімкніть usage credits і підвищуйте місце, яке постійно впирається в ліміт")],
+ ["dev","Android",2,"prem",T("implement, review and fix are the heaviest steps","implement, review і fix — найважчі кроки")],
+ ["dev","iOS",4,"prem",T("the same","те саме")]
+];
+U.thRole=T("Role","Роль"); U.thPeople=T("People","Людей"); U.thSeat=T("Seat","Місце"); U.thNote=T("Why","Чому");
+U.seatStd=T("Standard","Standard"); U.seatPrem=T("Premium","Premium");
+S.planLead=T("<b>Team plan, 14 seats: 8 Standard and 6 Premium.</b> That is $760 a month billed annually (8 × $20 + 6 × $100) or $950 billed monthly (8 × $25 + 6 × $125), before tax. One PO and one PM are assumed; the other twelve are the team as it is today.",
+  "<b>Тариф Team, 14 місць: 8 Standard і 6 Premium.</b> Це $760 на місяць за річної оплати (8 × $20 + 6 × $100) або $950 за помісячної (8 × $25 + 6 × $125), без податків. Один PO і один PM тут припущення; решта дванадцять відповідає нинішній команді.");
+S.planNotes=T(
+ "<li>Every Team seat includes Claude Code and all models. Standard gives 1.25× the Pro per-session allowance, Premium 6.25×. The plan covers 2 to 150 seats, with SSO and spend controls.</li>"+
+ "<li>Turn on usage credits with a spend limit per person, so nobody is blocked mid-task when a seat runs out.</li>"+
+ "<li>Enterprise ($20 a seat plus all usage at API rates, self-serve from 20 seats) is worth it only if you need audit logs, SCIM or compliance controls.</li>"+
+ "<li>For scale: Anthropic reports an average of about $13 per developer per active day at API rates for Claude Code, which is why Premium is the safer start for developers.</li>"+
+ "<li>Check the seat mix after one pilot feature, using <code>/usage</code> and the admin spend report.</li>",
+ "<li>Кожне місце Team містить Claude Code і всі моделі. Standard дає 1,25× ліміту Pro на сесію, Premium 6,25×. Тариф розрахований на 2–150 місць, із SSO та контролем витрат.</li>"+
+ "<li>Увімкніть usage credits з лімітом витрат на людину, щоб ніхто не зупинявся посеред задачі, коли місце вичерпано.</li>"+
+ "<li>Enterprise ($20 за місце плюс усе використання за цінами API, самообслуговування від 20 місць) має сенс, лише якщо потрібні журнали аудиту, SCIM або комплаєнс-контролі.</li>"+
+ "<li>Для масштабу: за даними Anthropic, Claude Code у середньому коштує близько $13 на розробника за активний день за цінами API, тому розробникам безпечніше стартувати з Premium.</li>"+
+ "<li>Перегляньте розподіл місць після однієї пілотної фічі за <code>/usage</code> та адмінським звітом про витрати.</li>");
+S.costSrc=T("Prices and limits as published on 6 October 2026:","Ціни й ліміти станом на 6 жовтня 2026:");
+/* API list-price equivalent per million tokens processed, assuming 90% cache reads, 8% new input (cache writes), 2% output */
+var RATE={opus:0.9*0.20+0.08*5+0.02*20, sonnet:0.9*0.20+0.08*2.5+0.02*10, haiku:0.9*0.10+0.08*1.25+0.02*5};
+var SEATROLE={po:"std",pm:"std",des:"std",qa:"std",dev:"prem"};
+function usdRange(e){return [e[0]*RATE[e[2]],e[1]*RATE[e[2]]];}
+function usdFmt(v){return v>=10?String(Math.round(v)):num(Math.round(v*10)/10);}
+function usdText(lo,hi){return hi<0.1?"< $"+num(0.1):"≈ $"+usdFmt(Math.max(lo,0.1))+"–"+usdFmt(hi);}
+function totals(){var t={lo:0,hi:0,mid:0,ulo:0,uhi:0};ORDER.forEach(function(id){var e=EST[id],u=usdRange(e);t.lo+=e[0];t.hi+=e[1];t.mid+=(e[0]+e[1])/2;t.ulo+=u[0];t.uhi+=u[1];});
+  t.tok=Math.round(t.lo)+"–"+Math.round(t.hi)+(LANG==="uk"?" млн":"M"); t.usd="$"+Math.round(t.ulo)+"–"+Math.round(t.uhi); return t;}
+function seatMix(){var m={std:0,prem:0};SEATS.forEach(function(x){m[x[3]]+=x[2];});m.month=m.std*20+m.prem*100;return m;}
+var costOpen="c1";
+U.tokensK=T("Tokens","Токени"); U.costK=T("API cost","Ціна API"); U.seatK=T("Seat","Місце"); U.estWord=T("estimate","оцінка"); U.infoBtn=T("Info","Інфо");
+U.costTip=T("Rough estimate, not measured. The cost is the API list-price equivalent; on a Team seat it is covered by the seat allowance and not billed per step.","Груба оцінка, не вимір. Ціна — еквівалент за прайсом API; на місці Team її покриває ліміт місця, окремо за крок вона не списується.");
+U.thCost=T("Cost, est.","Ціна, оцінка");
+U.hFeature=T("Feature","Фіча"); U.hPlan=T("Team plan","Тариф Team"); U.perMonth=T("/mo","/міс");
+S.costTotal=T("<b>Whole feature: about {t} tokens, about {u} at API list prices.</b> The price assumes 90% cached re-reads, 8% new input and 2% output. On Team seats it is not billed per step: the work draws on each seat's allowance. Each extra platform repeats implement, review and fix: with Android and iOS, add about 10–25M tokens for the second one.",
+  "<b>Уся фіча: приблизно {t} токенів, близько {u} за прайсовими цінами API.</b> Ціна виходить із припущення: 90% перечитаного кешу, 8% нового входу, 2% виходу. На місцях Team вона не списується за крок: робота витрачає ліміт кожного місця. Кожна додаткова платформа повторює implement, review і fix: з Android та iOS додайте ще приблизно 10–25 млн токенів на другу.");
+function costHTML(){
+  var t=totals();
+  var rows=ORDER.map(function(id){var st=BY[id],e=EST[id],u=usdRange(e),sh=Math.round((e[0]+e[1])/2/t.mid*100);
+    return '<tr><td class="nw"><button type="button" class="step-link role-'+st.role+'" data-nav="'+id+'">'+(st.row+1)+' · '+esc(tr(st.label))+'</button></td><td class="nw"><code>'+e[2]+'</code></td><td class="nw num">'+estText(e)+'</td><td class="nw num">'+usdText(u[0],u[1])+'</td><td class="nw num">'+(sh<1?"<1":sh)+'%</td><td>'+esc(tr(e[3]))+'</td></tr>';}).join("");
+  return '<p class="intro">'+tr(S.costIntro)+'</p><div class="acc">'+
+    sec("c1",U.cTokens,'<div class="scroll"><table class="tight"><thead><tr><th>'+esc(tr(U.thStep))+'</th><th>'+esc(tr(U.model))+'</th><th>'+esc(tr(U.thTokens))+'</th><th>'+esc(tr(U.thCost))+'</th><th>'+esc(tr(U.thShare))+'</th><th>'+esc(tr(U.thWhy))+'</th></tr></thead><tbody>'+rows+'</tbody></table></div><p>'+tr(S.costTotal).replace("{t}",t.tok).replace("{u}",t.usd)+'</p>',costOpen==="c1")+
+    sec("c2",U.cModels,'<ul class="rule-list models">'+tr(S.costModels)+'</ul><p class="plain">'+tr(S.costModelTip)+'</p>',costOpen==="c2")+
+    sec("c3",U.cPlan,'<p>'+tr(S.planLead)+'</p><div class="scroll"><table class="tight"><thead><tr><th>'+esc(tr(U.thRole))+'</th><th>'+esc(tr(U.thPeople))+'</th><th>'+esc(tr(U.thSeat))+'</th><th>'+esc(tr(U.thNote))+'</th></tr></thead><tbody>'+
+      SEATS.map(function(x){return '<tr><td class="nw"><span class="rchip role-'+x[0]+'">'+esc(tr(x[1]))+'</span></td><td class="num">'+x[2]+'</td><td class="nw"><b>'+esc(tr(x[3]==="prem"?U.seatPrem:U.seatStd))+'</b></td><td>'+esc(tr(x[4]))+'</td></tr>';}).join("")+
+      '</tbody></table></div><ul class="decide">'+tr(S.planNotes)+'</ul>',costOpen==="c3")+
+    '</div><p class="sources"><span>'+esc(tr(S.costSrc))+'</span><a href="https://claude.com/pricing" target="_blank" rel="noopener">claude.com/pricing</a><a href="https://support.claude.com/en/articles/9266767-what-is-the-team-plan" target="_blank" rel="noopener">Team plan</a><a href="https://support.claude.com/en/articles/9797531-what-is-the-enterprise-plan" target="_blank" rel="noopener">Enterprise plan</a><a href="https://code.claude.com/docs/en/costs" target="_blank" rel="noopener">Claude Code costs</a><a href="https://code.claude.com/docs/en/model-config" target="_blank" rel="noopener">Model config</a></p>';
+}
+var TOOLTAB=[
+ {key:"sdd",name:"SDD plugin for Claude Code",what:T("Runs every /sdd: stage inside Claude Code: interviews, writes the feature files to the repository, runs TDD, review and ship.","Запускає кожну стадію /sdd: усередині Claude Code: веде інтерв'ю, пише файли фічі в репозиторій, запускає TDD, рев'ю і ship."),cmds:["/plugin marketplace add genkovich/sdd","/plugin install sdd@sdd"],cells:{po:"run",pm:"run",des:"run",dev:"run",qa:"run"}},
+ {key:"cd",name:"Claude Design",what:T("Prototypes and screen variants on a canvas at claude.ai/design, handed to Claude Code as one bundle.","Прототипи й варіанти екранів на полотні в claude.ai/design, передача в Claude Code одним пакетом."),cmds:[],cells:{po:"-",pm:"-",des:"rw",dev:"r",qa:"-"}}
+].concat(MCP.map(function(m,i){return {key:["atl","fig","gh","pw","shop"][i],name:m.name,what:m.what,cmds:[m.cmd],cells:m.cells};}));
+
+/* per-role setup instructions */
+var setupRole="po";
+U.setupIntro=T("Pick a role to see what to install, which MCP servers to connect, how to get the repository, the daily flow, permissions and files.","Оберіть роль, щоб побачити, що встановити, які MCP підключити, як отримати репозиторій, щоденний порядок роботи, права та файли.");
+U.sInstall=T("Install","Встановити"); U.sMcp=T("Connect MCP servers","Підключити MCP-сервери"); U.sRepo=T("Get the repository","Отримати репозиторій");
+U.sFlow=T("How you work day to day","Як працювати щодня"); U.sPerm=T("Permissions","Права доступу"); U.sFiles=T("Files you read and update","Файли: що читаєте й оновлюєте");
+U.setupBtn=T("Setup instructions for this role →","Інструкція з налаштування для цієї ролі →");
+U.upd=T("Updates","Оновлює"); U.rd=T("Reads","Читає"); U.noEdit=T("Does not edit","Не редагує");
+U.inClaude=T("In Claude Code","У Claude Code"); U.onGit=T("On the Git host","На Git-хостингу"); U.inApps=T("In Jira, Confluence and Figma","У Jira, Confluence та Figma");
+function lk(href,text){return '<a href="'+href+'" target="_blank" rel="noopener">'+esc(text)+'</a>';}
+function cmdLine(c){return '<span class="cmd"><code>'+esc(c)+'</code>'+copyBtn(c)+'</span>';}
+var REPO_URL="https://github.com/YOUR-ORG/YOUR-REPO.git";
+var SETUP={
+ po:{
+  extra:[[T("Jira and Confluence","Jira й Confluence"),T("an account that can edit the SHOP project and space","обліковий запис із правом редагування проєкту й простору SHOP"),null,[]]],
+  why:T("Your spec lives there as `docs/features/tasks-issues/spec.md`, and every later stage reads it from disk.","Ваш spec лежить там як `docs/features/tasks-issues/spec.md`, і кожна наступна стадія читає його з диска."),
+  flow3:T("Answer Claude's questions. Read `spec.md` before you accept it: it is the contract for everyone after you.","Відповідайте на питання Claude. Прочитайте `spec.md`, перш ніж приймати: це контракт для всіх після вас."),
+  allow:["Edit(/docs/features/**)","Edit(/CONTEXT.md)"], deny:["Edit(/src/**)","Bash(git push --force *)"],
+  owns:T("`spec.md` and `CONTEXT.md`","`spec.md` і `CONTEXT.md`"),
+  updates:["docs/features/tasks-issues/spec.md",".size, .route","CONTEXT.md"],
+  reads:["docs/architecture-map.md","docs/roadmap.md","ux-flows.md","screens.md","test-plan.md","changelog"],
+  noedit:T("source code, `sad.md`, `contracts/`, migrations","код, `sad.md`, `contracts/`, міграції")},
+ pm:{
+  extra:[[T("Jira and Confluence","Jira й Confluence"),T("an account that can create issues, manage sprints and edit pages","обліковий запис, який може створювати задачі, керувати спринтами й редагувати сторінки"),null,[]]],
+  why:T("You read `tasks.json` there and keep `docs/roadmap.md` up to date.","Ви читаєте там `tasks.json` і ведете `docs/roadmap.md`."),
+  flow3:T("Check the size and route, then let Claude create the Jira stories from `tasks.json` and review them before the sprint.","Перевірте розмір і маршрут, потім дайте Claude створити задачі Jira з `tasks.json` і перегляньте їх перед спринтом."),
+  allow:["Edit(/docs/roadmap.md)","Edit(/docs/features/**/.size)","Edit(/docs/features/**/.route)"], deny:["Edit(/src/**)","Edit(/docs/features/**/spec.md)","Bash(git push --force *)"],
+  owns:T("`docs/roadmap.md`","`docs/roadmap.md`"),
+  updates:["docs/roadmap.md",".size, .route"],
+  reads:["spec.md","tasks.json","test-plan.md","review record","changelog"],
+  noedit:T("`spec.md`, design files, source code","`spec.md`, файли дизайну, код")},
+ des:{
+  extra:[["Figma",T("an account with edit access to the team library","обліковий запис із правом редагування командної бібліотеки"),"https://www.figma.com/",[]],
+         ["Claude Design",T("prototypes on a canvas; included in the Claude seat","прототипи на полотні; входить у місце Claude"),"https://claude.ai/design",[]]],
+  why:T("`ux-flows.md` and `screens.md` are written there. The visuals stay in Figma, the manifest links to them.","`ux-flows.md` і `screens.md` пишуться там. Візуал лишається у Figma, маніфест на нього посилається."),
+  flow3:T("Draw the frames in Figma, link them in `screens.md` and check that every state is there.","Намалюйте фрейми у Figma, додайте посилання в `screens.md` і перевірте, що є кожен стан."),
+  allow:["Edit(/docs/design-system.md)","Edit(/docs/features/**/ux-flows.md)","Edit(/docs/features/**/screens.md)"], deny:["Edit(/src/**)","Bash(git push --force *)"],
+  owns:T("`ux-flows.md`, `screens.md` and `docs/design-system.md`","`ux-flows.md`, `screens.md` і `docs/design-system.md`"),
+  updates:["docs/design-system.md","ux-flows.md","screens.md"],
+  reads:["spec.md","CONTEXT.md","sad.md","contracts/openapi.yaml"],
+  noedit:T("`spec.md`, source code, contracts","`spec.md`, код, контракти")},
+ dev:{
+  extra:[["GitHub CLI",T("pull requests and diffs from the terminal","pull request і diff із термінала"),"https://cli.github.com/",["gh auth login"]],
+         ["Node.js",T("needed for MCP servers that start with npx","потрібен для MCP-серверів, які стартують через npx"),"https://nodejs.org/en/download",[]],
+         [T("IDE extension","Розширення для IDE"),T("optional: the same seat covers Claude Code in VS Code and JetBrains IDEs","за бажанням: те саме місце покриває Claude Code у VS Code та IDE від JetBrains"),null,[]]],
+  why:T("All of your work is there: design docs, contracts, tasks and the code itself.","Уся ваша робота там: документи дизайну, контракти, задачі й сам код."),
+  flow3:T("Let `implement` run task by task. Step in when it stops on a red test or on a conflict with the spec.","Дайте `implement` іти задача за задачею. Втручайтесь, коли він зупиняється на червоному тесті чи конфлікті зі spec."),
+  allow:["Bash(git commit *)"], deny:["Bash(git push --force *)","Read(./.env)"],
+  owns:T("`sad.md`, contracts, migrations and the code","`sad.md`, контракти, міграції та код"),
+  updates:["docs/architecture-map.md","sad.md, adr/*","data-model.md, migrations/","contracts/openapi.yaml","tasks/*, tasks.json",T("source code and tests","код і тести"),"_fixes/","CLAUDE.md, .mcp.json, .claude/settings.json"],
+  reads:[T("everything in the repository","усе в репозиторії")],
+  noedit:T("`spec.md` without the analyst, `screens.md` without the designer","`spec.md` без аналітика, `screens.md` без дизайнера")},
+ qa:{
+  extra:[["Node.js",T("Playwright MCP starts with npx","Playwright MCP стартує через npx"),"https://nodejs.org/en/download",[]],
+         ["GitHub CLI",T("to read the pull request and its checks","щоб читати pull request і його перевірки"),"https://cli.github.com/",["gh auth login"]]],
+  why:T("`test-plan.md` and the e2e tests live there, next to the spec you test against.","`test-plan.md` і e2e-тести лежать там, поруч зі spec, проти якого ви тестуєте."),
+  flow3:T("Have Claude walk the preview environment in the browser. You decide what is a bug and file it with the AC it breaks.","Дайте Claude пройти стенд у браузері. Ви вирішуєте, що є багом, і заводите його з AC, який він порушує."),
+  allow:["Edit(/docs/features/**/test-plan.md)","Edit(/tests/e2e/**)","mcp__playwright__*"], deny:["Edit(/src/**)","Bash(git push --force *)"],
+  owns:T("`test-plan.md` and the e2e tests","`test-plan.md` та e2e-тести"),
+  updates:["test-plan.md",T("e2e tests, for example tests/e2e/","e2e-тести, наприклад tests/e2e/")],
+  reads:["spec.md","ux-flows.md","screens.md","contracts/openapi.yaml","tasks.json",T("the pull request diff","diff pull request")],
+  noedit:T("`spec.md`, application code","`spec.md`, код застосунку")}
+};
+function setupHTML(){
+  var k=setupRole,d=SETUP[k],dev=k==="dev";
+  var mine=STEPS.filter(function(x){return x.role===k;});
+  var cmds=[]; mine.forEach(function(x){x.cmds.forEach(function(c){if(cmds.indexOf(c)<0)cmds.push(c);});});
+  var seat="Team "+tr(SEATROLE[k]==="prem"?U.seatPrem:U.seatStd);
+  function item(name,note,href,cs){return '<li><div><b>'+(href?lk(href,tr(name)):esc(tr(name)))+'</b> <span class="v">'+fmt(note)+'</span></div>'+(cs&&cs.length?'<div class="cmds">'+cs.map(cmdLine).join("")+'</div>':'')+'</li>';}
+  var install='<ul class="setup-list">'+
+    item(T("Claude account","Обліковий запис Claude"),T("a seat on the team plan ("+seat+"). The free plan does not include Claude Code.","місце в командному тарифі ("+seat+"). Безкоштовний тариф не містить Claude Code."),"https://claude.ai/",[])+
+    (dev?item(T("Claude Code in the terminal","Claude Code у терміналі"),T("macOS, Linux and WSL use the first command, Windows PowerShell the second. Then run `claude` in the project folder and sign in.","macOS, Linux і WSL використовують першу команду, Windows PowerShell другу. Потім запустіть `claude` у теці проєкту й увійдіть."),"https://code.claude.com/docs/en/setup",["curl -fsSL https://claude.ai/install.sh | bash","irm https://claude.ai/install.ps1 | iex"])
+        :item(T("Claude desktop app, Code tab","Десктоп-застосунок Claude, вкладка Code"),T("no terminal needed. If you prefer the terminal, the setup guide has the install commands.","термінал не потрібен. Якщо зручніше в терміналі, команди встановлення є в інструкції."),"https://claude.com/download",[]))+
+    (dev?'':'<li><div class="v">'+lk("https://code.claude.com/docs/en/desktop-quickstart",tr(T("Desktop quickstart","Швидкий старт для десктопу")))+' · '+lk("https://code.claude.com/docs/en/setup",tr(T("Terminal setup","Встановлення в терміналі")))+' · '+lk("https://code.claude.com/docs/en/terminal-guide",tr(T("Terminal guide for beginners","Термінал для початківців")))+'</div></li>')+
+    item("Git",T("to clone the repository and switch branches. On Windows install Git for Windows.","щоб клонувати репозиторій і перемикати гілки. На Windows встановіть Git for Windows."),"https://git-scm.com/downloads",[])+
+    item(T("SDD plugin","Плагін SDD"),T("run both commands once inside Claude Code.","виконайте обидві команди один раз усередині Claude Code."),"https://github.com/genkovich/sdd",["/plugin marketplace add genkovich/sdd","/plugin install sdd@sdd"])+
+    d.extra.map(function(x){return item(x[0],x[1],x[2],x[3]);}).join("")+'</ul>';
+  var servers=MCP.filter(function(m){return m.cells[k]!=="-";});
+  var mcp='<p>'+fmt(T("The servers are already listed in the repository's `.mcp.json`. After you open the project, run `/mcp` and sign in to each one with your own account.","Сервери вже описані в `.mcp.json` у репозиторії. Відкривши проєкт, виконайте `/mcp` і ввійдіть у кожен під своїм обліковим записом."))+'</p><ul class="setup-list">'+
+    servers.map(function(m){return '<li><div><b>'+esc(m.name)+'</b> <span class="tw">'+esc(tr(U[m.cells[k]]))+'</span><span class="v">'+esc(tr(m.what))+'</span></div><div class="cmds">'+cmdLine(m.cmd)+'</div></li>';}).join("")+'</ul>'+
+    (k==="qa"?'<p class="plain">'+esc(tr(T("Playwright covers the web admin in this example. Mobile apps need a different test driver; choose it during the pilot.","Playwright покриває вебадмінку з цього прикладу. Мобільним застосункам потрібен інший драйвер тестів; оберіть його під час пілота.")))+'</p>':'')+
+    '<p class="sources">'+lk("https://code.claude.com/docs/en/mcp",tr(T("MCP in Claude Code","MCP у Claude Code")))+lk("https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/","Atlassian Rovo MCP")+'</p>';
+  var repo='<p>'+fmt(T("Yes, you need it. SDD stages read and write files in the repository.","Так, він потрібен. Стадії SDD читають і пишуть файли в репозиторії."))+' '+fmt(d.why)+'</p>'+
+    '<div class="cmds">'+cmdLine("git clone "+REPO_URL)+cmdLine("cd YOUR-REPO")+(dev?cmdLine("claude"):"")+'</div>'+
+    '<p>'+fmt(dev?T("Work on the feature branch, for example `feature/tasks-issues`. `main` only changes through a pull request.","Працюйте у гілці фічі, наприклад `feature/tasks-issues`. `main` змінюється лише через pull request.")
+               :T("In the desktop app open the Code tab and choose the cloned folder as the project. Work on the feature branch, never on `main`. You do not need Git commands: ask Claude in plain words.","У десктоп-застосунку відкрийте вкладку Code й оберіть клоновану теку як проєкт. Працюйте у гілці фічі, не в `main`. Команди Git знати не потрібно: попросіть Claude звичайними словами."))+'</p>'+
+    '<div class="pblock"><div class="caprow"><p class="cap">'+esc(tr(T("Ask Claude:","Попросіть Claude:")))+'</p>'+copyBtn(tr(T("Switch to branch feature/tasks-issues and pull the latest changes.","Перейди на гілку feature/tasks-issues і підтягни останні зміни.")))+'</div><pre class="wrap">'+esc(tr(T("Switch to branch feature/tasks-issues and pull the latest changes.","Перейди на гілку feature/tasks-issues і підтягни останні зміни.")))+'</pre></div>'+
+    '<p class="sources">'+lk("https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository",tr(T("Cloning a repository","Клонування репозиторію")))+lk("https://git-scm.com/downloads",tr(T("Download Git","Завантажити Git")))+'</p>';
+  var flow='<ol class="loop-steps">'+
+    '<li>'+fmt(T("Open the repository in Claude Code and update the feature branch.","Відкрийте репозиторій у Claude Code й оновіть гілку фічі."))+'</li>'+
+    '<li>'+fmt(T("Run your stage. Start each one with `/clear` so it reads its inputs from disk.","Запустіть свою стадію. Кожну починайте з `/clear`, щоб вона читала вхідні файли з диска."))+(cmds.length?'<div class="chips" style="margin-top:4px">'+cmds.map(function(c){return '<code>'+esc(c)+'</code>';}).join("")+'</div>':'')+'</li>'+
+    '<li>'+fmt(d.flow3)+'</li>'+
+    '<li>'+fmt(dev?T("Accept the commits Claude proposes. `ship` opens the pull request; a person merges it.","Приймайте коміти, які пропонує Claude. `ship` відкриває pull request; мержить його людина.")
+                 :T("Accept the commit Claude proposes and push the branch.","Прийміть коміт, який пропонує Claude, і запуште гілку."))+'</li>'+
+    '<li>'+fmt(T("Paste the handoff block into the Jira ticket, so the next role knows what to review and what to run.","Вставте блок передачі в задачу Jira, щоб наступна роль знала, що переглянути й що запускати."))+'</li></ol>'+
+    '<div class="steps-in role-'+k+'">'+mine.map(function(x){return '<button type="button" class="step-link" data-nav="'+x.id+'">'+(x.row+1)+' · '+esc(tr(x.label))+'</button>';}).join("")+'</div>';
+  var json=JSON.stringify({permissions:{allow:d.allow,deny:d.deny}},null,2);
+  var perm='<ul class="rule-list">'+
+    '<li><b>'+esc(tr(U.inClaude))+'</b><span>'+fmt(dev?T("Manual mode by default; accept-edits mode is fine while `implement` runs. Do not use bypassPermissions on your own machine.","Типово режим Manual; режим accept-edits доречний, поки працює `implement`. Не вмикайте bypassPermissions на своїй машині.")
+        :T("Stay in Manual mode: Claude asks before every edit and command. Add the rules below to `.claude/settings.local.json` so it edits only your files.","Лишайтесь у режимі Manual: Claude питає перед кожною правкою й командою. Додайте правила нижче в `.claude/settings.local.json`, щоб він редагував лише ваші файли."))+'</span></li></ul>'+
+    '<div class="pblock"><div class="caprow"><p class="cap"><code>.claude/settings.local.json</code> · '+fmt(T("`/src/**` stands for your code folders","`/src/**` означає ваші теки з кодом"))+'</p>'+copyBtn(json)+'</div><pre>'+esc(json)+'</pre></div>'+
+    '<ul class="rule-list">'+
+    '<li><b>'+esc(tr(U.onGit))+'</b><span>'+fmt(T("Write access so you can push your branch. `main` is protected: changes land through a pull request with a review. CODEOWNERS sends ","Право Write, щоб пушити свою гілку. `main` захищена: зміни потрапляють через pull request з рев'ю. CODEOWNERS надсилає "))+fmt(d.owns)+fmt(T(" to your role for review."," на рев'ю вашій ролі."))+'</span></li>'+
+    '<li><b>'+esc(tr(U.inApps))+'</b><span>'+fmt(T("MCP uses your own sign-in, so Claude can do only what your account can.","MCP працює під вашим входом, тож Claude може лише те, що може ваш обліковий запис."))+'</span></li></ul>'+
+    '<p class="plain">'+fmt(T("Claude Code rules guide its file tools; they are not a security boundary. Branch protection and CODEOWNERS on the Git host are what enforce who can change what.","Правила Claude Code скеровують його файлові інструменти, але не є межею безпеки. Хто що може змінювати, насправді забезпечують захист гілок і CODEOWNERS на Git-хостингу."))+'</p>'+
+    '<p class="sources">'+lk("https://code.claude.com/docs/en/permissions",tr(T("Claude Code permissions","Права в Claude Code")))+lk("https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners","CODEOWNERS")+lk("https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches",tr(T("Protected branches","Захищені гілки")))+'</p>';
+  var files='<div class="grid2">'+cell(U.upd,'<div class="chips">'+d.updates.map(src).join("")+'</div>')+cell(U.rd,'<div class="chips">'+d.reads.map(function(x){var t=tr(x);return /[.\/_]/.test(t)&&!/ /.test(t.replace(/, /g,""))?'<code>'+esc(t)+'</code>':'<span class="src">'+esc(t)+'</span>';}).join("")+'</div>')+'</div>'+
+    '<div class="handline"><span class="k">'+esc(tr(U.noEdit))+'</span><span>'+fmt(d.noedit)+'</span></div>'+
+    '<p class="plain">'+fmt(T("Feature files sit in `docs/features/tasks-issues/`. Shared files such as `docs/roadmap.md` and `CONTEXT.md` sit above it.","Файли фічі лежать у `docs/features/tasks-issues/`. Спільні файли, як-от `docs/roadmap.md` і `CONTEXT.md`, лежать вище."))+'</p>';
+  return '<div class="rolepick" role="group" aria-label="'+esc(tr(U.setupIntro))+'">'+ROLE_ORDER.map(function(x){return '<button type="button" class="lane-btn role-'+x+'" data-setup="'+x+'" aria-pressed="'+String(x===k)+'">'+esc(tr(ROLES[x].l))+'</button>';}).join("")+'</div>'+
+    '<div class="d-top role-'+k+'"><h2>'+esc(tr(ROLES[k].name))+'</h2><p class="sum">'+esc(tr(ROLES[k].scope))+'</p></div>'+
+    '<div class="acc">'+sec("s1",U.sInstall,install,setupOpen==="s1")+sec("s2",U.sMcp,mcp,setupOpen==="s2")+sec("s3",U.sRepo,repo,setupOpen==="s3")+sec("s4",U.sFlow,flow,setupOpen==="s4")+sec("s5",U.sPerm,perm,setupOpen==="s5")+sec("s6",U.sFiles,files,setupOpen==="s6")+'</div>';
+}
+var setupOpen="s1";
+
+/* helpers */
+var TOOL=/^(Confluence|Jira|Figma|GitHub|Claude Design): (.*)$/;
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function fmt(s){return esc(tr(s)).replace(/`([^`]+)`/g,"<code>$1</code>");}
+function src(x){var s=tr(x),m=TOOL.exec(s);return m?'<span class="src"><b>'+esc(m[1])+'</b> '+esc(m[2])+'</span>':'<code>'+esc(s)+'</code>';}
+function art(x){var s=tr(x),m=TOOL.exec(s);return m?'<b>'+esc(m[1])+'</b> '+esc(m[2]):(/[.\/_*]/.test(s)?'<code>'+esc(s)+'</code>':esc(s));}
+function artChip(x){var s=tr(x),m=TOOL.exec(s);return m?'<span class="src"><b>'+esc(m[1])+'</b> '+esc(m[2])+'</span>':(/[.\/_*]/.test(s)?'<code>'+esc(s)+'</code>':'<span class="src">'+esc(s)+'</span>');}
+function rich(x){var s=tr(x),m=TOOL.exec(s);return m?'<b>'+esc(m[1])+'</b> '+fmt(m[2]):fmt(s);}
+function rchip(r){return '<span class="rchip role-'+r+'">'+esc(tr(ROLES[r].l))+'</span>';}
+function copyBtn(t){return '<button class="copy" type="button" data-copy="'+esc(t)+'">'+esc(tr(U.copy))+'</button>';}
+function cell(k,html){return '<div class="cell"><span class="k">'+esc(tr(k))+'</span>'+html+'</div>';}
+function plural(n){if(LANG==="en")return n===1?"step":"steps";var a=n%10,b=n%100;return a===1&&b!==11?"крок":(a>=2&&a<=4&&(b<12||b>14)?"кроки":"кроків");}
+var $=function(id){return document.getElementById(id);};
+
+var sel={kind:"step",id:"specify"},tab="step",openSec=null,hintNext=true,lastStep="specify",timer=null;
+var host=$("map"),lanesEl=$("lanes"),panel=$("panel"),mapcol=$("mapcol"),svg=null,lastW=0,lastH=0;
+var stacked=window.matchMedia("(max-width:759px)"),free=window.matchMedia("(max-width:759px),(max-height:639px)");
+var NS="http://www.w3.org/2000/svg";
+function el(n,a,p){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
+
+/* map: rows scale to the height the layout gives it */
+function build(){
+  var W=Math.floor(host.clientWidth); if(!W) return;
+  var compact=W<480;
+  if(free.matches){host.style.height=(8+16*(stacked.matches?(compact?40:42):34))+"px";} else host.style.height="";
+  var H=Math.floor(host.clientHeight); if(!H) return;
+  lastW=W; lastH=H;
+  var rowH=Math.min(50,(H-8)/16);
+  var nodeH=Math.max(15,Math.min(28,rowH-7));
+  var fs=(compact||rowH<25)?10:(rowH<30?11:12), ms=rowH<32?5:7;
+  var numW=compact?16:24, railW=compact?22:34, laneW=(W-numW-railW)/5;
+  var top=(H-16*rowH)/2;
+  lanesEl.style.paddingLeft=(numW+2)+"px"; lanesEl.style.paddingRight=(railW+2)+"px";
+  mapcol.classList.toggle("compact",compact||laneW<84);
+  host.textContent="";
+  svg=el("svg",{viewBox:"0 0 "+W+" "+H,width:W,height:H,role:"group","aria-label":tr(U.svgLabel)},host);
+  var defs=el("defs",{},svg);
+  [["ah",ms,"ah"],["ahs",ms,"ahs"],["ahb",ms,"ahb"],["ahh",ms+5,"ahs"]].forEach(function(m){
+    var mk=el("marker",{id:m[0],viewBox:"0 0 8 8",refX:7.2,refY:4,markerWidth:m[1],markerHeight:m[1],orient:"auto",markerUnits:"userSpaceOnUse"},defs);
+    el("path",{d:"M0 0.9 L7.6 4 L0 7.1 Z","class":m[2]},mk);
+  });
+  ROLE_ORDER.forEach(function(r,i){el("rect",{x:numW+i*laneW+2,y:0,width:laneW-4,height:H,rx:8,"class":"band role-"+r,"data-role":r,"aria-hidden":"true"},svg);});
+  for(var r=0;r<16;r++){var t=el("text",{x:numW/2,y:top+r*rowH+rowH/2+0.5,"text-anchor":"middle","dominant-baseline":"central","font-size":fs-1,"class":"rownum","aria-hidden":"true"},svg);t.textContent=r+1;}
+  var P={};
+  STEPS.forEach(function(s){
+    var lab=tr((compact&&s.short)?s.short:s.label);
+    var w=Math.max(38,Math.round(lab.length*fs*0.6+(compact?10:18)));
+    P[s.id]={cx:numW+(ROLE_ORDER.indexOf(s.role)+0.5)*laneW,cy:top+s.row*rowH+rowH/2,w:w,h:nodeH,lab:lab};
+  });
+  var wires=el("g",{"aria-hidden":"true"},svg);
+  for(var i=0;i<FLOW.length-1;i++){
+    var a=P[FLOW[i]],b=P[FLOW[i+1]],cross=BY[FLOW[i]].role!==BY[FLOW[i+1]].role;
+    var y1=a.cy+a.h/2,y2=b.cy-b.h/2-1,d;
+    if(Math.abs(a.cx-b.cx)<1) d="M"+a.cx+" "+y1+"V"+y2;
+    else {var my=Math.round((y1+y2)/2); d="M"+a.cx+" "+y1+"V"+my+"H"+b.cx+"V"+y2;}
+    el("path",{d:d,"class":"wire"+(cross?" hand":""),"data-a":FLOW[i],"data-b":FLOW[i+1],"data-m":(cross?"ahs":"ah"),"marker-end":"url(#"+(cross?"ahs":"ah")+")"},wires);
+  }
+  var end=numW+5*laneW, rail1=end+railW*0.4, rail2=end+railW*0.82;
+  var v=P.verify,f=P.fix,c=P.clarify,sc=P.screens,rv=P.review,im=P.implement;
+  var vr=v.cx+v.w/2,vl=v.cx-v.w/2,fr=f.cx+f.w/2,off=Math.min(5,nodeH/2-4);
+  function loop(k,d,solid){el("path",{d:d,"class":"loop"+(solid?" solid":""),"data-loop":k,"marker-end":"url(#ahb)"},wires);}
+  loop("regress","M"+(vl-1)+" "+(v.cy-off)+"H"+(fr+2),true);
+  loop("regress","M"+(fr+1)+" "+(f.cy+off)+"H"+(vl-2));
+  loop("ac","M"+vr+" "+(v.cy-off+1)+"H"+rail1+"V"+c.cy+"H"+(c.cx+c.w/2+2));
+  loop("screen","M"+vr+" "+(v.cy+off-1)+"H"+rail2+"V"+sc.cy+"H"+(sc.cx+sc.w/2+2));
+  var bx=Math.max(rv.cx+rv.w/2,im.cx+im.w/2)+(compact?14:22);
+  loop("review","M"+(rv.cx+rv.w/2+1)+" "+rv.cy+"C"+bx+" "+rv.cy+" "+bx+" "+im.cy+" "+(im.cx+im.w/2+2)+" "+im.cy);
+  STEPS.forEach(function(s){
+    var p=P[s.id];
+    var g=el("g",{"class":"node role-"+s.role+(s.team?" team":""),"data-id":s.id,tabindex:0,role:"button","aria-label":tr(U.stepOf).replace("{n}",s.row+1)+", "+tr(ROLES[s.role].name)+": "+tr(s.title)},svg);
+    el("rect",{x:p.cx-p.w/2,y:p.cy-p.h/2,width:p.w,height:p.h,rx:s.team?p.h/2:6},g);
+    var t=el("text",{x:p.cx,y:p.cy+0.5,"text-anchor":"middle","dominant-baseline":"central","font-size":fs},g);t.textContent=p.lab;
+  });
+  svg.addEventListener("click",function(e){var n=e.target.closest(".node");if(n)choose("step",n.getAttribute("data-id"),true);});
+  svg.addEventListener("keydown",function(e){if(e.key!=="Enter"&&e.key!==" ")return;var n=e.target.closest(".node");if(n){e.preventDefault();choose("step",n.getAttribute("data-id"),false);}});
+  applyState();
+}
+function applyState(){
+  if(!svg) return;
+  var lp=sel.kind==="loop"?LOOPS[sel.id]:null, st=sel.kind==="step"?sel.id:null;
+  svg.classList.toggle("has-loop",!!lp);
+  svg.classList.toggle("focus",!!lp||sel.kind==="role");
+  svg.querySelectorAll(".loop").forEach(function(p){p.classList.toggle("on",!!lp&&p.getAttribute("data-loop")===sel.id);});
+  svg.querySelectorAll(".wire").forEach(function(p){
+    var hot=!!st&&(p.getAttribute("data-a")===st||p.getAttribute("data-b")===st);
+    p.classList.toggle("hot",hot);
+    p.setAttribute("marker-end","url(#"+(hot?"ahh":p.getAttribute("data-m"))+")");
+    if(hot) p.parentNode.appendChild(p);
+  });
+  svg.querySelectorAll(".node").forEach(function(n){
+    var id=n.getAttribute("data-id"),s=BY[id];
+    n.classList.toggle("active",st===id);
+    n.classList.toggle("dim",(sel.kind==="role"&&s.role!==sel.id)||(!!lp&&lp.nodes.indexOf(id)<0));
+    n.classList.toggle("ring",!!lp&&lp.nodes.indexOf(id)>=0);
+  });
+  svg.querySelectorAll(".band").forEach(function(b){b.classList.toggle("on",sel.kind==="role"&&b.getAttribute("data-role")===sel.id);});
+  lanesEl.querySelectorAll(".lane-btn").forEach(function(b){b.setAttribute("aria-pressed",String(sel.kind==="role"&&b.getAttribute("data-role")===sel.id));});
+  document.querySelectorAll(".loop-btn").forEach(function(b){b.setAttribute("aria-pressed",String(sel.kind==="loop"&&b.getAttribute("data-loop")===sel.id));});
+  $("prep").setAttribute("aria-pressed",String(sel.kind==="prep"));
+}
+
+/* detail views */
+function sec(id,title,inner,open){return '<details name="acc" data-sec="'+id+'"'+(open?" open":"")+'><summary>'+esc(tr(title))+'</summary><div class="in">'+inner+'</div></details>';}
+function footRow(){return '<div class="foot"><button class="btn" type="button" data-nav="'+lastStep+'">← '+esc(tr(U.backTo))+' '+(BY[lastStep].row+1)+' · '+esc(tr(BY[lastStep].label))+'</button><button class="btn up" type="button" data-up="1">'+esc(tr(U.toMap))+'</button></div>';}
+function stepHTML(s){
+  var i=ORDER.indexOf(s.id),p=ORDER[i-1],n=ORDER[i+1];
+  var e=EST[s.id],u=usdRange(e);
+  var h='<div class="coststrip" title="'+esc(tr(U.costTip))+'">'+
+    '<span class="cv"><span class="k">'+esc(tr(U.model))+'</span><b>'+e[2]+'</b></span>'+
+    '<span class="cv money"><span class="k">'+esc(tr(U.tokensK))+'</span><b>≈ '+estText(e)+'</b></span>'+
+    '<span class="cv money"><span class="k">'+esc(tr(U.costK))+'</span><b>'+usdText(u[0],u[1])+'</b></span>'+
+    '<span class="cv"><span class="k">'+esc(tr(U.seatK))+'</span><b>Team '+esc(tr(SEATROLE[s.role]==="prem"?U.seatPrem:U.seatStd))+'</b></span>'+
+    '<button type="button" class="info-btn" data-info="1" aria-expanded="false" aria-controls="cost-pop">'+esc(tr(U.infoBtn))+'</button>'+
+    '<span class="cost-pop" id="cost-pop" role="note" hidden>'+esc(tr(U.costTip))+'</span></div>';
+  h+='<div class="d-top role-'+s.role+'"><div class="d-line">'+rchip(s.role)+'<span>'+esc(tr(U.stepOf).replace("{n}",s.row+1))+'</span><span class="tag">'+esc(tr(s.team?U.tagTeam:U.tagSdd))+'</span><span class="jira">Jira: <b>'+esc(s.jira)+'</b></span>'+
+    '<span class="walk"><button class="ib arrow" type="button" data-restart="1"'+(p?"":" disabled")+' aria-label="'+esc(tr(S.restart))+'" title="'+esc(tr(S.restart))+'">«</button>'+
+    '<button class="ib arrow" type="button" data-nav="'+(p||"")+'"'+(p?"":" disabled")+' aria-label="'+esc(tr(U.prev))+'">←</button>'+
+    '<button class="ib" type="button" data-play="1" aria-pressed="'+String(!!timer)+'">'+esc(tr(timer?U.pause:U.play))+'</button>'+
+    '<button class="ib arrow'+(hintNext&&n?" hint":"")+'" type="button" data-nav="'+(n||"")+'"'+(n?"":" disabled")+' aria-label="'+esc(tr(U.next))+'" title="'+esc(tr(U.next))+'"><span class="ar">→</span></button></span></div>'+
+    '<h2>'+esc(tr(s.title))+'</h2><p class="sum">'+esc(tr(SUM[s.id]))+'</p>'+
+    (s.cmds.length?'<div class="cmdrow">'+s.cmds.map(function(c){return '<span class="cmd"><code>'+esc(c)+'</code>'+copyBtn(c)+'</span>';}).join("")+'</div>':'')+'</div>';
+  var to=s.handoff.filter(function(x){return x[0]!==s.role;});
+  var info=cell(U.toolsHere,'<ul class="tools">'+toolsFor(s).map(function(t){var g=TOOLREG[t[0]];return '<li><b>'+esc(g.name)+'</b><span><span class="tw">'+esc(tr(g.where))+'</span>'+fmt(t[1])+'</span></li>';}).join("")+'</ul>');
+  info+='<div class="grid2">'+
+    cell(U.reads,'<div class="chips">'+s.reads.map(src).join("")+'</div>')+
+    cell(U.outShort,'<div class="chips">'+s.writes.map(function(w){return artChip(w[0]);}).join("")+'</div>')+
+    '</div>';
+  info+='<div class="handline"><span class="k">'+esc(tr(U.handShort))+'</span>'+(to.length?to.map(function(x){return rchip(x[0]);}).join(""):'<span class="plain">'+esc(tr(n?U.sameRole:U.endCycle))+'</span>')+'</div>';
+  var pr=PROMPT[s.id]||s.prompt, ex=EXADD[s.id]||s.example;
+  var parts=[["what",U.secWhat,'<ul>'+s.does.map(function(d){return '<li>'+fmt(d)+'</li>';}).join("")+'</ul>']];
+  if(pr){
+    var blocks=Array.isArray(pr)?pr:[[null,pr]];
+    parts.push(["prompt",U.secPrompt,'<p class="cap">'+esc(tr(U.promptBy))+' <b>'+esc(tr(ROLES[s.role].name))+'</b></p>'+blocks.map(function(bk){
+      return '<div class="pblock"><div class="caprow"><p class="cap">'+(bk[0]?esc(tr(bk[0])):"")+'</p>'+copyBtn(tr(bk[1]))+'</div><pre class="wrap">'+esc(tr(bk[1]))+'</pre></div>';}).join("")]);
+  }
+  if(CHAT[s.id]) parts.push(["chat",U.secChat,'<p class="cap">'+esc(tr(U.chatCap))+'</p><ul class="chat">'+CHAT[s.id].map(function(m){
+    return m[0]==="sec"?'<li class="c-sec">'+esc(tr(m[1]))+'</li>':'<li class="c-'+m[0]+'"><span class="who">'+(m[0]==="po"?esc(tr(ROLES[s.role].s)):m[0]==="cl"?"Claude":"")+'</span><span class="say">'+esc(tr(m[1]))+'</span></li>';}).join("")+'</ul>']);
+  if(ex) parts.push(["ex",U.secEx,(EXCAP[s.id]?'<p class="cap">'+esc(tr(EXCAP[s.id]))+'</p>':'')+'<pre>'+esc(tr(ex))+'</pre>']);
+  parts.push(["out",U.secOut,'<ul class="rows">'+s.writes.map(function(w){return '<li><span>'+art(w[0])+'</span><span class="v">'+esc(tr(w[1]))+'</span></li>';}).join("")+'</ul>'+
+    (s.handoff.length?'<ul class="rows">'+s.handoff.map(function(x){return '<li><span>→ '+rchip(x[0])+'</span><span>'+fmt(x[1])+'</span></li>';}).join("")+'</ul>':'')]);
+  var want=openSec===null?"what":openSec;
+  var cur=parts.some(function(x){return x[0]===want;})?want:(openSec==="none"?null:"what");
+  h+='<div class="more"><div class="more-tabs" role="group" aria-label="'+esc(tr(U.moreLabel))+'">'+parts.map(function(x){return '<button type="button" class="mt" data-sec="'+x[0]+'" aria-expanded="'+String(x[0]===cur)+'">'+esc(tr(x[1]))+'</button>';}).join("")+'</div>'+
+    parts.map(function(x){return '<div class="more-body" data-body="'+x[0]+'"'+(x[0]===cur?"":" hidden")+'>'+x[2]+'</div>';}).join("")+'</div>';
+  h+=info;
+  if(stacked.matches) h+='<div class="foot"><button class="btn up" type="button" data-up="1">'+esc(tr(U.toMap))+'</button></div>';
+  return h;
+}
+function roleHTML(k){
+  var r=ROLES[k];
+  var mine=STEPS.filter(function(s){return s.role===k;});
+  var mcp=MCP.filter(function(m){return m.cells[k]!=="-";});
+  var h='<div class="d-top role-'+k+'"><div class="d-line">'+rchip(k)+'<span>'+esc(tr(U.roleCard))+' · '+mine.length+' '+plural(mine.length)+' '+esc(tr(U.onMap))+'</span></div><h2>'+esc(tr(r.name))+'</h2><p class="sum">'+esc(tr(r.scope))+'</p>'+
+    '<div class="steps-in">'+mine.map(function(s){return '<button type="button" class="step-link" data-nav="'+s.id+'">'+(s.row+1)+' · '+esc(tr(s.label))+'</button>';}).join("")+'</div></div>';
+  h+='<div class="acc">'+
+    sec("r1",U.secTools,'<div class="grid2">'+
+      cell(U.tools,'<ul>'+r.tools.map(function(t){return '<li>'+esc(tr(t))+'</li>';}).join("")+'</ul>')+
+      cell("MCP",'<ul class="rows">'+mcp.map(function(m){return '<li><span class="kk">'+esc(m.name)+'</span><span class="v">'+esc(tr(U[m.cells[k]]))+'</span></li>';}).join("")+'</ul>')+'</div>',true)+
+    sec("r2",U.secCtx,'<div class="grid2">'+
+      cell(U.context,'<div class="chips">'+r.ctx.map(src).join("")+'</div>')+
+      cell(U.commands,'<div class="chips">'+r.cmds.map(function(c){return '<code>'+esc(tr(c))+'</code>';}).join("")+'</div>')+'</div>',false)+
+    sec("r3",U.secOutH,'<div class="grid2">'+
+      cell(U.out,'<ul>'+r.out.map(function(o){return '<li>'+rich(o)+'</li>';}).join("")+'</ul>')+
+      cell(U.handsTo,'<ul class="rows">'+r.to.map(function(x){return '<li><span>'+rchip(x[0])+'</span><span>'+fmt(x[1])+'</span></li>';}).join("")+'</ul>')+'</div>',false)+
+    '</div>';
+  h+='<div><button type="button" class="btn" data-setup="'+k+'">'+esc(tr(U.setupBtn))+'</button></div>';
+  return h+footRow();
+}
+function loopHTML(k){
+  var l=LOOPS[k];
+  var h='<div class="d-top" style="--rc:var(--bug)"><div class="d-line"><span>'+esc(tr(U.back))+'</span></div><h2>'+esc(tr(l.title))+'</h2><p class="trigger">'+esc(tr(l.trigger))+'</p></div>';
+  h+=cell(U.who,'<ol class="loop-steps">'+l.steps.map(function(s){return '<li>'+rchip(s[0])+' '+fmt(s[1])+'</li>';}).join("")+'</ol>');
+  h+='<div class="grid2">'+cell(U.updates,'<p>'+fmt(l.updates)+'</p>')+
+    cell(U.stepsOnMap,'<div class="steps-in">'+l.nodes.map(function(id){return '<button type="button" class="step-link role-'+BY[id].role+'" data-nav="'+id+'">'+(BY[id].row+1)+' · '+esc(tr(BY[id].label))+'</button>';}).join("")+'</div>')+'</div>';
+  return h+footRow();
+}
+function prepHTML(){
+  var h='<div class="d-top"><div class="d-line"><span>'+esc(tr(U.step0))+'</span><span class="tag">'+esc(tr(U.once))+'</span></div><h2>'+esc(tr(U.prepTitle))+'</h2><p class="sum">'+esc(tr(U.prepSub))+'</p>'+
+    '<div class="cmdrow"><span class="cmd"><code>/plugin marketplace add genkovich/sdd</code>'+copyBtn("/plugin marketplace add genkovich/sdd")+'</span><span class="cmd"><code>/plugin install sdd@sdd</code>'+copyBtn("/plugin install sdd@sdd")+'</span></div></div>';
+  h+=cell(U.whoPrep,'<ul class="rows">'+
+    '<li><span>'+rchip("dev")+'</span><span>'+tr(U.prepDev)+'</span></li>'+
+    '<li><span>'+rchip("des")+'</span><span>'+tr(U.prepDes)+'</span></li>'+
+    '<li><span>'+rchip("pm")+'</span><span>'+tr(U.prepPm)+'</span></li></ul>');
+  h+='<div class="acc">'+
+    sec("shared",U.shared,'<ul class="rows">'+
+      '<li><span><code>CLAUDE.md</code></span><span class="v">'+esc(tr(U.fClaude))+'</span></li>'+
+      '<li><span><code>.mcp.json</code></span><span class="v">'+esc(tr(U.fMcp))+'</span></li>'+
+      '<li><span><code>.claude/sdd.local.md</code></span><span class="v">'+esc(tr(U.fLocal))+'</span></li></ul>',true)+
+    sec("teamset",U.teamSet,'<pre>'+esc(tr(U.settings))+'</pre>',false)+'</div>';
+  return h+footRow();
+}
+/* reference tabs */
+function handHTML(){
+  var rows=[];
+  STEPS.forEach(function(s){s.handoff.forEach(function(x){if(x[0]!==s.role)rows.push([s,x]);});});
+  return '<p class="intro">'+tr(S.handIntro)+'</p><div class="scroll"><table><thead><tr><th>'+esc(tr(U.thAfter))+'</th><th>'+esc(tr(U.fromTo))+'</th><th>'+esc(tr(U.thWhat))+'</th></tr></thead><tbody>'+rows.map(function(r){
+    return '<tr><td class="nw"><button type="button" class="step-link role-'+r[0].role+'" data-nav="'+r[0].id+'">'+(r[0].row+1)+' · '+esc(tr(r[0].label))+'</button></td><td class="nw">'+rchip(r[0].role)+' → '+rchip(r[1][0])+'</td><td>'+fmt(r[1][1])+'</td></tr>';}).join("")+'</tbody></table></div>';
+}
+function mcpHTML(){
+  return '<p class="intro">'+tr(S.toolsIntro)+'</p><div class="acc">'+TOOLTAB.map(function(m,i){
+    var used=STEPS.filter(function(st){return toolsFor(st).some(function(t){return t[0]===m.key;});});
+    return '<details name="acc" data-sec="m'+i+'"'+(i===0?" open":"")+'><summary class="mcp-sum"><span class="mcp-name">'+esc(m.name)+'</span><span class="slots">'+ROLE_ORDER.map(function(r){var c=m.cells[r];return '<span class="slot role-'+r+' s-'+(c==="-"?"none":c)+'" title="'+esc(tr(ROLES[r].name))+'"><span class="r">'+esc(tr(ROLES[r].s))+'</span><span class="a">'+(c==="-"?"—":c)+'</span></span>';}).join("")+'</span></summary><div class="in"><p class="plain">'+esc(tr(m.what))+'</p>'+
+      '<div class="handline"><span class="k">'+esc(tr(U.usedAt))+'</span>'+used.map(function(st){return '<button type="button" class="step-link role-'+st.role+'" data-nav="'+st.id+'">'+(st.row+1)+' · '+esc(tr(st.label))+'</button>';}).join("")+'</div>'+
+      (m.cmds.length?'<div class="mcp-cmd">'+m.cmds.map(function(c){return '<span class="cmd"><code>'+esc(c)+'</code>'+copyBtn(c)+'</span>';}).join("")+'</div>':'')+
+      '</div></details>';}).join("")+
+    '</div><div class="keyline">'+tr(S.mcpLegend)+'</div>';
+}
+function filesHTML(){
+  return '<p class="intro">'+tr(S.artIntro)+'</p><div class="scroll"><table><thead><tr><th>'+esc(tr(U.thFile))+'</th><th>'+esc(tr(U.thWrites))+'</th><th>'+esc(tr(U.thReads))+'</th><th>'+esc(tr(U.thCopy))+'</th></tr></thead><tbody>'+ARTS.map(function(a){
+    return '<tr><td><code>'+esc(a[0])+'</code></td><td class="nw">'+rchip(a[1])+'</td><td>'+esc(tr(a[2]))+'</td><td>'+esc(tr(a[3]))+'</td></tr>';}).join("")+'</tbody></table></div>';
+}
+function rulesHTML(){
+  return '<h2>'+esc(tr(S.rulesH))+'</h2><ul class="rule-list"><li>'+tr(S.rule1)+'</li><li>'+tr(S.rule2)+'</li><li>'+tr(S.rule3)+'</li></ul>'+
+    '<p class="intro">'+esc(tr(U.roleProposal))+'</p>'+
+    '<div class="acc">'+sec("hb",U.handBlock,'<figure><pre>'+esc(tr(S.figPre))+'</pre><figcaption>'+esc(tr(S.figCap))+'</figcaption></figure>',false)+
+    sec("dec",S.decH,'<ul class="decide">'+tr(S.decList)+'</ul>',false)+'</div>'+
+    '<p class="sources"><span>'+esc(tr(S.srcLabel))+'</span><a href="https://github.com/genkovich/sdd">genkovich/sdd</a><a href="https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/">Atlassian Rovo MCP Server</a><a href="https://shopify.dev/docs/apps/build/devmcp">Shopify Dev MCP</a><a href="https://claude.ai/design">Claude Design</a></p>';
+}
+function renderPane(){
+  $("tabs").innerHTML=TABS.map(function(t){return '<button type="button" class="tab" role="tab" data-tab="'+t[0]+'" aria-selected="'+String(tab===t[0])+'">'+esc(tr(t[1]))+'</button>';}).join("");
+  panel.innerHTML=tab==="hand"?handHTML():tab==="mcp"?mcpHTML():tab==="files"?filesHTML():tab==="cost"?costHTML():tab==="rules"?rulesHTML():tab==="setup"?setupHTML():
+    (sel.kind==="step"?stepHTML(BY[sel.id]):sel.kind==="role"?roleHTML(sel.id):sel.kind==="loop"?loopHTML(sel.id):prepHTML());
+  /* keep the pane free of scrolling: a section opened by default closes again if it does not fit */
+  if(!free.matches&&tab==="step"&&!(sel.kind==="step"&&openSec!==null)&&panel.scrollHeight>panel.clientHeight+2){
+    var o=panel.querySelector(".acc details[open]"); if(o) o.open=false;
+    var mb=panel.querySelector(".more-body:not([hidden])");
+    if(mb){mb.hidden=true; var bt=panel.querySelector('.mt[aria-expanded="true"]'); if(bt) bt.setAttribute("aria-expanded","false");}
+  }
+}
+function stopPlay(){if(timer){clearInterval(timer);timer=null;}}
+function choose(kind,id,scroll,fromPlay){
+  if(!fromPlay) stopPlay();
+  if(kind==="step"&&!(sel.kind==="step"&&sel.id===id)) hintNext=false;
+  if(sel.kind===kind&&sel.id===id&&kind!=="step"){sel={kind:"step",id:lastStep};}
+  else sel={kind:kind,id:id};
+  if(sel.kind==="step") lastStep=sel.id;
+  tab="step";
+  applyState(); renderPane(); panel.scrollTop=0;
+  if(scroll&&stacked.matches) $("pane").scrollIntoView({block:"start"});
+}
+function step(delta){
+  var i=ORDER.indexOf(sel.kind==="step"?sel.id:lastStep)+delta;
+  if(i>=0&&i<ORDER.length) choose("step",ORDER[i],false);
+}
+function togglePlay(){
+  if(timer){stopPlay();renderPane();return;}
+  if(ORDER.indexOf(sel.id)>=ORDER.length-1) choose("step",ORDER[0],false);
+  timer=setInterval(function(){
+    var i=ORDER.indexOf(sel.id);
+    if(sel.kind!=="step"||i<0||i>=ORDER.length-1){stopPlay();renderPane();return;}
+    choose("step",ORDER[i+1],false,true);
+    if(ORDER.indexOf(sel.id)>=ORDER.length-1){stopPlay();renderPane();}
+  },2800);
+  renderPane();
+}
+
+/* everything that depends on the language */
+function renderChrome(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll("[data-i18n]").forEach(function(e){e.innerHTML=tr(S[e.getAttribute("data-i18n")]);});
+  document.querySelectorAll(".lang").forEach(function(g){g.setAttribute("aria-label",tr(U.langLabel));});
+  document.querySelectorAll("[data-lang]").forEach(function(b){b.setAttribute("aria-pressed",String(b.getAttribute("data-lang")===LANG));});
+  var tt=totals(),mx=seatMix();
+  $("hchips").innerHTML='<button type="button" class="hchip money" data-cost="c1" title="'+esc(tr(U.costTip))+'">'+esc(tr(U.hFeature))+' <b>≈ '+tt.tok+'</b> '+esc(tr(U.tokens))+' · <b>≈ '+tt.usd+'</b></button>'+
+    '<button type="button" class="hchip" data-cost="c3">'+esc(tr(U.hPlan))+': <b>'+mx.std+' Standard + '+mx.prem+' Premium</b> · <b>$'+mx.month+'</b>'+esc(tr(U.perMonth))+'</button>';
+  $("intro-roles").innerHTML=ROLE_ORDER.map(function(r){return '<li><span>'+rchip(r)+'</span><span>'+esc(tr(INTRO_ROLE[r]))+'</span></li>';}).join("");
+  lanesEl.innerHTML=ROLE_ORDER.map(function(r){return '<button type="button" class="lane-btn role-'+r+'" data-role="'+r+'" aria-pressed="false" title="'+esc(tr(ROLES[r].name))+'"><span class="l">'+esc(tr(ROLES[r].l))+'</span><span class="s">'+esc(tr(ROLES[r].s))+'</span></button>';}).join("");
+  $("loopbtns").innerHTML=Object.keys(LOOPS).map(function(k){return '<button type="button" class="chipbtn loop-btn" data-loop="'+k+'" aria-pressed="false" title="'+esc(tr(LOOPS[k].btn))+'">'+esc(tr(LB[k]))+'</button>';}).join("");
+  lastW=0; build(); renderPane();
+}
+function setLang(l){
+  if(l!=="en"&&l!=="uk") return;
+  LANG=l;
+  try{localStorage.setItem("sdlc-map-lang",l);}catch(e){}
+  renderChrome();
+}
+
+/* events */
+var intro=$("intro");
+function openIntro(){if(intro.open)return;try{intro.showModal();}catch(e){intro.setAttribute("open","");}}
+function closeIntro(){if(!intro.open)return;try{intro.close();}catch(e){intro.removeAttribute("open");}}
+intro.addEventListener("click",function(e){
+  if(e.target!==intro) return;
+  var r=intro.getBoundingClientRect();
+  if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) closeIntro();
+});
+lanesEl.addEventListener("click",function(e){var b=e.target.closest(".lane-btn");if(b)choose("role",b.getAttribute("data-role"),true);});
+$("loopbtns").addEventListener("click",function(e){var b=e.target.closest(".loop-btn");if(b)choose("loop",b.getAttribute("data-loop"),true);});
+$("prep").addEventListener("click",function(){choose("prep","prep",true);});
+$("tabs").addEventListener("click",function(e){var b=e.target.closest("[data-tab]");if(b){stopPlay();tab=b.getAttribute("data-tab");renderPane();panel.scrollTop=0;}});
+panel.addEventListener("toggle",function(e){
+  var d=e.target; if(!d.matches||!d.matches("details[data-sec]")||!d.open) return;
+  d.parentNode.querySelectorAll("details[open]").forEach(function(o){if(o!==d)o.open=false;});
+  if(tab==="setup"&&/^s\d$/.test(d.getAttribute("data-sec"))) setupOpen=d.getAttribute("data-sec");
+},true);
+panel.addEventListener("click",function(e){
+  var b=e.target.closest(".mt"); if(!b) return;
+  var id=b.getAttribute("data-sec");
+  openSec=b.getAttribute("aria-expanded")==="true"?"none":id;
+  renderPane();
+  var again=panel.querySelector('.mt[data-sec="'+id+'"]'); if(again) again.focus();
+});
+document.addEventListener("click",function(e){
+  var lg=$("lg"); if(lg.open&&!lg.contains(e.target)) lg.open=false;
+  var ib=e.target.closest("[data-info]"),pop=$("cost-pop");
+  if(pop&&!pop.contains(e.target)){
+    var show=!!ib&&pop.hidden; pop.hidden=!show;
+    var btn=panel.querySelector("[data-info]"); if(btn) btn.setAttribute("aria-expanded",String(show));
+    if(ib) return;
+  }
+  var c=e.target.closest("[data-copy]");
+  if(c){
+    var t=c.getAttribute("data-copy"),reset=function(){setTimeout(function(){c.textContent=tr(U.copy);},1400);};
+    var done=function(){c.textContent=tr(U.copied);reset();};
+    var fallback=function(){var codeEl=c.parentNode.querySelector("code")||((c.closest(".pblock")||c.parentNode.parentNode||c.parentNode).querySelector("pre"));if(codeEl){var r=document.createRange();r.selectNodeContents(codeEl);var s=window.getSelection();s.removeAllRanges();s.addRange(r);c.textContent=tr(U.selected);reset();}};
+    try{navigator.clipboard.writeText(t).then(done,fallback);}catch(err){fallback();}
+    return;
+  }
+  var lb=e.target.closest("[data-lang]");
+  if(lb){if(lb.getAttribute("data-lang")!==LANG)setLang(lb.getAttribute("data-lang"));return;}
+  if(e.target.closest("[data-about]")){stopPlay();openIntro();return;}
+  var su=e.target.closest("[data-setup]");
+  if(su){stopPlay();tab="setup";setupRole=su.getAttribute("data-setup");renderPane();panel.scrollTop=0;if(stacked.matches)$("pane").scrollIntoView({block:"start"});return;}
+  var cc=e.target.closest("[data-cost]");
+  if(cc){stopPlay();tab="cost";costOpen=cc.getAttribute("data-cost");renderPane();panel.scrollTop=0;if(stacked.matches)$("pane").scrollIntoView({block:"start"});return;}
+  if(e.target.closest("[data-close]")) closeIntro();
+  if(e.target.closest("[data-restart]")){choose("step",ORDER[0],true);return;}
+  if(e.target.closest("[data-play]")){togglePlay();return;}
+  if(e.target.closest("[data-up]")){$("app").scrollIntoView({block:"start"});return;}
+  var n=e.target.closest("[data-nav]");
+  if(n&&n.getAttribute("data-nav")) choose("step",n.getAttribute("data-nav"),false);
+});
+document.addEventListener("keydown",function(e){
+  if(e.key==="Escape"){var cp=$("cost-pop");if(cp&&!cp.hidden){cp.hidden=true;var ibn=panel.querySelector("[data-info]");if(ibn){ibn.setAttribute("aria-expanded","false");ibn.focus();}}return;}
+  if(intro.open||e.altKey||e.ctrlKey||e.metaKey||e.shiftKey) return;
+  if(e.key!=="ArrowRight"&&e.key!=="ArrowLeft") return;
+  var tg=e.target&&e.target.tagName; if(tg==="INPUT"||tg==="TEXTAREA"||tg==="SELECT") return;
+  e.preventDefault(); step(e.key==="ArrowRight"?1:-1);
+});
+if(window.ResizeObserver){new ResizeObserver(function(){var w=Math.floor(host.clientWidth),h=Math.floor(host.clientHeight);if(w!==lastW||(!free.matches&&h!==lastH))build();}).observe(host);}
+else window.addEventListener("resize",build);
+renderChrome();
+openIntro();
+})();
+</script>
