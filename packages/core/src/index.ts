@@ -20,3 +20,4 @@ export * from "./access.ts";
 export * from "./source.ts";
 export * from "./sdd.ts";
 export * from "./detect.ts";
+export * from "./documents.ts";
