@@ -16,3 +16,4 @@ export { DEFAULT_SDD_ENGINE_YAML } from "./defaults/sdd.ts";
 export * from "./content/hash.ts";
 export * from "./content/refs.ts";
 export * from "./content/structure.ts";
+export * from "./access.ts";
