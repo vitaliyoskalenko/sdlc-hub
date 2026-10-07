@@ -41,7 +41,7 @@ Write everything (code, comments, docs, UI text) in English. Talk to the owner i
 
 ## Where to start
 
-Follow the delivery plan in the specification. Phase 0 needs no code (one feature by hand with SDD). The first code is phase 1, in two parts:
+Follow the delivery plan in the specification. Phase 0 needs no code (one feature by hand with SDD). Phase 1a is built: `npm run demo -- --as <user>` starts the read-only site on the demo fixture (see `README.md`). The plan for phase 1:
 
 1. Phase 1a. Scaffold the TypeScript workspace (npm workspaces): `packages/core` (data model, adapter, step detection, roles), `packages/git`, `packages/server`, `packages/web` (Preact + Vite), `packages/cli`.
 2. `core`: types and validators for `.hub/config.yaml`, `roles.yaml`, `flow.yaml`, `engines/*.yaml`, `feature.yaml`, `signoffs.yaml`, bugs, `release.yaml` and the `hub-state` records; the SDD adapter; step detection from product-specs, team snapshots and local clones. Write it test-first against fixture repositories.
@@ -81,3 +81,5 @@ Open the generated `preview.html` (or `setup-preview.html`) in a browser to clic
 - Words on GitLab: merge request, pipeline, group. On GitHub: pull request, workflow run, organization. Keep host words in one adapter.
 - Never put a token, key or password in the repository, a setup script or the site.
 - Commits carry no `Co-Authored-By` line and no AI attribution. Never push unless the owner asks.
+- Test first; commit after each green step. `npm test`, `npm run typecheck` and `npm run e2e` must pass.
+- Assumptions about real SDD output are tagged `@assumed-sdd-format` and live only in `packages/core/src/sdd.ts` and its tests.

@@ -1,6 +1,6 @@
 // The hub command line. Phase 1a: `serve` on a product-specs checkout, and `demo` on a fixture repository.
 
-import { watch, mkdtempSync, rmSync, existsSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, watch } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -83,6 +83,13 @@ async function demo(f: Record<string, string>) {
   const name = f["fixture"] ?? "demo";
   const fixture = fixtures[name];
   if (!fixture) throw new Error(`No fixture "${name}". Choose one of: ${Object.keys(fixtures).join(", ")}`);
+  // Demo folders left by a run that was killed without a signal are removed after a day.
+  for (const old of readdirSync(tmpdir()).filter((n) => n.startsWith("sdlc-hub-demo-")))
+    try {
+      if (Date.now() - statSync(join(tmpdir(), old)).mtimeMs > 86_400_000) rmSync(join(tmpdir(), old), { recursive: true, force: true });
+    } catch {
+      /* another run may be removing it */
+    }
   const dir = mkdtempSync(join(tmpdir(), "sdlc-hub-demo-"));
   const { root } = materialize(fixture, dir);
   const user = f["as"] ?? "iryna.s";
@@ -104,6 +111,7 @@ async function demo(f: Record<string, string>) {
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
+  process.on("SIGHUP", stop);
 }
 
 const [command, ...rest] = process.argv.slice(2);
