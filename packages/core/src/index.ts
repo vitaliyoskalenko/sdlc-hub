@@ -17,3 +17,5 @@ export * from "./content/hash.ts";
 export * from "./content/refs.ts";
 export * from "./content/structure.ts";
 export * from "./access.ts";
+export * from "./source.ts";
+export * from "./sdd.ts";
