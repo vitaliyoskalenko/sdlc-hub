@@ -2,7 +2,7 @@
 // branch, and local team clones), the git authors of some paths, the time "now", and what detection must find.
 // All of it is synthetic until a phase 0 pilot gives real SDD output (see docs/open-items.md, claim 8).
 
-import { contentHash, DEFAULT_FLOW_YAML, DEFAULT_SDD_ENGINE_YAML, type StepStatus } from "../../src/index.ts";
+import { contentHash, DEFAULT_FLOW_YAML, DEFAULT_SDD_ENGINE_YAML, type StepStatus } from "@sdlc-hub/core";
 
 export type Files = Record<string, string>;
 

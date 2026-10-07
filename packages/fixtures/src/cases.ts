@@ -656,4 +656,4 @@ const QA_PASSED = [
   };
 }
 
-export default fixtures;
+export { fixtures };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { detectFeature, listFeatures, loadProject, memorySource, type FileSource, type ProjectView } from "../src/index.ts";
-import fixtures from "./fixtures/index.ts";
-import type { Files, Fixture } from "./fixtures/build.ts";
+import { fixtures } from "@sdlc-hub/fixtures";
+import type { Files, Fixture } from "@sdlc-hub/fixtures";
 
 function authorsFor(prefix: string, authors: Record<string, string> = {}): Record<string, string> {
   return Object.fromEntries(Object.entries(authors).flatMap(([k, v]) => (k.startsWith(prefix) ? [[k.slice(prefix.length), v]] : [])));
