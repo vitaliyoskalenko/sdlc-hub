@@ -1,0 +1,19 @@
+{
+  "name": "@sdlc-hub/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The hub command line: serve, and demo on a fixture repository. Bundled into one file by esbuild.",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@sdlc-hub/core": "*",
+    "@sdlc-hub/git": "*",
+    "@sdlc-hub/server": "*"
+  },
+  "devDependencies": {
+    "@sdlc-hub/fixtures": "*",
+    "esbuild": "^0.28.2"
+  }
+}
