@@ -1,0 +1,227 @@
+// The app shell: top bar, side menu, routes, live updates and the demo controls.
+
+import { render } from "preact";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { api, onChanges, type Assistant, type ProjectInfo, type Session, type Summary } from "./api.ts";
+import { Feature } from "./feature.tsx";
+import { Features } from "./features.tsx";
+import { Guide } from "./guide.tsx";
+import { CommandHelp } from "./help.tsx";
+import { actionsFor, Home } from "./home.tsx";
+import "./styles.css";
+import { ASSISTANTS } from "./text.ts";
+import { App, href, roleLabel, type AppState } from "./ui.tsx";
+
+type Route = { page: "home" } | { page: "features" } | { page: "feature"; slug: string; tab: string } | { page: "guide" } | { page: "missing" };
+
+function route(path: string): Route {
+  if (path === "/" || path === "") return { page: "home" };
+  if (path === "/features") return { page: "features" };
+  if (path === "/guide") return { page: "guide" };
+  const m = /^\/features\/([a-z0-9][a-z0-9-]*)(?:\/(documents|tasks))?\/?$/.exec(path);
+  if (m) return { page: "feature", slug: m[1]!, tab: m[2] ?? "flow" };
+  return { page: "missing" };
+}
+
+const TITLE: Record<Route["page"], string> = { home: "Home", features: "Features", feature: "Feature", guide: "Your guide", missing: "Not found" };
+
+function Root() {
+  const [loc, setLoc] = useState(location.pathname + location.search);
+  const [version, setVersion] = useState(0);
+  const [live, setLive] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [project, setProject] = useState<ProjectInfo | null>(null);
+  const [features, setFeatures] = useState<Summary[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [help, setHelp] = useState<string | null>(null);
+  // The control that opened the command help gets the focus back when it closes.
+  const opener = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (help === null && opener.current) {
+      opener.current.focus();
+      opener.current = null;
+    }
+  }, [help]);
+  const openHelp = (text: string) => {
+    opener.current = document.activeElement as HTMLElement | null;
+    setHelp(text);
+  };
+
+  const params = useMemo(() => new URLSearchParams(loc.split("?")[1] ?? ""), [loc]);
+  const as = params.get("as") ?? undefined;
+
+  useEffect(() => {
+    const onPop = () => setLoc(location.pathname + location.search);
+    // Escape closes the command help wherever the focus is, so it is handled here, in the capture phase.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setHelp(null);
+    };
+    addEventListener("popstate", onPop);
+    addEventListener("keydown", onKey, true);
+    const stop = onChanges(() => setVersion((v) => v + 1), setLive);
+    return () => {
+      removeEventListener("popstate", onPop);
+      removeEventListener("keydown", onKey, true);
+      stop();
+    };
+  }, []);
+
+  useEffect(() => {
+    api.session(as).then(setSession, (e) => setError(String(e)));
+  }, [as, version]);
+  useEffect(() => {
+    Promise.all([api.project(), api.features()]).then(
+      ([p, f]) => {
+        setProject(p);
+        setFeatures(f.features);
+      },
+      (e) => setError(String(e)),
+    );
+  }, [version]);
+
+  const r = route(loc.split("?")[0]!);
+  useEffect(() => {
+    document.title = `SDLC Hub · ${r.page === "feature" ? r.slug : TITLE[r.page]}`;
+  }, [loc]);
+
+  const go = (path: string, p: Record<string, string | undefined> = {}) => {
+    const url = href(path, p);
+    history.pushState(null, "", url);
+    setLoc(url);
+    scrollTo(0, 0);
+  };
+  const setParam = (key: string, value: string) => {
+    const q = new URLSearchParams(location.search);
+    q.set(key, value);
+    const url = `${location.pathname}?${q}`;
+    history.pushState(null, "", url);
+    setLoc(url);
+  };
+
+  if (error) return <Message title="The hub could not load">{error}</Message>;
+  if (!session || !project || !features) return <Message title="Loading the hub…" />;
+  if (!session.me)
+    return (
+      <Message title="Who are you?">
+        <p>{session.problem}</p>
+        {session.demo && <PersonPicker session={session} current={as ?? ""} pick={(u) => setParam("as", u)} />}
+      </Message>
+    );
+
+  const me = session.me;
+  const asst = params.get("asst");
+  const assistant: Assistant = session.demo && (asst === "claude" || asst === "codex" || asst === "cursor") ? asst : me.assistant;
+  const state: AppState = { session, me, project, features, assistant, version, go, help: openHelp };
+  const actions = actionsFor(me, project, features).length;
+  const nav: [string, string, number | null][] = [
+    ["/", "Home", actions],
+    ["/features", "Features", features.length],
+  ];
+  const current = r.page === "feature" || r.page === "features" ? "/features" : r.page === "home" ? "/" : "";
+  const host = project.project.provider === "github" ? "GitHub" : "GitLab";
+
+  return (
+    <App.Provider value={state}>
+      <div class="app" inert={help !== null}>
+        <header class="top">
+          <div class="brand">
+            <b>SDLC Hub</b>
+            {session.demo && <span class="proto">Demo · fixture repository</span>}
+            <span class="proj">
+              {project.project.name} · <code>{`${project.project.namespace}/${project.project.repo}`}</code> <span class="tag">{host}</span>
+            </span>
+          </div>
+          <div class="ctl">
+            <span class="live" title={live ? "The site updates when the files change" : "Not connected to the local server"}>
+              <i class={`dot${live ? "" : " off"}`} />
+              {live ? "live: main and hub-state" : "reconnecting"}
+            </span>
+            <button type="button" class="btn sm guide" id="guidebtn" aria-current={r.page === "guide" ? "page" : undefined} onClick={() => go("/guide")}>
+              <span class="q" aria-hidden="true">
+                ?
+              </span>{" "}
+              Your guide
+            </button>
+            {session.demo && (
+              <span class="protoctl">
+                <span class="pk">Demo</span>
+                <PersonPicker session={session} current={me.user} pick={(u) => setParam("as", u)} />
+                <label for="asst">
+                  assistant{" "}
+                  <select id="asst" value={assistant} onChange={(e) => setParam("asst", e.currentTarget.value)}>
+                    {ASSISTANTS.map(([a, n]) => (
+                      <option key={a} value={a}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </span>
+            )}
+          </div>
+        </header>
+        <div class="shell">
+          <nav class="side" id="nav" aria-label="Screens">
+            {nav.map(([path, label, n]) => (
+              <a key={path} class="nb" data-page={path === "/" ? "home" : "features"} href={href(path)} aria-current={current === path ? "page" : undefined} onClick={(e) => (e.preventDefault(), go(path))}>
+                <span>{label}</span>
+                {n !== null && <span class="cnt">{n}</span>}
+              </a>
+            ))}
+            <div class="grp">Admin · phase 2</div>
+            {["People and roles", "Settings"].map((label) => (
+              <span key={label} class="nb" aria-disabled="true" title="Arrives in phase 2">
+                <span>{label}</span>
+                <span class="lock">later</span>
+              </span>
+            ))}
+          </nav>
+          <main id="main">
+            {r.page === "home" && <Home />}
+            {r.page === "features" && <Features params={params} />}
+            {r.page === "feature" && <Feature slug={r.slug} tab={r.tab} params={params} />}
+            {r.page === "guide" && <Guide />}
+            {r.page === "missing" && (
+              <div class="lockbox">
+                There is no page here. <a href={href("/")}>Go to Home</a>
+              </div>
+            )}
+          </main>
+        </div>
+        <p class="muted">
+          Signed in as {me.name} · {roleLabel(me)}. Read only in this version.
+        </p>
+      </div>
+      {help !== null && <CommandHelp text={help} close={() => setHelp(null)} />}
+    </App.Provider>
+  );
+}
+
+function PersonPicker({ session, current, pick }: { session: Session; current: string; pick: (user: string) => void }) {
+  return (
+    <label for="persona">
+      view as{" "}
+      <select id="persona" value={current} onChange={(e) => pick(e.currentTarget.value)}>
+        {!current && <option value="">Choose a person</option>}
+        {session.people.map((p) => (
+          <option key={p.user} value={p.user}>
+            {p.name} · {roleLabel(p)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function Message({ title, children }: { title: string; children?: preact.ComponentChildren }) {
+  return (
+    <div class="app">
+      <div class="card empty">
+        <h1>{title}</h1>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+render(<Root />, document.getElementById("root")!);

@@ -6,7 +6,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { extname, resolve, sep } from "node:path";
-import { detectFeature, listDocuments, listFeatures, parseFeature, type FeatureState, type Issue, type Project, type ProjectView } from "@sdlc-hub/core";
+import { CONTRACT_LEAD_RULES, DEFAULT_ROLE_RULES, detectFeature, LEAD_RULES, listDocuments, listFeatures, parseFeature, type FeatureState, type Issue, type Project, type ProjectView } from "@sdlc-hub/core";
 
 export interface OpenedProject {
   root: string;
@@ -158,6 +158,8 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
         engine: { id: engine.id, source: engine.source, version: engine.version, invoke: engine.invoke },
         tracker: config.tracker,
         headless: config.headless.enabled,
+        // What each role may write, for Your guide: the same rules the guard applies.
+        rules: { roles: { ...DEFAULT_ROLE_RULES, ...Object.fromEntries(Object.entries(roles.roles ?? {}).map(([r, v]) => [r, v.write])) }, lead: LEAD_RULES, contractLead: CONTRACT_LEAD_RULES },
         issues: opened.issues,
       });
     }
@@ -249,6 +251,8 @@ function summary(slug: string, s: FeatureState, opened: OpenedProject) {
     blockingBugs: s.blockingBugs,
     cycle: s.cycle,
     warnings: s.warnings.length,
+    /** The status of every step, in flow order, for the Features graph. */
+    statuses: s.steps.map((x) => x.status),
   };
 }
 

@@ -93,6 +93,22 @@ function hubStateRef(root: string): string | undefined {
   return undefined;
 }
 
+/** The git identity configured for a repository, to find the person in roles.yaml. */
+export function gitIdentity(root: string): { name: string; email: string } {
+  return { name: (git(root, ["config", "user.name"]) ?? "").trim(), email: (git(root, ["config", "user.email"]) ?? "").trim() };
+}
+
+/** The roles.yaml user for a git identity, or undefined. */
+export function userFor(roles: Roles | undefined, id: { name: string; email: string }): string | undefined {
+  const local = id.email.split("@")[0] ?? "";
+  return roles?.people.find((p) => p.user === local || p.user === id.name || p.name === id.name)?.user;
+}
+
+/** The top of the git working tree that contains `dir`. */
+export function topLevel(dir: string): string | undefined {
+  return git(dir, ["rev-parse", "--show-toplevel"])?.trim() || undefined;
+}
+
 export interface OpenProject {
   root: string;
   view: ProjectView;

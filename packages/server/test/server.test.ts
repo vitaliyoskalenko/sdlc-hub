@@ -118,6 +118,8 @@ describe("the API", () => {
     expect(p.people).toHaveLength(10);
     expect(p.engine.invoke.codex).toBe("$sdd-{stage} {slug}");
     expect(p.project).toMatchObject({ name: "Marketplace", provider: "gitlab" });
+    expect(p.rules.roles.qa).toContain("docs/features/*/spec.md#Test plan");
+    expect(p.rules.contractLead).toContain("docs/features/*/contracts/**");
   });
   it("lists the features with their current step and who it waits on", async () => {
     const list = await json("/api/features");
@@ -127,6 +129,7 @@ describe("the API", () => {
     expect(by["staff-permissions"]).toMatchObject({ current: "released", released: true, progress: 100 });
     expect(by["tasks-issues"]).toMatchObject({ current: "verify", status: "returned", cycle: 2, blockingBugs: ["BUG-0012"] });
     expect(by["bulk-order-export"].waits).toBe(3);
+    expect(by["returns-portal"].statuses.slice(0, 3)).toEqual(["done", "ready", "todo"]);
   });
   it("returns one feature with its steps, teams and documents", async () => {
     const f = await json("/api/features/bulk-order-export");
