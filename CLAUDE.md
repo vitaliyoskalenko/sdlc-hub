@@ -6,9 +6,10 @@ Write everything (code, comments, docs, UI text) in English. Talk to the owner i
 
 ## Read first
 
-1. `docs/specification.md` — the specification, revision 50. It is the source of truth. The two diagrams are missing from the export (placeholders in the text).
-2. `docs/open-items.md` — what a review found and what is still not done or not verified.
-3. `prototypes/` — what every screen looks like and how it behaves. Treat them as the UI reference, not as code to keep.
+1. `docs/specification.md` — the specification, revision 51. The copy in this repository is the source of truth; the published copy is a snapshot. The two diagrams are missing from the export (placeholders in the text).
+2. `docs/decisions.md` — a dated log of what was decided and why. Add an entry whenever a decision changes the specification.
+3. `docs/open-items.md` — what is still not done or not verified, with the phase each unverified claim blocks.
+4. `prototypes/` — what every screen looks like and how it behaves. Treat them as the UI reference, not as code to keep. They predate revision 51; where they differ, the specification wins.
 
 ## The product in ten lines
 
@@ -18,7 +19,7 @@ Write everything (code, comments, docs, UI text) in English. Talk to the owner i
 - Stages are proxied to an engine through one adapter file. Default engine: `genkovich/sdd` 2.3.x. The engine must stay replaceable.
 - A feature moves through 20 steps in six role lanes (PO/analyst, PM, designer, engineering, QA, Ops). The current step is derived from files, never typed. The table is in the specification, "The twenty steps".
 - Roles decide which paths a person may change. Enforcement is the CI guard, because GitLab Free has no Code Owners.
-- The team runs self-managed GitLab, Free tier. GitHub must work too; the host is chosen at the first install.
+- The team runs self-managed GitLab, Free tier. GitHub must work too; the host is chosen at the first install. The version 1 install is GitLab only; the GitHub install comes in phase 5.
 - First install: `npx sdlc-hub init` opens a local setup page with five screens. After it the admin adds people and generates one setup script per person (no secrets in it).
 - The hub is vendored into `product-specs/hub/` as one bundled file. Nothing is fetched from a registry on a person's machine after the first install.
 - Per-person spend is visible to the admin and the PM only (records encrypted with `age`).
@@ -36,15 +37,17 @@ Write everything (code, comments, docs, UI text) in English. Talk to the owner i
 | Spend | Per person: admin and PM only |
 | Team repositories | A free list set at install, not fixed to four |
 | Language | English everywhere |
+| Later decisions | See `docs/decisions.md` (phase 1 split, step ids, epic, cross-team waits, go or no-go, sign-off hash, privacy scope) |
 
 ## Where to start
 
-Follow the delivery plan in the specification. Phase 0 needs no code (one feature by hand with SDD). The first code is phase 1, the read-only site:
+Follow the delivery plan in the specification. Phase 0 needs no code (one feature by hand with SDD). The first code is phase 1, in two parts:
 
-1. Scaffold the TypeScript workspace: `packages/core` (data model, step detection, roles), `packages/cli`, `packages/server`, `packages/web`, later `packages/plugin`.
-2. `core`: types and validators for `.hub/config.yaml`, `roles.yaml`, `flow.yaml`, `feature.yaml`, `signoffs.yaml`, bugs, `release.yaml`; the SDD adapter; step detection from a working tree. Write it test-first against fixture repositories.
-3. `server` + `web`: Home, Features (list and graph), Feature (Flow, Documents, Tasks), Your guide, command help. Read only.
-4. Then phase 2: saving through merge requests, `hub-guard`, the plugin for Claude Code, People and setup scripts.
+1. Phase 1a. Scaffold the TypeScript workspace (npm workspaces): `packages/core` (data model, adapter, step detection, roles), `packages/git`, `packages/server`, `packages/web` (Preact + Vite), `packages/cli`.
+2. `core`: types and validators for `.hub/config.yaml`, `roles.yaml`, `flow.yaml`, `engines/*.yaml`, `feature.yaml`, `signoffs.yaml`, bugs, `release.yaml` and the `hub-state` records; the SDD adapter; step detection from product-specs, team snapshots and local clones. Write it test-first against fixture repositories.
+3. `server` + `web`: Home, Features (list and graph), Feature (Flow, Documents, Tasks), Your guide, command help. Read only. `hub report` builds a team snapshot.
+4. Phase 1b: `packages/host` (GitLab), the setup site and the GitLab install. GitHub stops before Install.
+5. Then phase 2: saving through merge requests, `hub-guard`, the plugin for Claude Code, People and setup scripts.
 
 Before building anything that depends on a claim in "Claims to check during the build" (specification) or in `docs/open-items.md`, verify the claim against the real GitLab instance or the vendor's current documentation.
 
