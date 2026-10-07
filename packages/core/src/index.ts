@@ -10,3 +10,6 @@ export * from "./schema/common.ts";
 export * from "./schema/project.ts";
 export * from "./schema/feature.ts";
 export { splitFrontMatter } from "./parse.ts";
+export * from "./project-check.ts";
+export { DEFAULT_FLOW_YAML } from "./defaults/flow.ts";
+export { DEFAULT_SDD_ENGINE_YAML } from "./defaults/sdd.ts";
