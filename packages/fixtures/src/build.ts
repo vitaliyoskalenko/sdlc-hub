@@ -137,8 +137,8 @@ export function tracker(rows: [id: string, status: string, blockedBy?: string][]
   ].join("\n");
 }
 
-export function tasksJson(slug: string, ids: string[]): string {
-  return JSON.stringify({ slug, tasks: ids.map((id) => ({ id, title: `Task ${id}`, layer: "app", deps: [], acs: ["AC-01"] })) });
+export function tasksJson(slug: string, tasks: TaskSpec[]): string {
+  return JSON.stringify({ slug, tasks: tasks.map(taskOf) });
 }
 
 /** The files a team clone holds for a feature, under docs/features/<slug>/. */
@@ -146,9 +146,15 @@ export function teamFiles(slug: string, files: Files): Files {
   return Object.fromEntries(Object.entries(files).map(([p, t]) => [`${dir(slug)}/${p}`, t]));
 }
 
+/** A task of tasks.json: an id alone gets a placeholder title. */
+export type TaskSpec = string | { id: string; title: string; layer?: string; deps?: string[]; acs?: string[] };
+
+const taskOf = (t: TaskSpec) =>
+  typeof t === "string" ? { id: t, title: `Task ${t}`, layer: "app", deps: [] as string[], acs: ["AC-01"] } : { id: t.id, title: t.title, layer: t.layer ?? "app", deps: t.deps ?? [], acs: t.acs ?? [] };
+
 export interface SnapshotParts {
   files?: string[];
-  tasks?: string[];
+  tasks?: TaskSpec[];
   tracker?: { id: string; status: string; blocked_by?: string[] }[];
   review?: "PASS" | "CHANGES REQUESTED";
   mr?: { iid: number; state: "opened" | "merged" | "closed"; author?: string };
@@ -163,7 +169,7 @@ export function snapshot(slug: string, team: string, p: SnapshotParts): Files {
     source_commit: "0000000",
     generated_at: "2026-10-06T08:00:00Z",
     files: p.files ?? [],
-    tasks: p.tasks ? p.tasks.map((id) => ({ id, title: `Task ${id}`, layer: "app", deps: [], acs: ["AC-01"] })) : null,
+    tasks: p.tasks ? p.tasks.map(taskOf) : null,
     tracker: p.tracker ? p.tracker.map((r) => ({ id: r.id, status: r.status, blocked_by: r.blocked_by ?? [] })) : null,
     review: p.review ? { file: "_review/review-2026-10-05.md", verdict: p.review } : null,
     mr: p.mr ?? null,
@@ -220,7 +226,7 @@ export const DONE_THROUGH_SHIP: Partial<Record<string, StepStatus>> = {
   ship: "done",
 };
 
-export const testRun = (team: string, source: "ci" | "local", failed: number, at: string) =>
-  JSON.stringify({ source, team, platform: team, passed: 40, failed, at });
+export const testRun = (team: string, source: "ci" | "local", failed: number, at: string, passed = 40, ref?: string) =>
+  JSON.stringify({ source, team, platform: team, passed, failed, at, ...(ref ? { ref } : {}) });
 
 export const releaseYaml = (slug: string, yaml: string): Files => ({ [`${dir(slug)}/hub/release.yaml`]: yaml });
