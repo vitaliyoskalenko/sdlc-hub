@@ -2,6 +2,27 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-08: Revision 59, the Claude Code plugin
+
+### The MCP server reads the checkout itself, not the local server
+- **Decision:** `node hub/cli.js mcp` serves `hub_status`, `hub_next`, `hub_signoff`, `hub_return` and `hub_bug` over stdio. It opens product-specs directly and saves through the same code as the site's actions (`packages/save`), so the plugin works when the site is not running and needs no session with the server. Saves from both appear in the same record, `.git/sdlc-hub/saves.json`. It uses the MCP TypeScript SDK v2 (`@modelcontextprotocol/server`), bundled into `hub/cli.js`, because Claude Code now negotiates protocol revision 2026-07-28.
+- **Why:** The specification had the MCP server ask the local server. That needs the server running and a way to authenticate the assistant to it; the files and the guard give the same answer without either.
+- **By:** Proposed.
+
+### Where the plugin lives and how people get it
+- **Decision:**
+  - Install writes `hub/plugin/` (skills, `.mcp.json`, hooks), `.claude-plugin/marketplace.json` (marketplace `product-specs`) and `.claude/settings.json`. The settings enable `hub@product-specs` and `sdd@sdd`, with `genkovich/sdd` as a GitHub marketplace.
+  - `.mcp.json` runs `${CLAUDE_PROJECT_DIR}/hub/cli.js`.
+  - Each person registers the marketplace on their own machine at local scope; the setup scripts will do this.
+  - The plugin's version ends with a hash of its files, so every change reaches people as a new version.
+- **Why:** Verified with Claude Code 2.1.292 (claim 6). An installed plugin is a cached copy that may not reach outside its folder. A relative marketplace path in the shared settings does not install, and the CLI writes an absolute path, which cannot be shared.
+- **By:** Proposed; verified.
+
+### A save from the assistant is confirmed in the chat
+- **Decision:** Only the person starts `/hub:signoff`, `/hub:return` and `/hub:bug`. Each shows what will be saved, asks the person to confirm it in the chat, and stops; it saves only after their reply. The saving tools are not pre-allowed.
+- **Why:** The plan relied on Claude Code's permission prompt as the confirmation. In auto permission mode that prompt does not appear, as a headless run showed.
+- **By:** Proposed; verified in a two-turn headless run.
+
 ## 2026-10-08: Revision 58, saving from the site
 
 ### A save is a git push; the guard records refusals in hub-state

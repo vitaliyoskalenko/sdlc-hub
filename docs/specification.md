@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 8, 2026 · @Vitaliy · revision 58
+Oct 8, 2026 · @Vitaliy · revision 59
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -58,7 +58,7 @@ Five components share one Node.js codebase, and none of them is a hosted service
 | `hub` CLI | Each person's machine | `init`, `setup`, `serve`, `sync`, `report`, `guard`, `doctor`, `script`, `usage`, `upgrade`. Every plugin command ends in a CLI or server call. |
 | Local server | `127.0.0.1:4173`, started by `hub serve` | Reads the working tree and the `hub-state` branch, watches files, serves the web app with a REST and SSE API, makes git and GitLab API calls, starts the assistant headless when allowed. |
 | Web app | The browser, served by the local server | Dashboards, flow map, documents, tasks graph, QA, release, costs and admin screens. |
-| Assistant plugin | Inside Claude Code, Codex or Cursor | Commands, hooks that record stage start, finish and usage, and an MCP server through which the assistant asks the local server what to do next. |
+| Assistant plugin | Inside Claude Code, Codex or Cursor | Commands, hooks, and an MCP server (`node hub/cli.js mcp`) that the assistant asks what to do next. The MCP server reads the product-specs checkout itself and saves through the same code as the site, so it works whether or not the site is running. |
 | CI jobs | GitLab runners | `hub-guard` checks changed paths against roles, `hub-validate` checks file schemas, `hub-fanout` copies shared files to the team repositories, `hub-report` in each team repository publishes tasks, merge request, pipeline and test state. |
 
 **How a change travels**
@@ -260,11 +260,14 @@ The same commands exist in all three assistants: `/hub:name` in Claude Code, `$h
 
 ### How proxying works
 
-1. The command's skill calls the MCP tool `hub_next` on the local server.
-2. The server checks the gate: the required files exist, the previous sign-off is recorded, and the caller's role owns the step. If not, it returns what is missing and the skill stops.
-3. Otherwise it returns the engine command for this assistant, for example `/sdd:specify tasks-issues`, with the filled prompt template.
-4. The assistant runs that engine command unchanged.
-5. When the stage prints its handoff block, the skill calls `hub_record`, and a hook publishes the usage of the session.
+1. The command's skill calls the MCP tool `hub_next` of the hub's MCP server.
+2. The server checks the gate: the steps before it are done or skipped, and the caller's role owns the step (for Engineering, a team of the feature). If not, it returns what is missing or whose step it is, and the skill stops.
+3. Otherwise it returns the engine command for this assistant, for example `/sdd:specify tasks-issues`, with the filled prompt template from `.hub/prompts/<step>.md` when there is one, and says where to run it (product-specs, the contract team's repository, or each team's).
+4. The assistant runs that engine command unchanged. It never runs a stage the hub did not give it.
+5. A step whose gate waits for the person ends with "sign it with `/hub:signoff`"; only the person signs.
+6. Later: when the stage prints its handoff block, the skill calls `hub_record`, and a hook publishes the usage of the session (phase 4).
+
+The tools are `hub_status`, `hub_next`, `hub_signoff`, `hub_return` and `hub_bug`. A tool that saves (sign-off, return, bug) checks the change with the guard first and pushes it as a merge request in the person's name, like the site. The skill shows what will be saved and asks the person to confirm it in the chat before it calls the tool. Claude Code's permission prompt is not enough on its own: in auto mode it does not appear.
 
 ### Engine adapter
 
@@ -310,11 +313,11 @@ Replacing the engine means adding another file under `.hub/engines/` and changin
 
 |  | Claude Code | Codex | Cursor |
 | --- | --- | --- | --- |
-| Hub commands arrive as | A plugin from the repository's own marketplace, pre-enabled in `.claude/settings.json` | Skills in `.agents/skills/hub-*` | Skills in `.cursor/skills/hub-*` |
+| Hub commands arrive as | A plugin from the repository's own marketplace (`.claude-plugin/marketplace.json`, plugin in `hub/plugin`), enabled in `.claude/settings.json`. Each person's setup registers the marketplace once at local scope, because a relative path in the shared settings does not install | Skills in `.agents/skills/hub-*` | Skills in `.cursor/skills/hub-*` |
 | The engine arrives as | Plugin `sdd@sdd` | `install.sh codex` from the SDD repository | `install.sh cursor` |
 | Project instructions | `CLAUDE.md` | `AGENTS.md` | `AGENTS.md`, `.cursor/rules` |
 | MCP server config | The plugin's `.mcp.json` | `.codex/config.toml` | `.cursor/mcp.json` |
-| Hooks used | `SessionStart`, `PostToolUse` on Skill, `Stop` | `SessionStart`, `Stop`, `SessionEnd` | `sessionStart`, `stop`, `sessionEnd` |
+| Hooks used | `SessionStart` tells the session who the person is and what waits for them. Later: `UserPromptSubmit` (a typed `/hub:x` arrives as its `prompt`), `PostToolUse` on the hub's MCP tools, and `Stop` | `SessionStart`, `Stop`, `SessionEnd` | `sessionStart`, `stop`, `sessionEnd` |
 | Headless run | `claude -p ... --output-format json` | `codex exec ... --json` | `agent -p ... --output-format json` |
 | Path rules for edits (local, never committed) | `permissions` in `.claude/settings.local.json` | A permission profile in the person's own `~/.codex/config.toml` | The person's own Cursor CLI permissions file |
 

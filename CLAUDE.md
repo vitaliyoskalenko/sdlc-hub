@@ -6,7 +6,7 @@ Write everything (code, comments, docs, UI text) in English. Talk to the owner i
 
 ## Read first
 
-1. `docs/specification.md` — the specification, revision 58. The copy in this repository is the source of truth; the published copy is a snapshot. The two diagrams are missing from the export (placeholders in the text).
+1. `docs/specification.md` — the specification, revision 59. The copy in this repository is the source of truth; the published copy is a snapshot. The two diagrams are missing from the export (placeholders in the text).
 2. `docs/decisions.md` — a dated log of what was decided and why. Add an entry whenever a decision changes the specification.
 3. `docs/open-items.md` — what is still not done or not verified, with the phase each unverified claim blocks.
 4. `prototypes/` — what every screen looks like and how it behaves. Treat them as the UI reference, not as code to keep. They predate revision 51 and 52; where they differ, the specification wins.
