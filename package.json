@@ -14,7 +14,8 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p packages/web/tsconfig.json && tsc -p e2e/tsconfig.json",
     "build": "npm run build -w @sdlc-hub/web && npm run build -w @sdlc-hub/cli",
     "demo": "npm run -s build && node packages/cli/dist/cli.mjs demo",
-    "e2e": "npm run -s build && playwright test"
+    "e2e": "npm run -s build && playwright test",
+    "test:gitlab": "npm run -s build && HUB_GITLAB_IT=1 vitest run packages/install/test/gitlab.int.test.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
