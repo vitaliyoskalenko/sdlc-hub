@@ -385,3 +385,10 @@ svg.dag{max-width:none} /* the task graph keeps its size and scrolls inside its 
 .findings li{margin:2px 0;overflow-wrap:anywhere}
 .problem{border-left:3px solid var(--bad);padding:6px 10px;background:color-mix(in srgb,var(--bad) 8%,transparent);border-radius:6px}
 .problem p{margin:0}
+
+/* people and setup scripts */
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.btn.bad{border-color:var(--bad);color:var(--bad)}
+fieldset.fld{border:0;padding:0;margin:0}
+#sc-text{max-height:60vh;overflow:auto}
+@media (max-width:760px){.form{grid-template-columns:1fr}}

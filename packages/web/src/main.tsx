@@ -8,23 +8,34 @@ import { Features } from "./features.tsx";
 import { Guide } from "./guide.tsx";
 import { CommandHelp } from "./help.tsx";
 import { actionsFor, Home, type Action } from "./home.tsx";
+import { People, SetupScript } from "./people.tsx";
 import { TaskPage } from "./task.tsx";
 import "./styles.css";
 import { ASSISTANTS } from "./text.ts";
 import { App, href, roleLabel, type AppState } from "./ui.tsx";
 
-type Route = { page: "home" } | { page: "features" } | { page: "feature"; slug: string; tab: string } | { page: "guide" } | { page: "missing" };
+type Route =
+  | { page: "home" }
+  | { page: "features" }
+  | { page: "feature"; slug: string; tab: string }
+  | { page: "guide" }
+  | { page: "people" }
+  | { page: "script"; user: string }
+  | { page: "missing" };
 
 function route(path: string): Route {
   if (path === "/" || path === "") return { page: "home" };
   if (path === "/features") return { page: "features" };
   if (path === "/guide") return { page: "guide" };
+  if (path === "/people") return { page: "people" };
+  const sc = /^\/people\/([A-Za-z0-9][A-Za-z0-9._-]*)\/script\/?$/.exec(path);
+  if (sc) return { page: "script", user: sc[1]! };
   const m = /^\/features\/([a-z0-9][a-z0-9-]*)(?:\/(documents|tasks))?\/?$/.exec(path);
   if (m) return { page: "feature", slug: m[1]!, tab: m[2] ?? "flow" };
   return { page: "missing" };
 }
 
-const TITLE: Record<Route["page"], string> = { home: "Home", features: "Features", feature: "Feature", guide: "Your guide", missing: "Not found" };
+const TITLE: Record<Route["page"], string> = { home: "Home", features: "Features", feature: "Feature", guide: "Your guide", people: "People and roles", script: "Setup script", missing: "Not found" };
 
 function Root() {
   const [loc, setLoc] = useState(location.pathname + location.search);
@@ -216,19 +227,22 @@ function Root() {
                 {n !== null && <span class="cnt">{n}</span>}
               </a>
             ))}
-            <div class="grp">Admin · phase 2</div>
-            {["People and roles", "Settings"].map((label) => (
-              <span key={label} class="nb" aria-disabled="true" title="Arrives in phase 2">
-                <span>{label}</span>
-                <span class="lock">later</span>
-              </span>
-            ))}
+            <div class="grp">Admin{me.roles.includes("admin") ? "" : " · read only"}</div>
+            <a class="nb" data-page="people" href={href("/people")} aria-current={r.page === "people" || r.page === "script" ? "page" : undefined} onClick={(e) => (e.preventDefault(), go("/people"))}>
+              <span>People and roles</span>
+            </a>
+            <span class="nb" aria-disabled="true" title="Settings arrive in a later phase; change .hub/config.yaml by a merge request until then">
+              <span>Settings</span>
+              <span class="lock">later</span>
+            </span>
           </nav>
           <main id="main">
             {r.page === "home" && <Home />}
             {r.page === "features" && <Features params={params} />}
             {r.page === "feature" && <Feature slug={r.slug} tab={r.tab} params={params} />}
             {r.page === "guide" && <Guide />}
+            {r.page === "people" && <People />}
+            {r.page === "script" && <SetupScript user={r.user} params={params} />}
             {r.page === "missing" && (
               <div class="lockbox">
                 There is no page here. <a href={href("/")}>Go to Home</a>

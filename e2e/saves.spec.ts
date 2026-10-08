@@ -41,4 +41,30 @@ test.describe.serial("saves from the site", () => {
     await page.waitForSelector("#main h1");
     await expect(page.locator('[data-save="pending"], [data-save="refused"]')).toHaveCount(0);
   });
+
+  test("the admin adds a person on People and roles; it merges and the person gets a script", async ({ page }) => {
+    await page.goto(`${DEMO}/people?as=nazar.t`);
+    await page.waitForSelector("#people");
+    await page.click("#add-person");
+    await expect(page.locator("#pf-save")).toBeDisabled();
+    await page.fill("#pf-user", "anna.b");
+    await page.fill("#pf-name", "Anna B.");
+    await page.click('[data-role="dev"]'); // off: dev was the default
+    await page.click('[data-role="qa"]');
+    await page.selectOption("#pf-os", "windows");
+    await page.click("#pf-save");
+    await expect(page.locator("#people-saves")).toContainText("Add anna.b on People and roles");
+    await expect(page.locator('#people tr[data-user="anna.b"]')).toBeVisible({ timeout: 20_000 });
+    await page.locator('[data-script="anna.b"]').click();
+    await expect(page.locator('[data-shell="powershell"]')).toHaveAttribute("aria-pressed", "true"); // her system
+    await expect(page.locator("#sc-text")).toContainText('$HubRoles     = "qa"');
+  });
+
+  test("someone who is not the admin cannot change people", async ({ page }) => {
+    await page.goto(`${DEMO}/people?as=maksym.d`);
+    await page.waitForSelector("#people");
+    await expect(page.locator("#add-person")).toBeDisabled();
+    await expect(page.locator("[data-edit], [data-remove]")).toHaveCount(0);
+    await expect(page.locator(".note.warn")).toContainText("Only the admin changes people");
+  });
 });

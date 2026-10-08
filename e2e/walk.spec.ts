@@ -84,6 +84,25 @@ for (const vp of VIEWPORTS) {
       await check(`${person} guide`);
       await openHelp(`${person} guide`);
 
+      // People and roles, and a setup script in both shells.
+      await page.click('.nb[data-page="people"]');
+      await expect(page.locator("h1")).toHaveText("People and roles");
+      await expect(page.locator("#people tbody tr")).toHaveCount(10);
+      await check(`${person} people`);
+      if (person === "nazar.t") {
+        await page.click("#add-person");
+        await expect(page.locator("#person-form")).toBeVisible();
+        await check(`${person} people form`);
+        await page.click("#person-form .btn:not(.pri)");
+      } else await expect(page.locator("#add-person")).toBeDisabled();
+      await page.locator('[data-script="iryna.s"]').click();
+      await expect(page.locator("h1")).toHaveText("Setup script");
+      await expect(page.locator("#sc-text")).toContainText('HUB_USER="iryna.s"');
+      await check(`${person} script bash`);
+      await page.click('[data-shell="powershell"]');
+      await expect(page.locator("#sc-text")).toContainText('$HubUser      = "iryna.s"');
+      await check(`${person} script powershell`);
+
       await page.click('.nb[data-page="features"]');
       await expect(page.locator("h1")).toHaveText("Features");
       await check(`${person} features`);

@@ -158,6 +158,28 @@ export interface Save {
   findings?: Finding[];
 }
 
+export interface PersonRow {
+  user: string;
+  name: string;
+  roles: string[];
+  team: string | null;
+  lead: boolean;
+  os: "macos" | "linux" | "windows" | null;
+  assistant: Assistant;
+  /** What hub setup reported from the person's machine, through hub-state. */
+  setup: { setup_at: string; release: string; assistant: string; platform: string } | null;
+}
+
+export interface PersonInput {
+  user: string;
+  name: string;
+  roles: string[];
+  team?: string;
+  lead?: boolean;
+  os?: string;
+  assistant?: string;
+}
+
 /** The answer to an action: the save, or why it was not made. */
 export type ActionResult = { ok: true; save: Save } | { ok: false; error: string; findings?: Finding[] };
 
@@ -169,14 +191,21 @@ async function get<T>(path: string): Promise<T> {
 
 const asQuery = (as?: string) => (as ? `?as=${encodeURIComponent(as)}` : "");
 
+/** A save through the server: a branch whose merge request merges itself, or why it was not made. */
+async function action(name: string, as: string | undefined, body: unknown): Promise<ActionResult> {
+  const r = await fetch(`/api/actions/${name}${asQuery(as)}`, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const data = (await r.json().catch(() => ({}))) as { save?: Save; error?: string; findings?: Finding[] };
+  return r.ok && data.save ? { ok: true, save: data.save } : { ok: false, error: data.error ?? `The server answered ${r.status}`, ...(data.findings ? { findings: data.findings } : {}) };
+}
+
 export const api = {
   /** My saves; `as` matters only in the demo. */
   saves: (as?: string) => get<{ saves: Save[]; enabled: boolean }>(`/api/saves${asQuery(as)}`),
-  async signoff(as: string | undefined, body: { slug: string; step: string; decision: "pass" | "return"; reason?: string }): Promise<ActionResult> {
-    const r = await fetch(`/api/actions/signoff${asQuery(as)}`, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-    const data = (await r.json().catch(() => ({}))) as { save?: Save; error?: string; findings?: Finding[] };
-    return r.ok && data.save ? { ok: true, save: data.save } : { ok: false, error: data.error ?? `The server answered ${r.status}`, ...(data.findings ? { findings: data.findings } : {}) };
-  },
+  signoff: (as: string | undefined, body: { slug: string; step: string; decision: "pass" | "return"; reason?: string }) => action("signoff", as, body),
+  person: (as: string | undefined, body: { kind: "set"; person: PersonInput } | { kind: "remove"; user: string }) => action("person", as, body),
+  people: () => get<{ people: PersonRow[]; release: string }>("/api/people"),
+  script: (user: string, shell: "bash" | "powershell", as?: string) =>
+    get<{ name: string; text: string; release: string }>(`/api/script?user=${encodeURIComponent(user)}&shell=${shell}${as ? `&as=${encodeURIComponent(as)}` : ""}`),
   session: (as?: string) => get<Session>(`/api/session${as ? `?as=${encodeURIComponent(as)}` : ""}`),
   project: () => get<ProjectInfo>("/api/project"),
   features: () => get<{ features: Summary[]; now: string }>("/api/features"),
