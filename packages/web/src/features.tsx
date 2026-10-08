@@ -3,7 +3,7 @@
 import type { FlowStep, StepStatus, Summary } from "./api.ts";
 import { FeatureTable } from "./home.tsx";
 import { LEGEND, roleOf, STATUS } from "./text.ts";
-import { Cmd, names, teamName, useApp } from "./ui.tsx";
+import { Cmd, names, teamName, useApp, waitingTeams } from "./ui.tsx";
 import { hubCmd } from "./text.ts";
 
 const FILTERS: [string, string, (f: Summary, myRoles: string[]) => boolean][] = [
@@ -117,12 +117,17 @@ function Graph({ list }: { list: Summary[] }) {
               const m = f.statuses[i] ?? "todo";
               const big = ACTIVE.includes(m);
               const waits = id === f.current && waitsFor.length > 0;
-              const tip = `${f.slug} · ${i + 1} ${id} · ${STATUS[m][1]}${waits ? ` · waits for ${waitsFor.join(", ")}` : ""}`;
+              const tip = `${f.slug} · ${i + 1} ${id} · ${STATUS[m][1]}${waits ? ` · ${waitingTeams(f).length} teams wait for ${waitsFor.join(", ")}` : ""}`;
               return (
                 <g key={id} class={`fm m-${m}${waits ? " waits" : ""}`} data-slug={f.slug} tabIndex={big ? 0 : -1} role="button" aria-label={tip} onClick={() => go(`/features/${f.slug}`, { step: id })} onKeyDown={(e) => e.key === "Enter" && go(`/features/${f.slug}`, { step: id })}>
                   <title>{tip}</title>
                   <rect class="hit" x={x - TW / 2 + 3} y={y(i) - rowH / 2 + 2} width={TW - 6} height={rowH - 4} rx="6" />
                   {waits && <circle class="ring" cx={x} cy={y(i)} r="12" />}
+                  {waits && (
+                    <text class="waitcount" x={x + 15} y={y(i) + 4}>
+                      ⧗{waitingTeams(f).length}
+                    </text>
+                  )}
                   {m === "skipped" ? <line x1={x - 4} y1={y(i)} x2={x + 4} y2={y(i)} /> : <circle cx={x} cy={y(i)} r={big ? 7.5 : m === "done" ? 4.5 : 3.5} />}
                 </g>
               );

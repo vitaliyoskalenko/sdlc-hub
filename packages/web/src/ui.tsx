@@ -162,3 +162,17 @@ export function taskLabel(project: ProjectInfo, ref: string): string {
 export function waitText(project: ProjectInfo, w: Summary["crossWaits"][number]): string {
   return `${listOf(w.teams.map((t) => teamName(project, t)))} wait${w.teams.length === 1 ? "s" : ""} for ${taskLabel(project, w.on)}`;
 }
+
+/** The teams of a feature that wait for another team. */
+export const waitingTeams = (f: Summary): string[] => [...new Set(f.crossWaits.flatMap((w) => w.teams))];
+
+/** The red marker with the count, the same on the list, the graph and the Now strip. */
+export function WaitMark({ project, f }: { project: ProjectInfo; f: Summary }) {
+  const n = waitingTeams(f).length;
+  if (!n) return null;
+  return (
+    <span class="waitmark" title={f.crossWaits.map((w) => waitText(project, w)).join("; ")}>
+      ⧗ {n} team{n === 1 ? "" : "s"} wait{n === 1 ? "s" : ""}
+    </span>
+  );
+}

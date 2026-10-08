@@ -375,3 +375,5 @@ svg.dag{max-width:none} /* the task graph keeps its size and scrolls inside its 
 .fhd text.waits{fill:var(--bad);font:600 10px var(--f-body)}
 .fm.waits circle.ring{fill:none;stroke:var(--bad);stroke-width:1.8;stroke-dasharray:3 2.5}
 .ld.waitring{border:1.8px dashed var(--bad);background:transparent}
+.waitmark{display:inline-flex;align-items:center;gap:4px;padding:0 7px;border-radius:6px;border:1.5px dashed var(--bad);color:var(--bad);background:color-mix(in srgb,var(--bad) 8%,var(--surface));font:600 .74rem/1.6 var(--f-body);white-space:nowrap}
+.fm text.waitcount{fill:var(--bad);font:700 11px var(--f-mono)}

@@ -5,7 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import { api, type FeatureDetail, type FlowStep, type StepState, type Summary } from "./api.ts";
 import { layout, Loop } from "./features.tsx";
 import { engineCmd, hubCmd, LEGEND, roleOf, STATUS, STEP } from "./text.ts";
-import { Cmd, CopyButton, LaterButton, Link, names, Pill, personName, RoleChip, StatusPill, useApp, waitText } from "./ui.tsx";
+import { Cmd, CopyButton, LaterButton, Link, names, Pill, personName, RoleChip, StatusPill, useApp, WaitMark, waitText } from "./ui.tsx";
 
 const md = new MarkdownIt({ html: false, linkify: false, typographer: false });
 
@@ -157,6 +157,7 @@ function NowStrip({ f, detail, tab }: { f: Summary; detail: FeatureDetail; tab: 
             step {i + 1} of {steps.length} · {f.current}
           </b>
           <StatusPill status={f.status} />
+          <WaitMark project={project} f={f} />
         </span>
         <span class="muted">
           {lead}

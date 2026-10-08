@@ -52,10 +52,10 @@ test.describe("Home tells each role what is expected", () => {
     await expect(page.locator(".lockbox")).toContainText("Nothing is waiting for you");
   });
 
-  test("project statistics count the features where a team waits for another", async ({ page }) => {
+  test("project statistics count the teams blocked by another team", async ({ page }) => {
     await open(page, `${DEMO}/?as=maksym.d`);
-    const kpi = page.locator(".kpi", { hasText: "Features where a team waits for another" });
-    await expect(kpi.locator("b")).toHaveText("1");
+    const kpi = page.locator(".kpi", { hasText: "Blocked by another team" });
+    await expect(kpi.locator("b")).toHaveText("3");
     await kpi.click();
     await expect(page.locator("h1")).toHaveText("Features");
     await expect(page.locator("tbody tr")).toHaveCount(1);
@@ -89,11 +89,14 @@ test.describe("waits between teams are visible beyond the Tasks screen", () => {
   test("in the Features list", async ({ page }) => {
     await open(page, `${DEMO}/features?as=maksym.d`);
     const row = page.locator("tr", { hasText: "bulk-order-export" });
+    await expect(row.locator(".waitmark")).toHaveText("⧗ 3 teams wait");
     await expect(row).toContainText("Web, Android and iOS wait for Backend T2");
+    await expect(page.locator("tr", { hasText: "returns-portal" }).locator(".waitmark")).toHaveCount(0);
   });
 
   test("in the Now strip", async ({ page }) => {
     await open(page, `${DEMO}/features/bulk-order-export?as=maksym.d`);
+    await expect(page.locator(".now .waitmark")).toHaveText("⧗ 3 teams wait");
     await expect(page.locator(".now")).toContainText("Web, Android and iOS wait for Backend T2");
   });
 
@@ -102,6 +105,7 @@ test.describe("waits between teams are visible beyond the Tasks screen", () => {
     const head = (slug: string) => page.locator(`.fhd[data-slug="${slug}"]`);
     await expect(head("bulk-order-export")).toContainText("waits for Backend");
     await expect(page.locator('.fm.waits[data-slug="bulk-order-export"]')).toHaveCount(1);
+    await expect(page.locator('.fm.waits[data-slug="bulk-order-export"] text.waitcount')).toHaveText("⧗3");
     await expect(head("returns-portal")).toContainText("Olena K.");
     await expect(head("order-webhooks")).toContainText("Taras M.");
     await expect(head("tasks-issues")).toContainText("Iryna S.");

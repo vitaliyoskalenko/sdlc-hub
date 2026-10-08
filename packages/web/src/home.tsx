@@ -2,7 +2,7 @@
 
 import type { Person, ProjectInfo, Summary } from "./api.ts";
 import { STEP } from "./text.ts";
-import { Kpi, Link, listOf, names, Pill, Progress, RoleChip, roleLabel, StatusPill, taskLabel, teamName, useApp, waitText } from "./ui.tsx";
+import { Kpi, Link, listOf, names, Pill, Progress, RoleChip, roleLabel, StatusPill, taskLabel, teamName, useApp, WaitMark, waitingTeams, waitText } from "./ui.tsx";
 
 interface Action {
   slug: string;
@@ -133,7 +133,7 @@ export function FeatureTable({ list }: { list: Summary[] }) {
                   ) : (
                     <>
                       <RoleChip role={step.role} /> {f.index} · {f.current}{" "}
-                      {["blocked", "signoff", "returned", "missed"].includes(f.status) && <StatusPill status={f.status} />}
+                      {["blocked", "signoff", "returned", "missed"].includes(f.status) && <StatusPill status={f.status} />} <WaitMark project={project} f={f} />
                     </>
                   )}
                 </td>
@@ -165,7 +165,8 @@ export function Home() {
   const sign = open.filter((f) => f.status === "signoff").length;
   const stuck = open.filter((f) => f.status === "blocked" || f.status === "missed").length;
   const bugs = open.reduce((n, f) => n + f.blockingBugs.length, 0);
-  const waiting = open.filter((f) => f.crossWaits.length > 0).length;
+  // Teams that wait for another team, counted once per feature: the step stays running, the wait is still a cost.
+  const waiting = open.reduce((n, f) => n + waitingTeams(f).length, 0);
   const urgent = acts.filter((a) => a.bad).length;
   return (
     <>
@@ -186,7 +187,7 @@ export function Home() {
           <Kpi value={String(sign)} label="Waiting for a sign-off" tone={sign ? "warn" : ""} />
           <Kpi value={String(stuck)} label="Blocked or missed" tone={stuck ? "bad" : "ok"} />
           <Kpi value={String(bugs)} label="Blocking bugs" tone={bugs ? "bad" : "ok"} />
-          <Kpi value={String(waiting)} label="Features where a team waits for another" tone={waiting ? "bad" : "ok"} onClick={() => go("/features", { filter: "waiting" })} />
+          <Kpi value={String(waiting)} label="Blocked by another team" tone={waiting ? "bad" : "ok"} onClick={() => go("/features", { filter: "waiting" })} />
           <Kpi value={String(features.length - open.length)} label="Released" onClick={() => go("/features", { filter: "released" })} />
           <Kpi value={String(features.length)} label="Features" onClick={() => go("/features")} />
         </div>
