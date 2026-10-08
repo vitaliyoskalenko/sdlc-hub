@@ -16,7 +16,9 @@ import { addDemoRemote, demoHost } from "./demo-host.ts";
 import { localTests } from "@sdlc-hub/save";
 import { collectUsage, noteContext } from "@sdlc-hub/usage";
 import { sync } from "./sync.ts";
-import { doctor, personSetup, print } from "./person.ts";
+import { seedDemoUsage } from "./demo-usage.ts";
+import { keyStore } from "@sdlc-hub/usage";
+import { doctor, personSetup, print, remoteUrl } from "./person.ts";
 import { report, reportTests } from "./report.ts";
 import { createHubMcp, sessionContext, type ToolContext } from "@sdlc-hub/plugin";
 import { createSaver } from "@sdlc-hub/save";
@@ -128,7 +130,15 @@ async function serve(f: Record<string, string>) {
     hasRemote = false;
   }
   const actions = hasRemote ? actionHandler({ root, identity: () => gitIdentity(root) }) : undefined;
-  const server = await listen(() => openProject(root), user, Number(f["port"] ?? 4173), false, actions ? { actions } : {});
+  // The per-person costs the admin and the PM may see are decrypted with this machine's usage key.
+  const usageKey = () => {
+    try {
+      return keyStore(remoteUrl(root)).load();
+    } catch {
+      return undefined;
+    }
+  };
+  const server = await listen(() => openProject(root), user, Number(f["port"] ?? 4173), false, { ...(actions ? { actions } : {}), usageKey });
   watchFiles([root], server);
   console.log(`SDLC Hub · ${first.project.config.project.name} · ${user}\nServing http://127.0.0.1:${server.port} (this machine only)\nCtrl+C stops the server.`);
   // --open /guide: the setup script ends on Your guide.
@@ -167,7 +177,9 @@ async function demo(f: Record<string, string>) {
     now: clock,
     afterPush: host.afterPush,
   });
-  server = await listen(() => openProject(root, { now: clock().toISOString() }), user, Number(f["port"] ?? 4173), true, { actions });
+  // The demo project has a month of made-up usage, encrypted with a key made now, for the Costs screen.
+  const usageKey = name === "demo" ? await seedDemoUsage(root, remote, fixture.now) : undefined;
+  server = await listen(() => openProject(root, { now: clock().toISOString() }), user, Number(f["port"] ?? 4173), true, { actions, ...(usageKey ? { usageKey: () => usageKey } : {}) });
   watchFiles([dir], server);
   const people = opened.project?.roles.people.map((p) => `${p.user} (${p.roles.join(", ")})`).join(", ") ?? "";
   console.log(

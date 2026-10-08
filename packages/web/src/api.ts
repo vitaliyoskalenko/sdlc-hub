@@ -231,6 +231,34 @@ export interface PersonInput {
   assistant?: string;
 }
 
+export interface Tokens {
+  input: number;
+  cache_write_5m: number;
+  cache_write_1h: number;
+  cache_read: number;
+  output: number;
+}
+
+export interface TotalRow {
+  month: string;
+  dimension: string;
+  key: string;
+  people: number;
+  messages: number;
+  tokens: Tokens;
+  cost: number | null;
+}
+
+export interface Costs {
+  months: string[];
+  totals: { month: string; feature: TotalRow | null; steps: (TotalRow & { step: string })[] }[];
+  /** Each person's usage of this feature: only for the admin and the PM, decrypted on their machine. */
+  people: { month: string; user: string; step: string | null; model: string; messages: number; tokens: Tokens; cost: number | null }[];
+  perPerson: boolean;
+  estimate: { feature: [number, number] | null; steps: Record<string, [number, number]> };
+  pricesAsOf: string;
+}
+
 /** The answer to an action: the save, or why it was not made. */
 export type ActionResult = { ok: true; save: Save } | { ok: false; error: string; findings?: Finding[] };
 
@@ -256,7 +284,8 @@ export const api = {
   person: (as: string | undefined, body: { kind: "set"; person: PersonInput } | { kind: "remove"; user: string }) => action("person", as, body),
   people: () => get<{ people: PersonRow[]; release: string }>("/api/people"),
   /** Any other save: verdicts, bug, bug-edit, release. */
-  act: (name: "verdicts" | "bug" | "bug-edit" | "release" | "signoff", as: string | undefined, body: unknown) => action(name, as, body),
+  act: (name: "verdicts" | "bug" | "bug-edit" | "release" | "signoff" | "estimate", as: string | undefined, body: unknown) => action(name, as, body),
+  costs: (slug: string, as?: string) => get<Costs>(`/api/features/${encodeURIComponent(slug)}/costs${as ? `?as=${encodeURIComponent(as)}` : ""}`),
   script: (user: string, shell: "bash" | "powershell", as?: string) =>
     get<{ name: string; text: string; release: string }>(`/api/script?user=${encodeURIComponent(user)}&shell=${shell}${as ? `&as=${encodeURIComponent(as)}` : ""}`),
   session: (as?: string) => get<Session>(`/api/session${as ? `?as=${encodeURIComponent(as)}` : ""}`),

@@ -8,7 +8,8 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@sdlc-hub/core": "*"
+    "@sdlc-hub/core": "*",
+    "@sdlc-hub/usage": "*"
   },
   "devDependencies": {
     "@sdlc-hub/fixtures": "*"

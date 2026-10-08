@@ -150,6 +150,10 @@ for (const vp of VIEWPORTS) {
         await page.click('.tab[data-ftab="release"]');
         await expect(page.locator("#checklist")).toBeVisible();
         await check(`${person} ${slug} release`);
+        await page.click('.tab[data-ftab="costs"]');
+        await expect(page.locator("#costs")).toBeVisible();
+        await page.waitForFunction(() => !document.querySelector("#main")!.textContent!.includes("Loading costs"));
+        await check(`${person} ${slug} costs`);
       }
     }
     console.log(`${vp.name}: ${PEOPLE.length} people, ${tasks} task pages, ${dialogs} help dialogs, ${errors.length} errors, ${bad.length} overflows`);

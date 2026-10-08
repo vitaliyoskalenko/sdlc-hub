@@ -125,6 +125,11 @@ describe("the API", () => {
     expect((await json("/api/script?user=iryna.s&shell=powershell")).name).toBe("setup-iryna.s.ps1");
     expect((await get("/api/script?user=ghost")).status).toBe(404);
   });
+  it("gives a feature's costs, and the per-person part only to the admin and the PM", async () => {
+    const qa = await json("/api/features/tasks-issues/costs");
+    expect(qa).toMatchObject({ months: [], perPerson: false, people: [], estimate: { feature: [52, 118] } });
+    expect((await json("/api/features/tasks-issues/costs?as=maksym.d")).perPerson).toBe(true);
+  });
   it("describes the project: flow, teams, people and engine", async () => {
     const p = await json("/api/project");
     expect(p.flow.steps).toHaveLength(20);

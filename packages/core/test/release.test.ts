@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { base } from "@sdlc-hub/fixtures";
-import { guard, loadProject, memorySource, parseRelease, releaseChange, releaseView } from "../src/index.ts";
+import { estimateChange, guard, loadProject, memorySource, parseRelease, releaseChange, releaseView } from "../src/index.ts";
 
 const slug = "tasks-issues";
 const path = `docs/features/${slug}/hub/release.yaml`;
@@ -47,5 +47,20 @@ describe("the release of a feature", () => {
     expect(() => releaseChange(m, project.flow, slug, { kind: "rollout", stage: 120 }, "bohdan.r", at)).toThrow(/0 to 100/);
     expect(() => releaseChange(m, project.flow, slug, { kind: "check", item: "Nope", done: true }, "bohdan.r", at)).toThrow(/no item/);
     expect(() => releaseChange(m, project.flow, slug, { kind: "add-item", item: "Every team's production deploy is done" }, "bohdan.r", at)).toThrow(/already/);
+  });
+});
+
+describe("the PM's token estimate of a feature", () => {
+  const feature = `docs/features/${slug}/hub/feature.yaml`;
+  const main = { ...base(), [feature]: "title: Tasks\nowner: olena.k\nestimate:\n  days: 12\n" };
+  it("sets estimate.tokens_m, keeping the rest of feature.yaml", () => {
+    const c = estimateChange(memorySource(main), slug, [40, 60]);
+    expect(c.next).toBe("title: Tasks\nowner: olena.k\nestimate:\n  days: 12\n  tokens_m: [ 40, 60 ]\n");
+    expect(guard({ author: "maksym.d", pushers: [], changes: [c] }, ctx).ok).toBe(true);
+    expect(guard({ author: "iryna.s", pushers: [], changes: [c] }, ctx).ok).toBe(false);
+  });
+  it("refuses a range that makes no sense", () => {
+    expect(() => estimateChange(memorySource(main), slug, [60, 40])).toThrow(/low.*high/);
+    expect(() => estimateChange(memorySource(main), slug, [-1, 4])).toThrow(/low.*high/);
   });
 });

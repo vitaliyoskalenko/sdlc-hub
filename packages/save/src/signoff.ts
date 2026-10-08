@@ -1,7 +1,7 @@
 // A sign-off or a return of a gate, saved: checked with the same guard that runs at merge, on main as it is on the
 // remote, and only then pushed. The site's action and the plugin's hub_signoff and hub_return both use this.
 
-import { awaitsSignoff, bugChange, bugEditChange, guard, loadProject, peopleChange, platformsOf, releaseChange, signoffChange, verdictChange, verificationMatrix, type BugEdit, type BugInput, type PeopleEdit, type ReleaseEdit, type VerdictInput, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
+import { awaitsSignoff, bugChange, bugEditChange, estimateChange, guard, loadProject, peopleChange, platformsOf, releaseChange, signoffChange, verdictChange, verificationMatrix, type BugEdit, type BugInput, type PeopleEdit, type ReleaseEdit, type VerdictInput, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
 import { Pending, Unchanged, type Save, type Saver } from "./index.ts";
 
 export type SaveOutcome =
@@ -240,6 +240,27 @@ export function saveRelease(i: FeatureSaveInput & { edit: unknown }): SaveOutcom
     title: `Release of ${f.slug}: ${what}`,
     meta: { kind: "release", slug: f.slug, field: edit.kind },
     build: (main, p) => releaseChange(main, p.flow, f.slug, edit, i.user, i.at),
+    fallback: i.project,
+  });
+}
+
+/** The PM's token estimate of a feature, low and high, in millions. */
+export function saveEstimate(i: FeatureSaveInput & { tokensM: unknown }): SaveOutcome {
+  const f = feature(i);
+  if (isOutcome(f)) return f;
+  const t = i.tokensM;
+  if (!Array.isArray(t) || t.length !== 2 || !t.every((x) => typeof x === "number")) return { ok: false, code: "bad-input", error: "Give the low and the high estimate in millions of tokens" };
+  const range = t as [number, number];
+  try {
+    estimateChange(i.local, f.slug, range);
+  } catch (e) {
+    return { ok: false, code: "bad-input", error: (e as Error).message };
+  }
+  return checkedSave(i.saver, i.user, {
+    label: `estimate-${f.slug}`,
+    title: `Token estimate of ${f.slug}: ${range[0]} to ${range[1]} million`,
+    meta: { kind: "estimate", slug: f.slug },
+    build: (main) => estimateChange(main, f.slug, range),
     fallback: i.project,
   });
 }

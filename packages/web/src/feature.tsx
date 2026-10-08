@@ -5,6 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import { api, type FeatureDetail, type FlowStep, type StepState, type Summary } from "./api.ts";
 import { layout, Loop } from "./features.tsx";
 import { engineCmd, hubCmd, LEGEND, roleOf, STATUS, STEP } from "./text.ts";
+import { Costs } from "./costs.tsx";
 import { QA } from "./qa.tsx";
 import { Release } from "./release.tsx";
 import { SignoffBox } from "./saves.tsx";
@@ -28,6 +29,7 @@ const TABS: [string, string][] = [
   ["tasks", "Tasks"],
   ["qa", "QA"],
   ["release", "Release"],
+  ["costs", "Costs"],
 ];
 
 const SOURCE: Record<string, string> = { specs: "main of product-specs", "hub-state": "the hub-state branch", "local-clone": "your local copy of the team repository" };
@@ -144,6 +146,8 @@ export function Feature({ slug, tab, params }: { slug: string; tab: string; para
         <QA detail={d} />
       ) : tab === "release" ? (
         <Release detail={d} />
+      ) : tab === "costs" ? (
+        <Costs detail={d} />
       ) : (
         <Flow detail={d} params={params} />
       )}

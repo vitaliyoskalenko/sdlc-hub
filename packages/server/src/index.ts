@@ -4,6 +4,7 @@
 // See the specification, "Architecture" and "Security".
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { costOf, decryptWith, PRICES_AS_OF, usageRecordSchema, type TotalRow, type Tokens } from "@sdlc-hub/usage";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { extname, resolve, sep } from "node:path";
@@ -40,6 +41,8 @@ export interface ServerOptions {
   open: () => OpenedProject;
   /** Setup mode: serve the setup site at /setup and its API. */
   setup?: SetupHandler;
+  /** This machine's private usage key, for the per-person costs the admin and the PM may see. */
+  usageKey?: () => string | undefined;
   /** Saves from the site. Without it the site is read only. */
   actions?: ActionHandler;
   /** The roles.yaml user this site is for. */
@@ -274,6 +277,15 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
           release: { ...rel, watchEnds, now: opened.view.now },
         });
       }
+      if (parts.length === 3 && parts[2] === "costs") {
+        const viewer = project.roles.people.find((p) => p.user === actor(url));
+        const mayPerPerson = !!viewer && (viewer.roles.includes("admin") || viewer.roles.includes("pm"));
+        costsOf(slug, opened, project, mayPerPerson ? opts.usageKey?.() : undefined).then(
+          (c) => send(res, 200, { ...c, perPerson: mayPerPerson }),
+          (e) => send(res, 500, { error: String(e) }),
+        );
+        return;
+      }
       if (parts.length === 3 && parts[2] === "file") {
         const path = url.searchParams.get("path") ?? "";
         if (!path || path.startsWith("/") || path.includes("\\") || path.includes("\0") || path.split("/").some((x) => x === ".." || x === "." || x === ""))
@@ -361,6 +373,49 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
       });
     });
   });
+}
+
+/**
+ * The costs of one feature: the open totals by step for every month (groups of three people or more), the estimates,
+ * and, decrypted with this machine's key for the admin and the PM, each person's usage.
+ */
+async function costsOf(slug: string, opened: OpenedProject, project: Project, key: string | undefined) {
+  const state = opened.view.hubState;
+  const months = [...new Set((state?.list("metrics") ?? []).map((p) => /^metrics\/(\d{4}-\d{2})\//.exec(p)?.[1]).filter((m): m is string => !!m))].sort().reverse();
+  const totals = months.map((month) => {
+    const rows = (state?.read(`metrics/${month}/usage.jsonl`) ?? "")
+      .split("\n")
+      .filter(Boolean)
+      .flatMap((l) => {
+        try {
+          return [JSON.parse(l) as TotalRow];
+        } catch {
+          return [];
+        }
+      });
+    return { month, feature: rows.find((r) => r.dimension === "feature" && r.key === slug) ?? null, steps: rows.filter((r) => r.dimension === "feature-step" && r.key.startsWith(`${slug}/`)).map((r) => ({ ...r, step: r.key.slice(slug.length + 1) })) };
+  });
+  const people: { month: string; user: string; step: string | null; model: string; messages: number; tokens: Tokens; cost: number | null }[] = [];
+  if (key) {
+    for (const p of state?.list("metrics") ?? []) {
+      const m = /^metrics\/(\d{4}-\d{2})\/([^/]+)\/[^/]+\.jsonl\.age$/.exec(p);
+      if (!m) continue;
+      const text = await decryptWith(state!.read(p) ?? "", [key]);
+      for (const line of (text ?? "").split("\n").filter(Boolean)) {
+        const r = usageRecordSchema.safeParse(JSON.parse(line));
+        if (!r.success || r.data.slug !== slug) continue;
+        people.push({ month: m[1]!, user: m[2]!, step: r.data.step ?? null, model: r.data.model, messages: r.data.messages, tokens: r.data.tokens, cost: costOf(r.data.model, r.data.tokens, project.config.prices) ?? null });
+      }
+    }
+  }
+  const feature = parseFeature(opened.view.specs.read(`docs/features/${slug}/hub/feature.yaml`) ?? "", "feature.yaml").value;
+  return {
+    months,
+    totals,
+    people,
+    estimate: { feature: feature?.estimate?.tokens_m ?? null, steps: Object.fromEntries(project.flow.steps.filter((s) => s.estimate_tokens_m).map((s) => [s.id, s.estimate_tokens_m!])) },
+    pricesAsOf: PRICES_AS_OF,
+  };
 }
 
 /** The hub release a setup script expects: a short hash of hub/cli.js on main, or "none" before it is vendored. */

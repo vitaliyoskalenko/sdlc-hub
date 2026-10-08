@@ -4,7 +4,7 @@
 
 import { isMap, isSeq, parseDocument, type Document } from "yaml";
 import type { Change } from "./access.ts";
-import { parseRelease } from "./files.ts";
+import { parseFeature, parseRelease } from "./files.ts";
 import type { Release } from "./schema/feature.ts";
 import type { Flow } from "./schema/project.ts";
 import type { FileSource } from "./source.ts";
@@ -72,4 +72,21 @@ export function releaseChange(specs: FileSource, flow: Flow, slug: string, edit:
   const check = parseRelease(next, path);
   if (!check.value) throw new Error(check.issues.map((i) => i.message).join("; "));
   return { path, ...(base !== undefined ? { base } : {}), next };
+}
+
+/** The PM's token estimate of a feature, in millions: estimate.tokens_m in feature.yaml. */
+export function estimateChange(specs: FileSource, slug: string, tokensM: [number, number]): Change {
+  const path = `docs/features/${slug}/hub/feature.yaml`;
+  const base = specs.read(path);
+  if (base === undefined) throw new Error(`${slug} has no feature.yaml`);
+  const [lo, hi] = tokensM;
+  if (!(Number.isFinite(lo) && Number.isFinite(hi) && lo >= 0 && lo <= hi)) throw new Error("Give the low and the high estimate in millions of tokens, low first");
+  const doc = parseDocument(base);
+  const node = doc.createNode([lo, hi]);
+  if (isSeq(node)) node.flow = true;
+  doc.setIn(["estimate", "tokens_m"], node);
+  const next = doc.toString({ lineWidth: 0 });
+  const check = parseFeature(next, path);
+  if (!check.value) throw new Error(check.issues.map((i) => i.message).join("; "));
+  return { path, base, next };
 }
