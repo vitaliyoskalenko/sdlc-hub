@@ -52,8 +52,25 @@ ${job("hub-report", opts.stage, "always", "passed")}`;
 ${jobs}`;
 }
 
-/** The stage for the job: .post when the repository already has CI jobs, test when the include is its only CI. */
-export const reportStage = (existingCi: string | null) => (existingCi?.trim() ? ".post" : "test");
+/** Top-level keys of .gitlab-ci.yml that are not jobs. */
+const CI_KEYWORDS = new Set(["include", "stages", "variables", "default", "workflow", "image", "services", "cache", "before_script", "after_script"]);
+
+/**
+ * The layout of the hub job: .post when the repository has CI jobs of its own, test when it has none (a file that
+ * only includes the hub, or sets up stages and defaults, has none). It is worked out again on every install run, so
+ * a team that adds tests later gets the end-of-pipeline jobs through a merge request.
+ */
+export function reportStage(existingCi: string | null): ".post" | "test" {
+  if (!existingCi?.trim()) return "test";
+  let doc: unknown;
+  try {
+    doc = parseDocument(existingCi).toJS();
+  } catch {
+    return ".post";
+  }
+  if (!doc || typeof doc !== "object") return "test";
+  return Object.keys(doc).some((k) => !CI_KEYWORDS.has(k) && !k.startsWith(".")) ? ".post" : "test";
+}
 
 /** Adds `include: - local: <file>` to a .gitlab-ci.yml, once, keeping its comments and the rest. */
 export function withInclude(existing: string | null, file = HUB_REPORT_FILE): string {

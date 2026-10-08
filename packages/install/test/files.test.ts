@@ -82,6 +82,10 @@ describe("the hub-report job", () => {
     expect(withInclude(null)).toBe("include:\n  - local: ci/hub-report.gitlab-ci.yml\n");
     expect(reportStage(null)).toBe("test");
     expect(reportStage("build:\n  script: [x]\n")).toBe(".post");
+    // A file that only includes the hub, or sets up stages and defaults, has no CI of its own.
+    expect(reportStage("include:\n  - local: ci/hub-report.gitlab-ci.yml\n")).toBe("test");
+    expect(reportStage("stages: [build]\ndefault:\n  image: alpine\n.template:\n  script: [x]\n")).toBe("test");
+    expect(reportStage("include:\n  - local: ci/hub-report.gitlab-ci.yml\nunit:\n  script: [npm test]\n")).toBe(".post");
   });
   it("is valid GitLab CI: every script entry is a string, and the hub never turns a pipeline red", async () => {
     const { parse } = await import("yaml");

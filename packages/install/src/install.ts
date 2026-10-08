@@ -304,7 +304,7 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
       const ci = await gl.file(proj.id, ".gitlab-ci.yml", target);
       const current = await gl.file(proj.id, HUB_REPORT_FILE, target);
       // A team that merged an earlier version of the job gets the new one; a team that has this one is done.
-      const job = hubReportJob({ specs: specsPath, team: id, stage: current ? (/^  stage: (.+)$/m.exec(current)?.[1] ?? reportStage(ci)) : reportStage(ci) });
+      const job = hubReportJob({ specs: specsPath, team: id, stage: reportStage(ci) });
       if (current === job && ci !== null && withInclude(ci) === ci) return { state: "skip" as const, text: `${path} already has the hub-report job` };
       if (open[0]) {
         opened.push(`${t.repo.trim()} ${w.sign}${open[0].iid}`);

@@ -4,10 +4,14 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
 
 ## 2026-10-08: Revision 61, QA and release
 
-### CI results come from two jobs at the end of each team pipeline
-- **Decision:** The hub-report template adds `hub-tests-passed` (`when: on_success`) and `hub-tests-failed` (`when: on_failure`) in `.post`. Each records the pipeline's result for every feature the branch reports, as `tests/ci-<team>-<pipeline>.json` on `hub-state`. Every hub job has `allow_failure: true`, so the hub never turns a team's pipeline red and a failure of its own never counts as a failed test. A run records passed or failed; counts are optional.
-- **Why:** It needs no token and no setup per team. The alternatives were reading JUnit reports at a known path, or asking GitLab at decision time with a token on QA's machine.
-- **By:** Owner.
+### CI results come from the hub job at the end of each team pipeline
+- **Decision:**
+  - When a team has CI of its own, the template has `hub-tests-passed` (`when: on_success`) and `hub-tests-failed` (`when: on_failure`) in `.post`. Exactly one runs, and it publishes the team's snapshot and the pipeline's result for every feature the branch reports, as `tests/ci-<team>-<pipeline>.json` on `hub-state`.
+  - A repository with no CI gets one `hub-report` job in `test`, because GitLab needs a job outside `.post`; that pipeline counts as passed.
+  - The hub job has `allow_failure: true`, so the hub never turns a team's pipeline red. A run records passed or failed; counts are optional.
+  - Pushes to `hub-state` carry `-o ci.skip`, so machine data starts no pipeline in product-specs.
+- **Why:** It needs no token and no setup per team. The alternatives were reading JUnit reports at a known path, or asking GitLab at decision time with a token on QA's machine. The first version had a separate hub-report job beside the result jobs. On GitLab CE that doubled the hub's jobs, and the queue made merge requests wait minutes; one job per pipeline fixed it.
+- **By:** Owner; the one-job layout proposed after the GitLab run.
 
 ### QA's verdicts live in hub/verification.yaml
 - **Decision:** One record per criterion and platform, appended; the newest per cell counts, so earlier cycles stay as history. The platforms are the kinds of the feature's client teams, or of all its teams when it has none. A fail names its bugs. The site and the plugin refuse the verify sign-off until every cell passes or does not apply. The criteria are read from `spec.md` (`@assumed-sdd-format`).

@@ -161,7 +161,10 @@ export class GitLab {
    */
   async autoMerge(projectId: number, iid: number, wait: (ms: number) => Promise<void> = sleep): Promise<MergeRequest> {
     for (let i = 0; i < 30; i++) {
-      if (!CHECKING.includes((await this.mergeRequest(projectId, iid)).detailed_merge_status ?? "")) break;
+      const mr = await this.mergeRequest(projectId, iid);
+      // Already set: GitLab does not take the request a second time.
+      if (mr.merge_when_pipeline_succeeds) return mr;
+      if (!CHECKING.includes(mr.detailed_merge_status ?? "")) break;
       await wait(2000);
     }
     let last: unknown;

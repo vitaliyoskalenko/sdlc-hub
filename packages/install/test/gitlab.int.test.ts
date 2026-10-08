@@ -289,39 +289,60 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
   }, 360_000);
 
   it("records each team pipeline's result for the autotests gate: green on main, red on a feature branch (claim 18)", async () => {
-    const be = (await root.project("shop/backend"))!;
     const specs = (await root.project("shop/product-specs"))!;
-    const runs = async () => {
-      const r = await fetch(`${URL_}/api/v4/projects/${specs.id}/repository/tree?ref=hub-state&path=features/bulk-order-export/tests&per_page=100`, { headers: { "PRIVATE-TOKEN": secrets.rootToken } });
-      return r.ok ? ((await r.json()) as { name: string }[]).map((x) => x.name) : [];
-    };
-    const waitFor = async (pipeline: number) => {
+    const h = { "PRIVATE-TOKEN": secrets.rootToken };
+    const waitFor = async (team: string, pipeline: number) => {
+      const name = `ci-${team}-${pipeline}.json`;
       for (let i = 0; i < 72; i++) {
-        const name = (await runs()).find((n) => n === `ci-backend-${pipeline}.json`);
-        if (name) return parseTestRun((await root.file(specs.id, `features/bulk-order-export/tests/${name}`, "hub-state"))!, name).value;
+        const text = await root.file(specs.id, `features/bulk-order-export/tests/${name}`, "hub-state");
+        if (text) return parseTestRun(text, name).value;
         await wait(5000);
       }
       return undefined;
     };
-    const latest = async (ref: string) => {
+    // The pipeline of one commit: GitLab cancels an older pipeline of the same branch, so "the newest" may not run.
+    const pipelineOf = async (projectId: number, sha: string) => {
       for (let i = 0; i < 24; i++) {
-        const p = (await fetch(`${URL_}/api/v4/projects/${be.id}/pipelines?ref=${encodeURIComponent(ref)}&per_page=1`, { headers: { "PRIVATE-TOKEN": secrets.rootToken } }).then((r) => r.json())) as { id: number }[];
+        const p = (await fetch(`${URL_}/api/v4/projects/${projectId}/pipelines?sha=${sha}&per_page=1`, { headers: h }).then((r) => r.json())) as { id: number }[];
         if (p[0]) return p[0].id;
         await wait(5000);
       }
-      throw new Error(`no pipeline on ${ref}`);
+      throw new Error(`no pipeline for ${sha}`);
     };
-    // Green: a change on main runs the team's pipeline, and hub-tests-passed records it.
-    await root.commit(be.id, "main", "touch", [{ action: (await root.file(be.id, "touch.txt", "main")) === null ? "create" : "update", file_path: "touch.txt", content: `${Date.now()}\n` }]);
-    const green = await waitFor(await latest("main"));
-    expect(green).toMatchObject({ source: "ci", team: "backend", result: "passed" });
-    // Red: a failing test job on the feature branch, and hub-tests-failed records it; the hub's own jobs never fail it.
+
+    // Green: backend has no CI of its own, so the hub job is its pipeline, which counts as passed.
+    const be = (await root.project("shop/backend"))!;
+    const touch = await root.commit(be.id, "main", "touch", [{ action: (await root.file(be.id, "touch.txt", "main")) === null ? "create" : "update", file_path: "touch.txt", content: `${Date.now()}\n` }]);
+    expect(await waitFor("backend", await pipelineOf(be.id, touch.id))).toMatchObject({ source: "ci", team: "backend", result: "passed" });
+
+    // Red: web-admin has CI of its own. Its lead merges the hub job, then a feature branch with a failing test runs:
+    // hub-tests-failed records it, and the hub's job leaves the pipeline as red as the team's test made it.
+    const web = (await root.project("shop/web-admin"))!;
+    const mr = (await root.openMergeRequests(web.id, "sdlc-hub/hub-report"))[0];
+    if (mr) {
+      for (let i = 0; i < 20; i++) {
+        const r = await fetch(`${URL_}/api/v4/projects/${web.id}/merge_requests/${mr.iid}/merge`, { method: "PUT", headers: h });
+        if (r.ok) break;
+        await wait(3000);
+      }
+    }
     const branch = "feat/bulk-order-export";
-    if (await root.branch(be.id, branch)) await fetch(`${URL_}/api/v4/projects/${be.id}/repository/branches/${encodeURIComponent(branch)}`, { method: "DELETE", headers: { "PRIVATE-TOKEN": secrets.rootToken } });
-    const ci = (await root.file(be.id, ".gitlab-ci.yml", "main"))!;
-    await root.commit(be.id, branch, "A failing test", [{ action: "update", file_path: ".gitlab-ci.yml", content: `${ci}unit-tests:\n  stage: test\n  script: [exit 1]\n` }], "main");
-    const red = await waitFor(await latest(branch));
-    expect(red).toMatchObject({ source: "ci", team: "backend", result: "failed", ref: expect.stringMatching(/^feat\/bulk-order-export@/) });
+    if (await root.branch(web.id, branch)) await fetch(`${URL_}/api/v4/projects/${web.id}/repository/branches/${encodeURIComponent(branch)}`, { method: "DELETE", headers: h });
+    const ci = (await root.file(web.id, ".gitlab-ci.yml", "main"))!;
+    const failing = await root.commit(
+      web.id,
+      branch,
+      "Export dialog, with a failing test",
+      [
+        { action: "update", file_path: ".gitlab-ci.yml", content: `${ci}unit-tests:\n  stage: test\n  script: [exit 1]\n` },
+        { action: "create", file_path: "docs/features/bulk-order-export/tasks.json", content: JSON.stringify({ slug: "bulk-order-export", tasks: [{ id: "T1", title: "ui: export dialog", layer: "ui", deps: [], acs: ["AC-01"] }] }) },
+      ],
+      "main",
+    );
+    const pipeline = await pipelineOf(web.id, failing.id);
+    expect(await waitFor("web", pipeline)).toMatchObject({ source: "ci", team: "web", result: "failed", ref: expect.stringMatching(/^feat\/bulk-order-export@/) });
+    const jobs = (await fetch(`${URL_}/api/v4/projects/${web.id}/pipelines/${pipeline}/jobs`, { headers: h }).then((r) => r.json())) as { name: string; status: string }[];
+    expect(Object.fromEntries(jobs.map((j) => [j.name, j.status]))).toMatchObject({ "unit-tests": "failed", "hub-tests-failed": "success", "hub-tests-passed": "skipped" });
   }, 900_000);
 
   it("shows that HUB_STATE_TOKEN can push to any unprotected branch, not only hub-state (claim 13)", async () => {
