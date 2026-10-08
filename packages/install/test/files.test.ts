@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseConfig } from "@sdlc-hub/core";
-import { configYaml, hubFiles, hubReportJob, problem, reportStage, teamId, withBlock, withIgnore, withInclude, type SetupAnswers } from "../src/index.ts";
+import { configYaml, hubFiles, hubGuardCi, hubReportJob, problem, reportStage, teamId, withBlock, withIgnore, withInclude, type SetupAnswers } from "../src/index.ts";
 
 export const ANSWERS: SetupAnswers = {
   host: "gitlab",
@@ -96,5 +96,21 @@ describe("the hub-report job", () => {
     expect(job).toContain("GIT_CONFIG_VALUE_0");
     expect(job).not.toMatch(/https?:\/\/[^\s"]*\$HUB_STATE_TOKEN/);
     expect(job).toContain('HUB_TEAM: "web"');
+  });
+});
+
+describe("the hub-ci configuration of product-specs", () => {
+  it("runs hub-guard on merge requests only, with the hub code of main and never the merge request's", async () => {
+    const { parse } = await import("yaml");
+    const ci = parse(hubGuardCi());
+    expect(ci.workflow.rules).toEqual([{ if: '$CI_PIPELINE_SOURCE == "merge_request_event"' }]);
+    const job = ci["hub-guard"];
+    expect(job.variables.GIT_DEPTH).toBe("0");
+    expect(job.script.every((s: unknown) => typeof s === "string")).toBe(true);
+    const script = job.script.join("\n");
+    expect(script).toContain('git fetch --quiet origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"');
+    expect(script).toContain("git show FETCH_HEAD:hub/cli.js");
+    expect(script).toContain("guard --rules FETCH_HEAD");
+    expect(script).not.toMatch(/node hub\/cli\.js/); // the checkout is the merge request: never run its code
   });
 });

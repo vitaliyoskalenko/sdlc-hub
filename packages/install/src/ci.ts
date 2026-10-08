@@ -56,3 +56,33 @@ export function withInclude(existing: string | null, file = HUB_REPORT_FILE): st
   }
   return doc.toString();
 }
+
+export const HUB_CI_PROJECT = "hub-ci";
+export const HUB_CI_FILE = "ci/product-specs.yml";
+
+/**
+ * The CI configuration of product-specs. It lives in the hub-ci project, which only the admin changes, and
+ * product-specs points its "CI/CD configuration file" setting at it, so a merge request cannot remove the guard.
+ * The checkout is the merge request's branch, which is only data: the hub code comes from main, as fetched.
+ */
+export function hubGuardCi(): string {
+  return `# Written by SDLC Hub. product-specs runs this file instead of a .gitlab-ci.yml of its own, so a merge request
+# cannot change or remove the guard. Change it only by a merge request to the admin.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+hub-guard:
+  image: node:22-alpine
+  variables:
+    GIT_DEPTH: "0"
+  # HUB_GUARD_TOKEN (a masked project variable, read_api) lets the guard ask GitLab who opened the merge request
+  # and who pushed to it. HUB_GIT_URL overrides the server address for runners that reach GitLab under another name.
+  script:
+    - |
+      apk add --no-cache git >/dev/null
+      git fetch --quiet origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+      mkdir -p /tmp/hub && git show FETCH_HEAD:hub/cli.js > /tmp/hub/cli.mjs
+      node /tmp/hub/cli.mjs guard --rules FETCH_HEAD
+`;
+}

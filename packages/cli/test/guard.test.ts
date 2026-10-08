@@ -1,0 +1,95 @@
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { afterAll, describe, expect, it } from "vitest";
+import { base } from "@sdlc-hub/fixtures";
+import { GitLab } from "@sdlc-hub/host";
+import { formatFindings, guardRepo, mergeRequestPeople } from "../src/guard.ts";
+
+const temp: string[] = [];
+afterAll(() => temp.forEach((d) => rmSync(d, { recursive: true, force: true })));
+const env = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@x", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@x", GIT_CONFIG_GLOBAL: "/dev/null" };
+const git = (cwd: string, ...a: string[]) => execFileSync("git", a, { cwd, env, encoding: "utf8" }).trim();
+const write = (root: string, files: Record<string, string>) => {
+  for (const [p, t] of Object.entries(files)) {
+    mkdirSync(dirname(join(root, p)), { recursive: true });
+    writeFileSync(join(root, p), t);
+  }
+};
+
+/** product-specs at a base commit on main, and a branch with the merge request's changes. */
+function repo(changes: Record<string, string>, remove: string[] = []) {
+  const dir = mkdtempSync(join(tmpdir(), "hub-guard-"));
+  temp.push(dir);
+  git(dir, "init", "-q", "-b", "main");
+  write(dir, { ...base(), "docs/features/tasks-issues/spec.md": "# Spec\n", "docs/features/tasks-issues/hub/feature.yaml": "title: T\nowner: olena.k\n" });
+  git(dir, "add", ".");
+  git(dir, "commit", "-q", "-m", "base");
+  const baseSha = git(dir, "rev-parse", "HEAD");
+  git(dir, "checkout", "-q", "-b", "save");
+  write(dir, changes);
+  for (const r of remove) git(dir, "rm", "-q", r);
+  git(dir, "add", "-A");
+  git(dir, "commit", "-q", "--allow-empty", "-m", "change");
+  return { dir, baseSha };
+}
+
+describe("hub guard on a merge request", () => {
+  it("passes a change inside the author's role", async () => {
+    const { dir, baseSha } = repo({ "docs/features/tasks-issues/spec.md": "# Spec v2\n" });
+    const r = await guardRepo({ cwd: dir, baseSha, author: "olena.k", pushers: ["olena.k"] });
+    expect(r).toEqual({ ok: true, findings: [] });
+  });
+
+  it("refuses a change outside the role, judged by roles.yaml on main, not the one in the merge request", async () => {
+    // The merge request also tries to make its author an admin: the guard reads roles.yaml from the base.
+    const roles = base()[".hub/roles.yaml"]!.replace("{ user: olena.k, name: Olena K., role: po }", "{ user: olena.k, name: Olena K., role: admin }");
+    const { dir, baseSha } = repo({ ".hub/roles.yaml": roles, ".hub/config.yaml": "changed: true\n" });
+    const r = await guardRepo({ cwd: dir, baseSha, author: "olena.k", pushers: ["olena.k"] });
+    expect(r.ok).toBe(false);
+    expect(r.findings.map((f) => f.path).sort()).toEqual([".hub/config.yaml", ".hub/roles.yaml"]);
+  });
+
+  it("counts a deletion and both sides of a rename", async () => {
+    const del = repo({}, ["docs/features/tasks-issues/hub/feature.yaml"]);
+    expect((await guardRepo({ cwd: del.dir, baseSha: del.baseSha, author: "daria.l", pushers: [] })).findings[0]?.path).toBe("docs/features/tasks-issues/hub/feature.yaml");
+    const ren = repo({});
+    git(ren.dir, "mv", "docs/features/tasks-issues/spec.md", "docs/features/tasks-issues/screens.md");
+    git(ren.dir, "commit", "-q", "-m", "rename");
+    const r = await guardRepo({ cwd: ren.dir, baseSha: ren.baseSha, author: "daria.l", pushers: [] });
+    expect(r.ok).toBe(false); // the designer may write screens.md, not delete spec.md
+  });
+});
+
+describe("the people of a merge request", () => {
+  const pages: Record<string, unknown> = {
+    "/projects/7/merge_requests/3": { iid: 3, source_branch: "hub/save-1", author: { username: "olena.k" } },
+    "/projects/7/events?action=pushed&after=2026-10-06&per_page=100&page=1": [
+      { author_username: "olena.k", created_at: "2026-10-07T10:00:00Z", push_data: { ref: "hub/save-1", ref_type: "branch" } },
+      { author_username: "daria.l", created_at: "2026-10-07T11:00:00Z", push_data: { ref: "hub/save-1", ref_type: "branch" } },
+      { author_username: "taras.m", created_at: "2026-10-07T11:00:00Z", push_data: { ref: "other", ref_type: "branch" } },
+      { author_username: "petro.v", created_at: "2026-10-06T09:00:00Z", push_data: { ref: "hub/save-1", ref_type: "branch" } },
+    ],
+  };
+  const fake = (async (url: string) => {
+    const path = String(url).replace("https://gl.test/api/v4", "");
+    return new Response(JSON.stringify(pages[path] ?? { message: "404 Not Found" }), { status: path in pages ? 200 : 404 });
+  }) as typeof fetch;
+  const gl = new GitLab("https://gl.test", "t", fake);
+
+  it("names the author from the API and everyone who pushed to the branch since its base", async () => {
+    const r = await mergeRequestPeople(gl, { CI_MERGE_REQUEST_IID: "3", CI_PROJECT_ID: "7", GITLAB_USER_LOGIN: "olena.k" }, "2026-10-07T00:00:00.000Z");
+    expect(r).toEqual({ author: "olena.k", pushers: ["daria.l", "olena.k"] });
+  });
+
+  it("refuses to run outside a merge request pipeline", async () => {
+    await expect(mergeRequestPeople(gl, {}, "2026-10-07T00:00:00Z")).rejects.toThrow(/merge request pipeline/);
+  });
+
+  it("explains a refusal path by path", () => {
+    const text = formatFindings({ ok: false, findings: [{ user: "daria.l", path: ".hub/config.yaml", reason: "No role of daria.l (designer) may change .hub/config.yaml" }] }, "olena.k", ["daria.l", "olena.k"]);
+    expect(text).toContain("refused (author olena.k; also pushed: daria.l)");
+    expect(text).toContain("✗ .hub/config.yaml — No role of daria.l");
+  });
+});

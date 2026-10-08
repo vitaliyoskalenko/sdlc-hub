@@ -8,6 +8,8 @@ import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { gitIdentity, openProject, topLevel, userFor } from "@sdlc-hub/git";
 import { startServer, type RunningServer, type ServerOptions } from "@sdlc-hub/server";
+import { GitLab } from "@sdlc-hub/host";
+import { baseTime, formatFindings, guardRepo, mergeRequestPeople } from "./guard.ts";
 import { report } from "./report.ts";
 import { gitCredentials, setupHandler } from "./setup.ts";
 import { WEB_ASSETS } from "./web-assets.ts";
@@ -19,6 +21,10 @@ const HELP = `SDLC Hub
 
   hub report --team <id> --specs-url <url> [--push]
       In a team repository's CI: publish the team's snapshot of each feature to hub-state.
+
+  hub guard [--rules <ref>] [--server-url <url>]
+      In the hub-guard job of a product-specs merge request: refuse changes outside the roles of the author
+      and of everyone who pushed. The rules are read from --rules (main as fetched), never from the merge request.
 
   hub serve [--port <n>] [--as <user>]
       Serve the site for the product-specs checkout you are in.
@@ -148,8 +154,21 @@ async function reportCommand(f: Record<string, string>) {
   if (f["push"] === undefined) console.log(JSON.stringify(r.snapshots, null, 2));
 }
 
+async function guardCommand(f: Record<string, string>) {
+  const env = process.env;
+  const base = env["CI_MERGE_REQUEST_DIFF_BASE_SHA"];
+  const token = env["HUB_GUARD_TOKEN"];
+  const server = f["server-url"] ?? env["HUB_GIT_URL"] ?? env["CI_SERVER_URL"];
+  if (!base || !token || !server) throw new Error("hub guard runs in a merge request pipeline of product-specs, with HUB_GUARD_TOKEN set");
+  const cwd = process.cwd();
+  const { author, pushers } = await mergeRequestPeople(new GitLab(server, token), env, baseTime(cwd, base));
+  const r = guardRepo({ cwd, baseSha: base, rulesRef: f["rules"] ?? base, author, pushers });
+  console.log(formatFindings(r, author, pushers));
+  if (!r.ok) process.exit(1);
+}
+
 const [command, ...rest] = process.argv.slice(2);
-const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : undefined;
+const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : undefined;
 if (!run) {
   console.log(HELP);
   process.exit(command && command !== "help" && command !== "--help" ? 1 : 0);

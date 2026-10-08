@@ -33,6 +33,9 @@ export interface GitLabProject {
   shared_runners_enabled: boolean;
   http_url_to_repo: string;
   web_url: string;
+  ci_config_path?: string | null;
+  only_allow_merge_if_pipeline_succeeds?: boolean;
+  allow_merge_on_skipped_pipeline?: boolean | null;
 }
 
 export interface GitLabRunner {
@@ -55,6 +58,19 @@ export interface MergeRequest {
   web_url: string;
   state: string;
   source_branch: string;
+  target_branch?: string;
+  author?: { username: string };
+  created_at?: string;
+  detailed_merge_status?: string;
+  merge_when_pipeline_succeeds?: boolean;
+  merged_by?: { username: string } | null;
+  head_pipeline?: { id: number; status: string } | null;
+}
+
+export interface PushEvent {
+  author_username: string;
+  created_at: string;
+  push_data?: { ref: string; ref_type: string };
 }
 
 const enc = encodeURIComponent;
@@ -123,9 +139,34 @@ export class GitLab {
     this.call<MergeRequest[]>("GET", `/projects/${projectId}/merge_requests?state=opened&source_branch=${enc(source)}`);
   createMergeRequest = (projectId: number, source: string, target: string, title: string, description: string) =>
     this.call<MergeRequest>("POST", `/projects/${projectId}/merge_requests`, { source_branch: source, target_branch: target, title, description, remove_source_branch: true });
+  mergeRequest = (projectId: number | string, iid: number) => this.call<MergeRequest>("GET", `/projects/${enc(String(projectId))}/merge_requests/${iid}`);
+  /** Sets a merge request to merge by itself when its pipeline succeeds. GitLab answers 405 or 422 until it has checked it. */
+  mergeWhenPipelineSucceeds = (projectId: number, iid: number) =>
+    this.call<MergeRequest>("PUT", `/projects/${projectId}/merge_requests/${iid}/merge`, { merge_when_pipeline_succeeds: true, should_remove_source_branch: true });
+  /** Everyone who pushed to a branch since a day (YYYY-MM-DD), from the project's push events, all pages. */
+  async pushers(projectId: number | string, branch: string, since: string): Promise<string[]> {
+    const users = new Set<string>();
+    const day = new Date(Date.parse(since) - 86_400_000).toISOString().slice(0, 10);
+    for (let page = 1; page <= 50; page++) {
+      const list = await this.call<PushEvent[]>("GET", `/projects/${enc(String(projectId))}/events?action=pushed&after=${day}&per_page=100&page=${page}`);
+      for (const e of list) if (e.push_data?.ref_type === "branch" && e.push_data.ref === branch && e.created_at >= since) users.add(e.author_username);
+      if (list.length < 100) break;
+    }
+    return [...users].sort();
+  }
   createProjectToken = (projectId: number, name: string, scopes: string[], accessLevel: number, expiresAt: string) =>
     this.call<{ id: number; token: string; expires_at: string }>("POST", `/projects/${projectId}/access_tokens`, { name, scopes, access_level: accessLevel, expires_at: expiresAt });
   projectTokens = (projectId: number) => this.call<{ id: number; name: string; active: boolean; revoked: boolean; expires_at: string }[]>("GET", `/projects/${projectId}/access_tokens`);
+  /** Project settings the install changes: the CI configuration file and "Pipelines must succeed". */
+  updateProject = (projectId: number, settings: Record<string, unknown>) => this.call<GitLabProject & Record<string, unknown>>("PUT", `/projects/${projectId}`, settings);
+  protectedBranch = (projectId: number, name: string) =>
+    this.maybe<{ name: string; push_access_levels: { access_level: number }[]; merge_access_levels: { access_level: number }[] }>(`/projects/${projectId}/protected_branches/${enc(name)}`);
+  unprotectBranch = (projectId: number, name: string) => this.call<unknown>("DELETE", `/projects/${projectId}/protected_branches/${enc(name)}`);
+  protectBranch = (projectId: number, name: string, push: number, merge: number) =>
+    this.call<unknown>("POST", `/projects/${projectId}/protected_branches`, { name, push_access_level: push, merge_access_level: merge });
+  projectVariable = (projectId: number, key: string) => this.maybe<{ key: string; masked: boolean; protected: boolean }>(`/projects/${projectId}/variables/${enc(key)}`);
+  setProjectVariable = (projectId: number, key: string, value: string, opts: { masked: boolean; protected: boolean }) =>
+    this.call<unknown>("POST", `/projects/${projectId}/variables`, { key, value, masked: opts.masked, protected: opts.protected, raw: true, variable_type: "env_var" });
   groupVariable = (groupId: number, key: string) => this.maybe<{ key: string; masked: boolean; protected: boolean }>(`/groups/${groupId}/variables/${enc(key)}`);
   setGroupVariable = (groupId: number, key: string, value: string, opts: { masked: boolean; protected: boolean }) =>
     this.call<unknown>("POST", `/groups/${groupId}/variables`, { key, value, masked: opts.masked, protected: opts.protected, raw: true, variable_type: "env_var" });
