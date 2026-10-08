@@ -25,3 +25,4 @@ export * from "./guard.ts";
 export * from "./saves.ts";
 export * from "./signoff.ts";
 export * from "./next.ts";
+export * from "./people.ts";
