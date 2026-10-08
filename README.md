@@ -19,6 +19,17 @@ Other fixtures: `npm run demo -- --fixture <name>`, for example `quick-route`, `
 
 On a real `product-specs` checkout: `npm run build`, then from inside the checkout `node <this repo>/packages/cli/dist/cli.mjs serve`. You are the person in `.hub/roles.yaml` that matches your git identity, or `--as <user>`.
 
+## The Claude Code plugin
+
+Install writes the `hub` plugin into `hub/plugin/` of the specifications repository and enables it in `.claude/settings.json`. Until the setup scripts do it, each person runs this once in their clone:
+
+```
+claude plugin marketplace add "$PWD" --scope local
+claude plugin install hub@product-specs --scope local
+```
+
+Then `/hub:status`, `/hub:next <slug>`, `/hub:signoff <step> <slug>`, `/hub:return <step> <slug> <reason>`, `/hub:bug <slug>` and `/hub:start` work in Claude Code. To try the plugin without installing it: `claude --plugin-dir hub/plugin`.
+
 ## First install on GitLab
 
 ```
