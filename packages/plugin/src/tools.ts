@@ -26,6 +26,8 @@ export interface ToolResult {
 const hubCmd = (a: Assistant, cmd: string, rest = "") => (a === "claude" ? `/hub:${cmd}` : a === "codex" ? `$hub-${cmd}` : `/hub-${cmd}`) + (rest ? ` ${rest}` : "");
 const iso = (d: Date) => d.toISOString().replace(/\.\d+Z$/, "Z");
 const fail = (text: string): ToolResult => ({ text, isError: true });
+/** Ends a sentence once: a name such as "Olena K." already ends with a full stop. */
+const end = (s: string) => (s.endsWith(".") ? s : `${s}.`);
 
 interface Loaded {
   project: Project;
@@ -118,7 +120,7 @@ export function hubStatus(ctx: ToolContext, slug?: string): ToolResult {
   if (slug) {
     const s = featureOrList(l, slug);
     if ("text" in s) return s;
-    const lines = [`${s.title ?? slug} (${slug}), size ${s.size ?? "not set"}, route ${s.route}: ${stepLine(l, s)}.`];
+    const lines = [end(`${s.title ?? slug} (${slug}), size ${s.size ?? "not set"}, route ${s.route}: ${stepLine(l, s)}`)];
     const cur = s.steps.find((x) => x.id === s.current);
     if (cur?.reason) lines.push(`Why: ${cur.reason}`);
     for (const w of s.waits.filter((x) => !x.done)) lines.push(`${w.team}:${w.task} waits for ${w.on}.`);
@@ -186,4 +188,22 @@ export function hubBug(ctx: ToolContext, a: BugArgs): ToolResult {
 export function hubSaves(ctx: ToolContext): Save[] {
   const user = ctx.user();
   return user ? ctx.saver(user).refresh().filter((s) => s.user === user && s.state !== "merged") : [];
+}
+
+/** What a new assistant session is told: who the person is and what waits for them. Never fails the session. */
+export function sessionContext(ctx: ToolContext): string {
+  try {
+    const l = load(ctx);
+    if (isResult(l)) return `SDLC Hub: ${l.text.split("\n")[0]}`;
+    const person = l.project.roles.people.find((p) => p.user === l.user)!;
+    const all = listFeatures(l.open.view.specs).map((x) => l.state(x)!);
+    const mine = all.filter((s) => s.current !== "released" && (s.steps.find((x) => x.id === s.current)?.waitingOn ?? []).includes(l.user));
+    return [
+      `SDLC Hub: this is ${l.project.config.project.name}'s product-specs. The person is ${person.name} (${person.user}), role ${person.roles.join(", ")}${person.team ? `, team ${person.team}` : ""}.`,
+      mine.length ? `Waiting for them: ${mine.map((s) => `${s.slug} (${s.current})`).join(", ")}.` : "Nothing waits for them right now.",
+      `Use ${hubCmd(ctx.assistant, "status")} to see every feature and ${hubCmd(ctx.assistant, "next")} to run their next step. Never edit hub files (.hub/, hub/, signoffs.yaml) by hand: the hub tools save them through merge requests.`,
+    ].join("\n");
+  } catch (e) {
+    return `SDLC Hub could not read the project: ${(e as Error).message}`;
+  }
 }

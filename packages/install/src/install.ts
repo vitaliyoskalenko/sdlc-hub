@@ -9,6 +9,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { GitLab, HostError, WORDS, type GitLabGroup, type GitLabProject, type GitLabUser } from "@sdlc-hub/host";
+import { MARKETPLACE, PLUGIN, marketplaceFile, pluginFiles, withClaudeSettings } from "@sdlc-hub/plugin/files";
 import { CLAUDE_BLOCK, hostUrl, hubFiles, teamId, withBlock, withIgnore, type SetupAnswers } from "./answers.ts";
 import { HUB_CI_FILE, HUB_CI_PROJECT, HUB_REPORT_FILE, hubGuardCi, hubReportJob, reportStage, withInclude } from "./ci.ts";
 
@@ -172,7 +173,7 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
 
   // 1. The hub and its settings, in one commit on main; through a merge request once main is protected.
   const locked = isProtected(await gl.protectedBranch(p.id, main), NO_ONE, DEVELOPER);
-  const ok1 = await step("files", `wrote .hub/, hub/cli.js, CLAUDE.md${a.assistants.codex || a.assistants.cursor ? ", AGENTS.md" : ""} and .gitignore to ${specsPath}`, async () => {
+  const ok1 = await step("files", `wrote .hub/, hub/cli.js, the hub plugin, CLAUDE.md${a.assistants.codex || a.assistants.cursor ? ", AGENTS.md" : ""} and .gitignore to ${specsPath}`, async () => {
     const existingRoles = await gl.file(p.id, ".hub/roles.yaml", main);
     const { files, issues } = hubFiles(a, { user: user.username, name: user.name });
     if (issues.some((i) => i.level === "error")) throw new Error(issues.map((i) => i.message).join("; "));
@@ -183,6 +184,10 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
     files["CLAUDE.md"] = withBlock(await gl.file(p.id, "CLAUDE.md", main), CLAUDE_BLOCK);
     if (a.assistants.codex || a.assistants.cursor) files["AGENTS.md"] = withBlock(await gl.file(p.id, "AGENTS.md", main), CLAUDE_BLOCK);
     files[".gitignore"] = withIgnore(await gl.file(p.id, ".gitignore", main), ".claude/sdd.local.md");
+    // The hub plugin for Claude Code, the repository's own marketplace, and the shared settings that enable both.
+    Object.assign(files, pluginFiles());
+    files[".claude-plugin/marketplace.json"] = marketplaceFile(a.project.trim() || a.repo.trim());
+    files[".claude/settings.json"] = withClaudeSettings(await gl.file(p.id, ".claude/settings.json", main), a.engine === "sdd" ? { id: "sdd", source: "genkovich/sdd" } : null);
     // An install merge request still waiting for its pipeline already carries some of the files.
     const pending = locked ? (await gl.openMergeRequests(p.id, INSTALL_BRANCH))[0] : undefined;
     const actions = [];
@@ -328,6 +333,7 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
   if (opened.length) left.push(`${a.teams.length === 1 ? "The team lead merges" : "Each team lead merges"} the ${w.changeRequest} that adds the hub-report job: ${opened.join(", ")}`);
   if (!/gitlab\.com$/.test(new URL(hostUrl(a.address)).hostname)) left.push("Optional: install the pre-receive server hook. It needs access to the GitLab server");
   if (a.engine === "custom") left.push("Fill in .hub/engines/custom.yaml: one command per stage");
+  left.push(`Each person makes Claude Code load the hub plugin once, in their clone of ${specsPath}: claude plugin marketplace add <the clone's folder> --scope local, then claude plugin install ${PLUGIN}@${MARKETPLACE} --scope local. The setup scripts will do this for them`);
   left.push(`Keep the people of the hub at the Developer role in ${group.full_path}: a Maintainer can change ${ciPath} and the protection of main`);
   return { ok: steps.every((s) => s.state !== "fail"), steps, left };
 }

@@ -131,7 +131,8 @@ export function createSaver(o: SaverOptions) {
       const blobs = Object.fromEntries(paths.map((p) => [p, tryRun(wt, ["rev-parse", `HEAD:${p}`])?.trim() ?? null]));
       const branch = saveBranch(req.user, req.label, at);
       const options = (o.pushOptions ?? gitlabPushOptions)(req.title, target);
-      const push = spawnSync("git", ["push", ...options, remote, `HEAD:refs/heads/${branch}`], { cwd: wt, env: baseEnv, encoding: "utf8" });
+      // From the checkout, not the worktree: a remote may be a path relative to the checkout. They share objects.
+      const push = spawnSync("git", ["push", ...options, remote, `${sha}:refs/heads/${branch}`], { cwd: o.root, env: baseEnv, encoding: "utf8" });
       if (push.status !== 0) throw new Error(`The push failed: ${(push.stderr || push.error?.message || "").trim()}`);
       // GitLab answers with the merge request's address.
       const link = /(https?:\/\/\S+\/-\/merge_requests\/(\d+))/.exec(push.stderr ?? "");

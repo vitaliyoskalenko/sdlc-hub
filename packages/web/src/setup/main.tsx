@@ -542,7 +542,7 @@ function Setup() {
         <h3>What Install does</h3>
         <ul>
           <li>
-            Writes <code>.hub/</code>, the hub (<code>hub/cli.js</code>) and the hub sections of <code>CLAUDE.md</code> to <code>{`${a.namespace}/${a.repo}`}</code> in one commit, and turns forking of it off.
+            Writes <code>.hub/</code>, the hub (<code>hub/cli.js</code>), the hub plugin for Claude Code (<code>hub/plugin/</code>, enabled in <code>.claude/settings.json</code>) and the hub sections of <code>CLAUDE.md</code> to <code>{`${a.namespace}/${a.repo}`}</code> in one commit, and turns forking of it off.
           </li>
           <li>
             Creates the branch <code>hub-state</code> and stores a token for hub-report as the masked group variable <code>HUB_STATE_TOKEN</code>.

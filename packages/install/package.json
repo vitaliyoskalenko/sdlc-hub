@@ -10,7 +10,8 @@
   "dependencies": {
     "@sdlc-hub/core": "*",
     "@sdlc-hub/host": "*",
-    "yaml": "^2.9.1"
+    "yaml": "^2.9.1",
+    "@sdlc-hub/plugin": "*"
   },
   "devDependencies": {
     "@sdlc-hub/save": "*"

@@ -85,6 +85,10 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
     const config = (await owner.file(specs.id, ".hub/config.yaml", "main"))!;
     expect(parseConfig(config, "c").issues).toEqual([]);
     expect(await owner.file(specs.id, "hub/package.json", "main")).toMatch(/"type": "module"/);
+    // The hub plugin for Claude Code, its marketplace and the shared settings (on main, or in the install merge request).
+    const at = (await owner.openMergeRequests(specs.id, "sdlc-hub/install"))[0] ? "sdlc-hub/install" : "main";
+    expect(JSON.parse((await owner.file(specs.id, "hub/plugin/.mcp.json", at))!).mcpServers.hub.args[0]).toBe("${CLAUDE_PROJECT_DIR}/hub/cli.js");
+    expect(JSON.parse((await owner.file(specs.id, ".claude/settings.json", at))!).enabledPlugins).toMatchObject({ "hub@product-specs": true, "sdd@sdd": true });
     expect(specs.forking_access_level).toBe("disabled");
     expect(await owner.branch(specs.id, "hub-state")).not.toBeNull();
     const group = (await owner.group("shop"))!;

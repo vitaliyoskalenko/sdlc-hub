@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { refusalPath } from "@sdlc-hub/core";
 import { createSaver, gitlabPushOptions } from "../src/index.ts";
@@ -73,6 +73,14 @@ describe("saving from the site", () => {
     git(w, "push", "-q", "origin", "hub-state", `:${s.branch}`);
     const [r] = saver.refresh();
     expect(r).toMatchObject({ state: "refused", findings: [{ path: ".hub/config.yaml" }] });
+  });
+
+  it("pushes to a remote named by a relative path, as git resolves it from the checkout", () => {
+    const { remote, clone } = setup();
+    git(clone, "remote", "set-url", "origin", relative(clone, remote));
+    const saver = createSaver({ root: clone, identity: { name: "O", email: "o@x" } });
+    const s = saver.save({ user: "olena.k", label: "x", title: "x", build: () => [{ path: "docs/x.md", next: "x\n" }] });
+    expect(git(remote, "show", `${s.branch}:docs/x.md`)).toBe("x");
   });
 
   it("keeps the merge request link GitLab prints", () => {

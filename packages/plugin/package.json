@@ -5,7 +5,8 @@
   "type": "module",
   "description": "The assistant plugin: the MCP server the hub skills call, and the plugin files install writes for Claude Code.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./files": "./src/files.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.3.1",
@@ -15,6 +16,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "^2.3.1"
+    "@modelcontextprotocol/client": "^2.3.1",
+    "yaml": "^2.9.1"
   }
 }

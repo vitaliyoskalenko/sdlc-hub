@@ -14,7 +14,7 @@ import { baseTime, formatFindings, guardRepo, mergeRequestPeople, recordRefusal 
 import { actionHandler } from "./actions.ts";
 import { addDemoRemote, demoHost } from "./demo-host.ts";
 import { report } from "./report.ts";
-import { createHubMcp } from "@sdlc-hub/plugin";
+import { createHubMcp, sessionContext, type ToolContext } from "@sdlc-hub/plugin";
 import { createSaver } from "@sdlc-hub/save";
 import { gitCredentials, setupHandler } from "./setup.ts";
 import { WEB_ASSETS } from "./web-assets.ts";
@@ -30,6 +30,9 @@ const HELP = `SDLC Hub
   hub guard [--rules <ref>] [--server-url <url>]
       In the hub-guard job of a product-specs merge request: refuse changes outside the roles of the author
       and of everyone who pushed. The rules are read from --rules (main as fetched), never from the merge request.
+
+  hub hook session-start
+      Run by the assistant when a session starts: tells it who you are and what waits for you.
 
   hub mcp [--assistant claude|codex|cursor]
       The MCP server the hub skills call, over stdio. The assistant starts it; you do not.
@@ -209,24 +212,38 @@ async function guardCommand(f: Record<string, string>) {
   process.exit(1);
 }
 
-async function mcp(f: Record<string, string>) {
-  // The assistant starts this in the project, or passes the project folder in CLAUDE_PROJECT_DIR.
+/** The plugin's view of the product-specs checkout the assistant works in. */
+function pluginContext(f: Record<string, string>): ToolContext {
+  // The assistant starts the hub in the project, or passes the project folder in CLAUDE_PROJECT_DIR.
   const root = topLevel(process.env["CLAUDE_PROJECT_DIR"] ?? process.cwd());
-  if (!root) throw new Error("hub mcp runs inside the product-specs checkout.");
+  if (!root) throw new Error("The hub plugin runs inside the product-specs checkout.");
   const assistant = f["assistant"] === "codex" || f["assistant"] === "cursor" ? f["assistant"] : "claude";
-  const { StdioServerTransport } = await import("@modelcontextprotocol/server/stdio");
-  const server = createHubMcp({
+  return {
     open: () => openProject(root),
     user: () => userFor(openProject(root).project?.roles, gitIdentity(root)),
     assistant,
     saver: () => createSaver({ root, identity: gitIdentity(root) }),
     now: () => new Date(),
-  });
-  await server.connect(new StdioServerTransport());
+  };
+}
+
+async function mcp(f: Record<string, string>) {
+  const { StdioServerTransport } = await import("@modelcontextprotocol/server/stdio");
+  await createHubMcp(pluginContext(f)).connect(new StdioServerTransport());
+}
+
+/** A hook of the assistant. session-start prints what the new session should know; it never fails the session. */
+async function hook(_f: Record<string, string>, event: string | undefined) {
+  if (event !== "session-start") return;
+  try {
+    console.log(sessionContext(pluginContext({})));
+  } catch (e) {
+    console.log(`SDLC Hub: ${(e as Error).message}`);
+  }
 }
 
 const [command, ...rest] = process.argv.slice(2);
-const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : undefined;
+const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "hook" ? (f: Record<string, string>) => hook(f, rest[0]) : undefined;
 if (!run) {
   console.log(HELP);
   process.exit(command && command !== "help" && command !== "--help" ? 1 : 0);

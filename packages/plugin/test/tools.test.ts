@@ -7,7 +7,7 @@ import { parseBugFile, parseSignoffs } from "@sdlc-hub/core";
 import { fixtures, materialize } from "@sdlc-hub/fixtures";
 import { openProject } from "@sdlc-hub/git";
 import { createSaver } from "@sdlc-hub/save";
-import { hubBug, hubNext, hubSignoff, hubStatus, type ToolContext } from "../src/index.ts";
+import { hubBug, hubNext, hubSignoff, hubStatus, sessionContext, type ToolContext } from "../src/index.ts";
 
 const temp: string[] = [];
 afterAll(() => temp.forEach((d) => rmSync(d, { recursive: true, force: true })));
@@ -103,5 +103,17 @@ describe("hub_signoff, hub_return and hub_bug", () => {
     const r = hubBug(demo("olena.k").ctx, { slug: "tasks-issues", title: "x", team: "web", severity: "low" });
     expect(r.isError).toBe(true);
     expect(r.text).toMatch(/No role of olena\.k/);
+  });
+});
+
+describe("a new assistant session", () => {
+  it("is told who the person is and what waits for them", () => {
+    const text = sessionContext(demo("olena.k").ctx);
+    expect(text).toContain("The person is Olena K. (olena.k), role po.");
+    expect(text).toContain("Waiting for them: returns-portal (clarify).");
+  });
+  it("still starts when the person is unknown", () => {
+    const { ctx } = demo("olena.k");
+    expect(sessionContext({ ...ctx, user: () => undefined })).toMatch(/^SDLC Hub: Your git identity matches nobody/);
   });
 });
