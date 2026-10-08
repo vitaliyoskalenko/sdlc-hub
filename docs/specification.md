@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 8, 2026 · @Vitaliy · revision 56
+Oct 8, 2026 · @Vitaliy · revision 57
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -534,7 +534,7 @@ A rule is a glob. `<glob>#<heading text>` allows one section of the file and `<g
 | Layer | What it does | Strength |
 | --- | --- | --- |
 | Protected `main` | "Allowed to push and merge" is split: push is set to No one and merge to Developers and Maintainers, so every change is a merge request that the pipeline must pass. Only the admin holds Maintainer | Hard |
-| `hub-guard` job with "Pipelines must succeed" | Reads `roles.yaml` from `main`, lists changed files with `git diff --name-only $CI_MERGE_REQUEST_DIFF_BASE_SHA`, and fails unless every changed path is allowed for the merge request author and for every person who pushed to the branch. The guard script itself comes from the hub-ci project, never from the merge request | Hard, at merge |
+| `hub-guard` job with "Pipelines must succeed" | Fetches `main` and reads `roles.yaml`, `config.yaml`, `flow.yaml` and each `feature.yaml` from it. Lists the changes with `git diff --name-status -M $CI_MERGE_REQUEST_DIFF_BASE_SHA HEAD` and fails unless every change is allowed for the merge request author and for every person who pushed to the branch. The author comes from the merge request API. The people who pushed come from the project's push events to the branch since its base. Both are read with `HUB_GUARD_TOKEN`, a read-only project access token (`read_api`, Reporter) stored as a masked project variable. The job's configuration comes from the hub-ci project and the code it runs is `hub/cli.js` on `main`, never the merge request's. A skipped pipeline (`[skip ci]`) does not count as passed | Hard, at merge |
 | Pipeline config in the `hub-ci` project | The "CI/CD configuration file" setting points outside the repository, so an author cannot delete the guard in their own merge request | Hard |
 | Optional pre-receive server hook | Runs the same check at push time using `GL_USERNAME`. Needs access to the GitLab server | Hard, at push |
 | Site and assistant rules | The site disables buttons, and the setup script writes path rules for the assistant | Guidance only |
@@ -581,7 +581,7 @@ Setup has two parts: the admin initialises the project once, then generates one 
 4. Setup vendors the hub into `hub/` (`hub/cli.js`, one file with the web app inside, and `hub/package.json`, which makes Node load it as an ES module), writes `.hub/*`, the assistant files and the `.gitignore` line for `.claude/sdd.local.md` in one commit through the API, turns off forking of the repository, and creates the `hub-state` branch with no history.
 5. It stores `HUB_STATE_TOKEN`, applies the host settings through the API and opens one merge request in each team repository to add the `hub-report` job. Anything it may not change is listed as left for people.
 
-Install grows with the delivery phases and is run again to catch up. In phase 1b it writes the files, vendors the hub, creates `hub-state`, stores `HUB_STATE_TOKEN` and opens the `hub-report` merge requests; the assistant files are only the `CLAUDE.md` and `AGENTS.md` sections, because the plugin does not exist yet. In phase 2 a second run adds the plugin files, creates `hub-ci`, protects `main`, turns on "Pipelines must succeed" and points the CI/CD configuration file at `hub-ci`, together with `hub-guard`.
+Install grows with the delivery phases and is run again to catch up. In phase 1b it writes the files, vendors the hub, creates `hub-state`, stores `HUB_STATE_TOKEN` and opens the `hub-report` merge requests; the assistant files are only the `CLAUDE.md` and `AGENTS.md` sections, because the plugin does not exist yet. In phase 2 a second run adds the plugin files, creates `hub-ci` (its `main` protected for Maintainers), stores `HUB_GUARD_TOKEN`, points the CI/CD configuration file at `hub-ci`, turns on "Pipelines must succeed" with skipped pipelines not counting, and protects `main` last. Once `main` is protected, the install's own file updates reach it through a merge request that merges itself when `hub-guard` passes, like every other change.
 6. The page shows the result and a button that opens the hub on the People screen.
 
 ### What the setup page asks
@@ -760,7 +760,7 @@ This section closes gaps found in a review of the design: what the guard checks 
 ### Guard rules
 
 - The default is deny. A path that no role is allowed to change can be changed only by the admin. That covers `hub/**`, `.hub/**`, the assistant folders (`.claude/**`, `.agents/**`, `.codex/**`, `.cursor/**`, `CLAUDE.md`, `AGENTS.md`) and CI files, because they run on every machine.
-- The guard script and its tests live in the `hub-ci` project on GitLab, or come from the default branch on GitHub. The merge request is only data: the list of changed files and their contents.
+- The guard's job configuration lives in the `hub-ci` project on GitLab, and the code it runs is `hub/cli.js` on `main`, which only the admin changes. On GitHub both come from the default branch. The merge request is only data: the list of changed files and their contents.
 - `signoffs.yaml` is append-only. A new entry must name the merge request author as the person. A pass or a return must be at a gate the author owns (see "Roles and the paths they may change"); a `confirm` entry must be for a step of the author's role, or of the author's team. Existing entries cannot be edited or removed.
 - Each person may add their own public key files, `.hub/keys/<own user>-<machine>.pub`, and nothing else under `.hub/`. An existing key file is changed only by the admin.
 - A sign-off records the content hash of the file it approves, not a commit. It stays current while the hash matches; a wording-only edit carries it forward and is logged.

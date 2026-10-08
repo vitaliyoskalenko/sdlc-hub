@@ -2,6 +2,44 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-08: Revision 57, hub-guard on GitLab
+
+### The guard runs main's hub/cli.js, configured from hub-ci
+- **Decision:** `hub-ci` holds only the job configuration, `ci/product-specs.yml`, which product-specs uses as its CI/CD configuration file. The job fetches `main` and runs `hub/cli.js` from it with `guard --rules FETCH_HEAD`. It never runs code from the merge request's checkout. The rules (`roles.yaml`, `config.yaml`, `flow.yaml` and each `feature.yaml`) are read from `main` as well.
+- **Why:** The specification asked for the guard script itself to live in `hub-ci`. That would need a second copy of the hub to keep in step. `hub/**` on `main` already changes only by an admin's merge request, so a merge request cannot change the code that judges it, and the property holds with one copy.
+- **By:** Proposed.
+
+### Who the guard judges
+- **Decision:** The guard judges the merge request author, read from the merge request API, and every person who pushed to the branch. Those people are the pipeline's user plus the authors of the project's push events to the branch since its base commit. Both are read with `HUB_GUARD_TOKEN`, a project access token of product-specs (`read_api`, Reporter) stored as a masked project variable that is not protected, because merge request branches are not protected.
+- **Why:** GitLab CI has no author variable, and commit authors can be anything. The push events name the people GitLab authenticated.
+- **By:** Proposed; verified on GitLab CE. A developer's push followed by the PO's push and merge request was refused, naming the developer.
+
+### The order of the install's phase 2 steps, and updates once main is protected
+- **Decision:** The steps run in this order:
+  1. the files (pushed directly while `main` is still open);
+  2. forking;
+  3. `hub-state`;
+  4. `HUB_STATE_TOKEN`;
+  5. `hub-ci`, with its `main` protected for Maintainers (push and merge);
+  6. `HUB_GUARD_TOKEN`;
+  7. the CI configuration path, with "Pipelines must succeed" on and skipped pipelines not counting;
+  8. last, `main` protected (push: No one, merge: Developers).
+
+  After that, a later run sends its file changes through the `sdlc-hub/install` merge request, which merges itself when the admin passes `hub-guard`.
+- **Why:** The bundle that has the `guard` command must reach `main` before the configuration that calls it. Even the admin changes `main` only through a merge request.
+- **By:** Proposed; verified on GitLab CE.
+
+### Verified on GitLab CE 19.4.1 (Free)
+- **Decision:** `npm run test:gitlab` now also proves the phase 2 exit criterion, "an edit outside a role is refused at merge":
+  - The admin's merge request adding people to `roles.yaml` merges by itself.
+  - The PO's spec change merges by itself, in her name.
+  - The PO's change to `.hub/config.yaml` fails `hub-guard`, with the reason in the job log, and stays open.
+  - A change pushed with `[skip ci]` gets a skipped pipeline and does not merge.
+  - A direct push to `main` is refused, even for the admin.
+
+  Two new accepted risks are recorded as claims 14 and 15 in `docs/open-items.md`.
+- **By:** Test run on 8 October 2026.
+
 ## 2026-10-08: Revision 56, phase 1b on GitLab CE
 
 ### Setup signs in with a pasted personal access token

@@ -38,7 +38,8 @@ const ANSWERS: SetupAnswers = {
   headless: false,
 };
 
-const bundle = existsSync("packages/cli/dist/cli.mjs") ? readFileSync("packages/cli/dist/cli.mjs", "utf8") : "// hub bundle\n";
+// A bundle that differs on every run, so that once main is protected the install's merge request path runs each time.
+const bundle = `${existsSync("packages/cli/dist/cli.mjs") ? readFileSync("packages/cli/dist/cli.mjs", "utf8") : ""}\n// test run ${Date.now()}\n`;
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /** Polls a merge request until it merged or its pipeline failed. */
@@ -76,6 +77,9 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
   it("installs: files, forking off, hub-state, HUB_STATE_TOKEN (claim 3) and one merge request per team", async () => {
     const r = await install(ANSWERS, owner, { hubBundle: bundle });
     expect(r.steps.filter((s) => s.state === "fail"), JSON.stringify(r.steps)).toEqual([]);
+    // With main protected (from an earlier run), the files go through a merge request that merges itself.
+    const files = r.steps.find((s) => s.id === "files")!;
+    if (/merge request/.test(files.text)) expect(files.text).toMatch(/opened merge request !\d+ with the hub files; it merges itself when hub-guard passes/);
     const specs = (await owner.project("shop/product-specs"))!;
     const config = (await owner.file(specs.id, ".hub/config.yaml", "main"))!;
     expect(parseConfig(config, "c").issues).toEqual([]);
@@ -154,6 +158,23 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
       const log = await guardLog(id, m.head_pipeline!.id);
       expect(log).toContain("hub-guard: refused (author olena.k)");
       expect(log).toContain("✗ .hub/config.yaml — No role of olena.k (po) may change .hub/config.yaml");
+      await root.updateMergeRequest(id, mr.iid, { state_event: "close" });
+    }, 360_000);
+
+    it("judges everyone who pushed to the branch, found in the push events, not only the author", async () => {
+      const id = await specsId();
+      const path = "docs/features/bulk-order-export/spec.md";
+      const branch = `two-${stamp}`;
+      // A developer pushes first and the PO pushes last and opens the merge request: the pipeline runs as the PO.
+      await as("taras.m").commit(id, branch, "Spec edit by a developer", [{ action: "update", file_path: path, content: `# Bulk order export\n\nEdited by taras.m ${stamp}.\n` }], "main");
+      await as("olena.k").commit(id, branch, "Spec edit by the PO", [{ action: "update", file_path: path, content: `# Bulk order export\n\nEdited by olena.k ${stamp}.\n` }]);
+      const mr = await as("olena.k").createMergeRequest(id, branch, "main", "Spec edits by two people", "");
+      await as("olena.k").autoMerge(id, mr.iid);
+      const m = await settle(root, id, mr.iid);
+      expect(m.state).toBe("opened");
+      const log = await guardLog(id, m.head_pipeline!.id);
+      expect(log).toContain("hub-guard: refused (author olena.k; also pushed: taras.m)");
+      expect(log).toMatch(/✗ docs\/features\/bulk-order-export\/spec\.md — No role of taras\.m .*\(taras\.m\)/);
       await root.updateMergeRequest(id, mr.iid, { state_event: "close" });
     }, 360_000);
 

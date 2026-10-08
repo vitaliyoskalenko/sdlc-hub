@@ -31,7 +31,7 @@ To try it on a local GitLab CE in Docker (about 4 GB of memory, 10 minutes for t
 ```
 docker run -d --name sdlc-hub-gitlab -p 8929:8929 -e GITLAB_OMNIBUS_CONFIG="external_url 'http://localhost:8929'" gitlab/gitlab-ce:latest
 node e2e/gitlab/bootstrap.mjs      # group shop, owner nazar.t, five repositories, a runner; secrets in ~/.sdlc-hub-test/
-npm run test:gitlab                # the install, twice, and a real hub-report pipeline
+npm run test:gitlab                # the install twice, a real hub-report pipeline, and hub-guard at merge
 HUB_GITLAB_IT=1 npx playwright test e2e/setup.spec.ts
 ```
 
