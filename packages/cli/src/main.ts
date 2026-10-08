@@ -14,6 +14,8 @@ import { baseTime, formatFindings, guardRepo, mergeRequestPeople, recordRefusal 
 import { actionHandler } from "./actions.ts";
 import { addDemoRemote, demoHost } from "./demo-host.ts";
 import { report } from "./report.ts";
+import { createHubMcp } from "@sdlc-hub/plugin";
+import { createSaver } from "@sdlc-hub/save";
 import { gitCredentials, setupHandler } from "./setup.ts";
 import { WEB_ASSETS } from "./web-assets.ts";
 
@@ -28,6 +30,9 @@ const HELP = `SDLC Hub
   hub guard [--rules <ref>] [--server-url <url>]
       In the hub-guard job of a product-specs merge request: refuse changes outside the roles of the author
       and of everyone who pushed. The rules are read from --rules (main as fetched), never from the merge request.
+
+  hub mcp [--assistant claude|codex|cursor]
+      The MCP server the hub skills call, over stdio. The assistant starts it; you do not.
 
   hub serve [--port <n>] [--as <user>]
       Serve the site for the product-specs checkout you are in.
@@ -204,8 +209,24 @@ async function guardCommand(f: Record<string, string>) {
   process.exit(1);
 }
 
+async function mcp(f: Record<string, string>) {
+  // The assistant starts this in the project, or passes the project folder in CLAUDE_PROJECT_DIR.
+  const root = topLevel(process.env["CLAUDE_PROJECT_DIR"] ?? process.cwd());
+  if (!root) throw new Error("hub mcp runs inside the product-specs checkout.");
+  const assistant = f["assistant"] === "codex" || f["assistant"] === "cursor" ? f["assistant"] : "claude";
+  const { StdioServerTransport } = await import("@modelcontextprotocol/server/stdio");
+  const server = createHubMcp({
+    open: () => openProject(root),
+    user: () => userFor(openProject(root).project?.roles, gitIdentity(root)),
+    assistant,
+    saver: () => createSaver({ root, identity: gitIdentity(root) }),
+    now: () => new Date(),
+  });
+  await server.connect(new StdioServerTransport());
+}
+
 const [command, ...rest] = process.argv.slice(2);
-const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : undefined;
+const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : undefined;
 if (!run) {
   console.log(HELP);
   process.exit(command && command !== "help" && command !== "--help" ? 1 : 0);

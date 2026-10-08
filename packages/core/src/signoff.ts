@@ -4,7 +4,7 @@
 import { contentHash } from "./content/hash.ts";
 import type { Change } from "./access.ts";
 import type { FeatureState, Project } from "./detect.ts";
-import { parseSignoffs } from "./files.ts";
+import { parseBugFile, parseSignoffs } from "./files.ts";
 import type { FileSource } from "./source.ts";
 
 export type SignoffAction = { decision: "pass"; step: string } | { decision: "return"; step: string; reason: string };
@@ -73,4 +73,39 @@ export function awaitsSignoff(project: Project, state: FeatureState, stepId: str
   if (st.status !== "ready" && st.status !== "running") return false;
   const reqs = project.engine.steps[stepId]?.done_when ?? step.evidence ?? [];
   return reqs.length > 0 && reqs.every((r) => r.anyOf.every((a) => a.kind === "signoff" && a.step === stepId));
+}
+
+export interface BugInput {
+  title: string;
+  ac?: string;
+  platforms?: string[];
+  team: string;
+  severity: string;
+  body?: string;
+}
+
+/**
+ * A new bug file, `hub/bugs/BUG-NNNN.md`, numbered after the highest bug of every feature. Two bugs filed at the
+ * same moment get the same number; the second merge request then fails to merge and is filed again.
+ */
+export function bugChange(specs: FileSource, slug: string, b: BugInput, user: string, foundIn?: string, teams?: string[]): Change {
+  if (!b.title.trim()) throw new Error("A bug needs a title");
+  if (teams && !teams.includes(b.team)) throw new Error(`There is no team ${b.team}; the teams are ${teams.join(", ")}`);
+  const highest = specs
+    .list("docs/features")
+    .map((p) => /\/hub\/bugs\/BUG-(\d+)\.md$/.exec(p)?.[1])
+    .filter((x): x is string => !!x)
+    .reduce((n, x) => Math.max(n, Number(x)), 0);
+  const id = `BUG-${String(highest + 1).padStart(4, "0")}`;
+  const lines = ["---", `id: ${id}`, `title: ${q(b.title.trim())}`];
+  if (b.ac) lines.push(`ac: ${b.ac}`);
+  if (b.platforms?.length) lines.push(`platforms: [${b.platforms.join(", ")}]`);
+  lines.push(`team: ${b.team}`, `severity: ${b.severity}`, "status: open", `found_by: ${q(user)}`);
+  if (foundIn) lines.push(`found_in: ${foundIn}`);
+  lines.push("---", (b.body ?? "").trim(), "");
+  const path = `docs/features/${slug}/hub/bugs/${id}.md`;
+  const next = lines.join("\n");
+  const parsed = parseBugFile(next, path);
+  if (!parsed.value) throw new Error(parsed.issues.map((i) => i.message).join("; "));
+  return { path, next };
 }

@@ -13,7 +13,8 @@
     "@sdlc-hub/server": "*",
     "@sdlc-hub/save": "*",
     "@sdlc-hub/install": "*",
-    "@sdlc-hub/host": "*"
+    "@sdlc-hub/host": "*",
+    "@sdlc-hub/plugin": "*"
   },
   "devDependencies": {
     "@sdlc-hub/fixtures": "*",

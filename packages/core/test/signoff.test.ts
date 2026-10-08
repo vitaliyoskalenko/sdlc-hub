@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { base, dir, SPEC } from "@sdlc-hub/fixtures";
-import { approvedFile, awaitsSignoff, contentHash, detectFeature, guard, loadProject, memorySource, parseSignoffs, signoffChange } from "../src/index.ts";
+import { approvedFile, awaitsSignoff, bugChange, contentHash, detectFeature, guard, loadProject, memorySource, parseBugFile, parseSignoffs, signoffChange } from "../src/index.ts";
 
 const slug = "tasks-issues";
 const F = dir(slug);
@@ -56,5 +56,23 @@ describe("a gate that waits for its sign-off", () => {
     expect(awaitsSignoff(project, state, "clarify")).toBe(true);
     expect(awaitsSignoff(project, state, "specify")).toBe(false); // no gate
     expect(awaitsSignoff(project, state, "epic")).toBe(false); // epic waits for clarify first
+  });
+});
+
+describe("a bug filed from the plugin", () => {
+  const withBugs = memorySource({ ...files, [`${F}/hub/bugs/BUG-0012.md`]: "---\nid: BUG-0012\n---\n", "docs/features/other/hub/bugs/BUG-0041.md": "---\nid: BUG-0041\n---\n" });
+  it("takes the next free number across all features and passes the guard for QA", () => {
+    const c = bugChange(withBugs, slug, { title: "Counter does not go down", ac: "AC-01", platforms: ["web"], team: "web", severity: "high", body: "Close a task: the counter stays." }, "iryna.s", "verify");
+    expect(c.path).toBe(`${F}/hub/bugs/BUG-0042.md`);
+    const parsed = parseBugFile(c.next!, c.path);
+    expect(parsed.issues).toEqual([]);
+    expect(parsed.value!.front).toMatchObject({ id: "BUG-0042", status: "open", found_by: "iryna.s", found_in: "verify", team: "web", severity: "high" });
+    const ctx = { config: project.config, roles: project.roles, flow: project.flow, feature: () => undefined };
+    expect(guard({ author: "iryna.s", pushers: [], changes: [c] }, ctx).ok).toBe(true);
+    expect(guard({ author: "olena.k", pushers: [], changes: [c] }, ctx).ok).toBe(false);
+  });
+  it("refuses a bug that would not be valid", () => {
+    expect(() => bugChange(withBugs, slug, { title: "", team: "web", severity: "high" }, "iryna.s")).toThrow(/title/i);
+    expect(() => bugChange(withBugs, slug, { title: "x", team: "nope", severity: "high" }, "iryna.s", undefined, ["web"])).toThrow(/team/i);
   });
 });

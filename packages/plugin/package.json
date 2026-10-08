@@ -1,0 +1,20 @@
+{
+  "name": "@sdlc-hub/plugin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The assistant plugin: the MCP server the hub skills call, and the plugin files install writes for Claude Code.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.3.1",
+    "@sdlc-hub/core": "*",
+    "@sdlc-hub/git": "*",
+    "@sdlc-hub/save": "*",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.3.1"
+  }
+}

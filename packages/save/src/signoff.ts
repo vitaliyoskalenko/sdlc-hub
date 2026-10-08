@@ -1,7 +1,7 @@
 // A sign-off or a return of a gate, saved: checked with the same guard that runs at merge, on main as it is on the
 // remote, and only then pushed. The site's action and the plugin's hub_signoff and hub_return both use this.
 
-import { awaitsSignoff, guard, loadProject, signoffChange, type FeatureState, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
+import { awaitsSignoff, bugChange, guard, loadProject, signoffChange, type BugInput, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
 import type { Save, Saver } from "./index.ts";
 
 export type SaveOutcome =
@@ -43,17 +43,59 @@ export function saveSignoff(i: SignoffInput): SaveOutcome {
   if (i.saver.list().some((x) => x.state === "pending" && x.user === i.user && x.meta?.["slug"] === slug && x.meta?.["step"] === step))
     return { ok: false, code: "pending", error: `Your save for ${step} of ${slug} is still waiting to merge` };
 
+  return checkedSave(i.saver, i.user, {
+    label: `${action.decision === "pass" ? "signoff" : "return"}-${step}-${slug}`,
+    title: `${action.decision === "pass" ? "Sign off" : "Return"} ${step} of ${slug}`,
+    meta: { kind: "signoff", slug, step, decision: action.decision },
+    build: (main, p) => signoffChange(p, main, slug, i.user, action, i.at),
+    fallback: i.project,
+  });
+}
+
+export interface BugSaveInput {
+  saver: Saver;
+  project: Project;
+  user: string;
+  slug: unknown;
+  bug: Partial<BugInput>;
+  /** The step QA found it in, usually verify. */
+  foundIn?: string;
+}
+
+/** Files a bug: `hub/bugs/BUG-NNNN.md` in the feature, through a merge request. */
+export function saveBug(i: BugSaveInput): SaveOutcome {
+  if (typeof i.slug !== "string" || !SLUG.test(i.slug)) return { ok: false, code: "bad-input", error: "Give the feature's slug" };
+  const b = i.bug;
+  if (typeof b.title !== "string" || typeof b.team !== "string" || typeof b.severity !== "string") return { ok: false, code: "bad-input", error: "A bug needs a title, a team and a severity" };
+  const slug = i.slug;
+  const input: BugInput = { title: b.title, team: b.team, severity: b.severity, ...(b.ac ? { ac: b.ac } : {}), ...(b.platforms ? { platforms: b.platforms } : {}), ...(b.body ? { body: b.body } : {}) };
   try {
-    const save = i.saver.save({
-      user: i.user,
-      label: `${action.decision === "pass" ? "signoff" : "return"}-${step}-${slug}`,
-      title: `${action.decision === "pass" ? "Sign off" : "Return"} ${step} of ${slug}`,
-      meta: { kind: "signoff", slug, step, decision: action.decision },
+    bugChange({ read: () => undefined, list: () => [] }, slug, input, i.user, i.foundIn, i.project.config.teams.map((t) => t.id));
+  } catch (e) {
+    return { ok: false, code: "bad-input", error: (e as Error).message };
+  }
+  return checkedSave(i.saver, i.user, {
+    label: `bug-${slug}`,
+    title: `Bug in ${slug}: ${input.title.trim()}`,
+    meta: { kind: "bug", slug },
+    build: (main, p) => bugChange(main, slug, input, i.user, i.foundIn, p.config.teams.map((t) => t.id)),
+    fallback: i.project,
+  });
+}
+
+/** Builds one change from main of the remote, checks it with the guard as the author, and pushes it. */
+function checkedSave(saver: Saver, user: string, o: { label: string; title: string; meta: Record<string, string>; build: (main: FileSource, p: Project) => Change; fallback: Project }): SaveOutcome {
+  try {
+    const save = saver.save({
+      user,
+      label: o.label,
+      title: o.title,
+      meta: o.meta,
       build(main) {
         // Judge the change as hub-guard will: by the files on main of the remote, not this checkout.
-        const p = loadProject(main).value ?? i.project;
-        const change = signoffChange(p, main, slug, i.user, action, i.at);
-        const r = guard({ author: i.user, pushers: [i.user], changes: [change] }, { config: p.config, roles: p.roles, flow: p.flow, feature: (x) => main.read(`docs/features/${x}/hub/feature.yaml`) });
+        const p = loadProject(main).value ?? o.fallback;
+        const change = o.build(main, p);
+        const r = guard({ author: user, pushers: [user], changes: [change] }, { config: p.config, roles: p.roles, flow: p.flow, feature: (x) => main.read(`docs/features/${x}/hub/feature.yaml`) });
         if (!r.ok) throw new Refused(r.findings);
         return [change];
       },
