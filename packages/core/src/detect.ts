@@ -364,9 +364,9 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
         return releaseEval(atom.what);
       case "tests-ci-green": {
         const latest = teamIds.map((id) => testRuns.filter((r) => r.team === id && r.source === "ci").sort(byTime).at(-1));
-        const red = latest.flatMap((r, i) => (r && r.failed > 0 ? [teamIds[i]!] : []));
+        const red = latest.flatMap((r, i) => (r?.result === "failed" ? [teamIds[i]!] : []));
         if (red.length) return { level: "partial", blocked: `The latest CI run is red in ${red.join(", ")}` };
-        const green = latest.filter((r) => r && r.failed === 0).length;
+        const green = latest.filter((r) => r?.result === "passed").length;
         return { level: green === teamIds.length ? "full" : green ? "partial" : "none" };
       }
     }

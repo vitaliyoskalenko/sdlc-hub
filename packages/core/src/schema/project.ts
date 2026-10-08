@@ -13,6 +13,8 @@ const team = z.strictObject({
   repo: z.string().regex(/^[^/\s]+(\/[^/\s]+)+$/, "Write the repository as group/name"),
   kind: z.enum(TEAM_KINDS),
   api_contract: z.boolean().optional(),
+  /** The command that runs the team's autotests in its repository, for a local run (hub test). */
+  test: z.string().min(1).optional(),
 });
 
 export const configSchema = z

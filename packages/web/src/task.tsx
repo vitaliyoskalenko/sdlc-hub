@@ -2,7 +2,7 @@
 // detail the action needs, the command to copy and the button to the place on the site (prototype: taskHTML).
 
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
-import { api, type FeatureDetail } from "./api.ts";
+import { api, type FeatureDetail, type TestRun } from "./api.ts";
 import { collectTasks, StepPanel, stepCommand, TASK_LABEL, waitsOf } from "./feature.tsx";
 import type { Action } from "./home.tsx";
 import { hubCmd } from "./text.ts";
@@ -136,6 +136,12 @@ export function TaskPage({ action, close }: { action: Action; close: () => void 
   );
 }
 
+/** passed or failed, with the counts when the run has them. */
+export function RunResult({ run }: { run: TestRun }) {
+  const n = run.result === "failed" ? run.failed : run.passed;
+  return <Pill kind={run.result === "failed" ? "bad" : "ok"}>{n !== undefined ? `${n} ${run.result}` : run.result}</Pill>;
+}
+
 /** The detail the action needs. */
 function Detail({ action, detail }: { action: Action; detail: FeatureDetail }) {
   const { me, project } = useApp();
@@ -245,7 +251,9 @@ function Detail({ action, detail }: { action: Action; detail: FeatureDetail }) {
                     <td class="nw">{r.source === "ci" ? "CI" : "local"}</td>
                     <td class="nw">{teamName(project, r.team)}</td>
                     <td>{r.ref ?? ""}</td>
-                    <td class="nw">{r.failed ? <Pill kind="bad">{r.failed} failed</Pill> : <Pill kind="ok">{r.passed} passed</Pill>}</td>
+                    <td class="nw">
+                      <RunResult run={r} />
+                    </td>
                     <td class="nw muted">{r.at.replace("T", " ").slice(0, 16)}</td>
                   </tr>
                 ))}

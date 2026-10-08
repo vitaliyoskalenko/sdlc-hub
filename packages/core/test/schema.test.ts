@@ -325,9 +325,15 @@ describe("hub-state records", () => {
     expect(errors(r).map((i) => i.line)).toEqual([2, 3]); // line 3 carries a username, which events must not
   });
 
-  it("parses a test run", () => {
+  it("parses a test run, with counts or with a result only", () => {
     const r = parseTestRun('{"source":"ci","team":"web","platform":"web","passed":40,"failed":0,"at":"2026-10-06T10:00:00Z"}', "t.json");
     expect(r.issues).toEqual([]);
+    expect(r.value!.result).toBe("passed");
+    expect(parseTestRun('{"source":"ci","team":"web","passed":38,"failed":2,"at":"2026-10-06T10:00:00Z"}', "t.json").value!.result).toBe("failed");
+    // A CI pipeline reports passed or failed, with its address and the commit.
+    const ci = parseTestRun('{"source":"ci","team":"web","result":"failed","at":"2026-10-06T10:00:00Z","url":"https://gl/x/-/pipelines/9","ref":"main@abc1234"}', "t.json");
+    expect(ci.value).toMatchObject({ result: "failed", url: "https://gl/x/-/pipelines/9" });
+    expect(parseTestRun('{"source":"ci","team":"web","at":"2026-10-06T10:00:00Z"}', "t.json").value).toBeUndefined();
   });
 
   it("parses a team snapshot", () => {

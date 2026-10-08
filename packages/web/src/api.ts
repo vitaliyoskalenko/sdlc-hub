@@ -102,6 +102,19 @@ export interface TeamState {
   snapshot?: { files: string[]; tasks: SddTask[] | null; tracker: TrackerRow[] | null; review: { verdict: string } | null; mr: { iid: number; state: string; author?: string } | null };
 }
 
+export interface TestRun {
+  source: "ci" | "local";
+  team: string;
+  platform?: string;
+  result: "passed" | "failed";
+  passed?: number;
+  failed?: number;
+  at: string;
+  url?: string;
+  ref?: string;
+  user?: string;
+}
+
 export interface FeatureState {
   slug: string;
   title?: string;
@@ -114,7 +127,7 @@ export interface FeatureState {
   contractTeam: string | null;
   teams: TeamState[];
   waits: { team: string; task: string; on: string; known: boolean; done: boolean }[];
-  testRuns: { source: "ci" | "local"; team: string; platform?: string; passed: number; failed: number; at: string; ref?: string }[];
+  testRuns: TestRun[];
   bugs: { id: string; title: string; ac?: string; platforms?: string[]; team: string; severity: string; status: string }[];
   blockingBugs: string[];
   warnings: string[];

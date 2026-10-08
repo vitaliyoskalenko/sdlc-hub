@@ -99,16 +99,25 @@ export const eventSchema = z.strictObject({
 });
 export type HubEvent = z.output<typeof eventSchema>;
 
-export const testRunSchema = z.strictObject({
-  source: z.enum(["ci", "local"]),
-  team: kebab,
-  platform: z.string().optional(),
-  passed: z.number().int().min(0),
-  failed: z.number().int().min(0),
-  at: isoTime,
-  url: z.string().optional(),
-  ref: z.string().optional(),
-});
+/** One test run: a CI pipeline of a team repository, or a local run. A pipeline reports its result only; a run with counts may leave the result out. */
+export const testRunSchema = z
+  .strictObject({
+    source: z.enum(["ci", "local"]),
+    team: kebab,
+    platform: z.string().optional(),
+    result: z.enum(["passed", "failed"]).optional(),
+    passed: z.number().int().min(0).optional(),
+    failed: z.number().int().min(0).optional(),
+    at: isoTime,
+    url: z.string().optional(),
+    ref: z.string().optional(),
+    /** Who ran a local run. */
+    user: z.string().optional(),
+  })
+  .superRefine((r, ctx) => {
+    if (r.result === undefined && (r.passed === undefined || r.failed === undefined)) ctx.addIssue({ code: "custom", message: "Give the result, or the passed and failed counts" });
+  })
+  .transform((r) => ({ ...r, result: r.result ?? ((r.failed ?? 0) > 0 ? ("failed" as const) : ("passed" as const)) }));
 export type TestRun = z.output<typeof testRunSchema>;
 
 export const TRACKER_STATUSES = ["todo", "in_progress", "blocked", "review", "done"] as const;
