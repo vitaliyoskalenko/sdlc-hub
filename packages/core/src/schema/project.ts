@@ -38,7 +38,19 @@ export const configSchema = z
     assistants: z.array(z.enum(["claude", "codex", "cursor"])).min(1),
     engine: kebab,
     headless: z.strictObject({ enabled: z.boolean() }),
-    prices: z.record(z.string(), z.number().nonnegative()).optional(),
+    /** USD per million tokens, by model id prefix; overrides the hub's default table for those models. */
+    prices: z
+      .record(
+        z.string(),
+        z.strictObject({
+          input: z.number().nonnegative(),
+          cache_write_5m: z.number().nonnegative(),
+          cache_write_1h: z.number().nonnegative(),
+          cache_read: z.number().nonnegative(),
+          output: z.number().nonnegative(),
+        }),
+      )
+      .optional(),
   })
   .superRefine((c, ctx) => {
     const specRepo = `${c.git.namespace}/${c.git.repo}`;

@@ -1,0 +1,14 @@
+{
+  "name": "@sdlc-hub/usage",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Token usage: read from the assistant's session data, priced, kept per person encrypted with age, and totalled for everyone.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@sdlc-hub/core": "*",
+    "zod": "^4.6.5"
+  }
+}
