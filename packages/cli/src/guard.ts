@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 import { guard, loadProject, refusalPath, type Change, type Finding, type SaveRefusal } from "@sdlc-hub/core";
 import { refSource } from "@sdlc-hub/git";
 import type { GitLab } from "@sdlc-hub/host";
-import { tokenEnv, writeHubState } from "./hub-state.ts";
+import { tokenEnv, writeHubState } from "@sdlc-hub/save";
 
 export interface GuardRepoOptions {
   /** A checkout of product-specs that has the merge request's commits. */

@@ -9,7 +9,7 @@ import { dirname, join } from "node:path";
 import { refusalPath } from "@sdlc-hub/core";
 import type { Save } from "@sdlc-hub/save";
 import { guardRepo } from "./guard.ts";
-import { writeHubState } from "./hub-state.ts";
+import { writeHubState } from "@sdlc-hub/save";
 
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } }).trim();
 

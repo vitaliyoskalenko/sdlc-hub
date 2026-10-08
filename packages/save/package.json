@@ -10,5 +10,8 @@
   "dependencies": {
     "@sdlc-hub/core": "*",
     "@sdlc-hub/git": "*"
+  },
+  "devDependencies": {
+    "@sdlc-hub/fixtures": "*"
   }
 }

@@ -10,7 +10,7 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { personStatePath, type Person } from "@sdlc-hub/core";
 import { gitIdentity, openProject, personOf } from "@sdlc-hub/git";
 import { claudeSetupCommands, MARKETPLACE, PLUGIN } from "@sdlc-hub/plugin/files";
-import { writeHubState } from "./hub-state.ts";
+import { writeHubState, type Line } from "@sdlc-hub/save";
 
 export type Run = (cmd: string, args: string[], cwd: string) => { status: number; out: string };
 
@@ -19,12 +19,7 @@ export const runCommand: Run = (cmd, args, cwd) => {
   return { status: r.status ?? 1, out: `${r.stdout ?? ""}${r.stderr ?? ""}`.trim() };
 };
 
-export interface Line {
-  ok: boolean;
-  text: string;
-  /** False for a warning: the step goes on. */
-  blocking?: boolean;
-}
+export type { Line } from "@sdlc-hub/save";
 
 export const release = (root: string): string => {
   const f = join(root, "hub/cli.js");

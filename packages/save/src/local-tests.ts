@@ -8,7 +8,12 @@ import { basename, dirname, join, resolve } from "node:path";
 import { detectFeature, listFeatures } from "@sdlc-hub/core";
 import { gitIdentity, openProject, personOf } from "@sdlc-hub/git";
 import { writeHubState } from "./hub-state.ts";
-import type { Line } from "./person.ts";
+/** One line of what a command did: ok, or why not; a line that is not blocking is a warning. */
+export interface Line {
+  ok: boolean;
+  text: string;
+  blocking?: boolean;
+}
 
 export interface LocalTestOptions {
   root: string;

@@ -13,7 +13,7 @@ import { isSaveBranch } from "@sdlc-hub/core";
 import { baseTime, formatFindings, guardRepo, mergeRequestPeople, recordRefusal } from "./guard.ts";
 import { actionHandler } from "./actions.ts";
 import { addDemoRemote, demoHost } from "./demo-host.ts";
-import { localTests } from "./local-tests.ts";
+import { localTests } from "@sdlc-hub/save";
 import { doctor, personSetup, print } from "./person.ts";
 import { report, reportTests } from "./report.ts";
 import { createHubMcp, sessionContext, type ToolContext } from "@sdlc-hub/plugin";

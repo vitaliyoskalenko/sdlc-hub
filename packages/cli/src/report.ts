@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join } from "node:path";
 import { buildTeamSnapshot, parseTeamSnapshot, type TeamSnapshot } from "@sdlc-hub/core";
 import { workingTreeSource } from "@sdlc-hub/git";
-import { writeHubState } from "./hub-state.ts";
+import { writeHubState } from "@sdlc-hub/save";
 
 export interface ReportOptions {
   team: string;

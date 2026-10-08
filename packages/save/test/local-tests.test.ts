@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { parseTestRun } from "@sdlc-hub/core";
 import { fixtures, materialize } from "@sdlc-hub/fixtures";
-import { localTests } from "../src/local-tests.ts";
+import { localTests } from "../src/index.ts";
 
 const temp: string[] = [];
 afterAll(() => temp.forEach((d) => rmSync(d, { recursive: true, force: true })));
