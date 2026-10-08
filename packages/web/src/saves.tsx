@@ -2,6 +2,7 @@
 // merges by itself when hub-guard passes; until then it is pending, and a refusal shows the path and the rule.
 
 import { useState } from "preact/hooks";
+import type { ActionResult } from "./api.ts";
 import { api, type Finding, type Save } from "./api.ts";
 import { Pill, useApp } from "./ui.tsx";
 
@@ -151,5 +152,49 @@ export function YourSaves() {
         </table>
       </div>
     </section>
+  );
+}
+
+/** Runs one save from the site: busy while it runs, the reason when it is refused, the save when it is made. */
+export function useAction() {
+  const { me, session, addSave } = useApp();
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<{ error: string; findings?: Finding[] } | null>(null);
+  const run = async (name: Parameters<typeof api.act>[0], body: unknown): Promise<boolean> => {
+    setBusy(true);
+    setProblem(null);
+    const r: ActionResult = await api.act(name, session.demo ? me.user : undefined, body);
+    setBusy(false);
+    if (r.ok) addSave(r.save);
+    else setProblem({ error: r.error, ...(r.findings ? { findings: r.findings } : {}) });
+    return r.ok;
+  };
+  const view = problem ? (
+    <div class="problem" role="alert">
+      <p>{problem.error}</p>
+      {problem.findings && <Findings findings={problem.findings} />}
+    </div>
+  ) : null;
+  return { run, busy, problem: view };
+}
+
+/** My saves of one kind in a feature that are not merged yet. */
+export function usePending(slug: string, kind: string) {
+  const { saves } = useApp();
+  return saves.filter((s) => s.meta?.["kind"] === kind && s.meta?.["slug"] === slug && s.state !== "merged");
+}
+
+export function PendingList({ saves }: { saves: Save[] }) {
+  if (!saves.length) return null;
+  return (
+    <div class="pendinglist">
+      {saves.map((s) => (
+        <div class="row" key={s.branch} data-save={s.state}>
+          <span class="muted">{s.title}</span>
+          <SaveState save={s} />
+          {s.findings && <Findings findings={s.findings} />}
+        </div>
+      ))}
+    </div>
   );
 }

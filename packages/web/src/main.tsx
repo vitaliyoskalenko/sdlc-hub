@@ -30,7 +30,7 @@ function route(path: string): Route {
   if (path === "/people") return { page: "people" };
   const sc = /^\/people\/([A-Za-z0-9][A-Za-z0-9._-]*)\/script\/?$/.exec(path);
   if (sc) return { page: "script", user: sc[1]! };
-  const m = /^\/features\/([a-z0-9][a-z0-9-]*)(?:\/(documents|tasks))?\/?$/.exec(path);
+  const m = /^\/features\/([a-z0-9][a-z0-9-]*)(?:\/(documents|tasks|qa|release))?\/?$/.exec(path);
   if (m) return { page: "feature", slug: m[1]!, tab: m[2] ?? "flow" };
   return { page: "missing" };
 }

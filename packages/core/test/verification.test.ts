@@ -25,7 +25,8 @@ describe("QA's verdicts", () => {
     const m = verificationMatrix(memorySource(f.main), slug, platforms);
     expect(m.criteria.map((c) => c.id)).toEqual(["AC-01", "AC-02", "AC-03", "AC-04", "AC-05"]);
     expect(m.complete).toBe(false);
-    expect(m.open).toContain("AC-01 on web: no verdict");
+    // The demo's cycle 1: AC-04 fails on every client; AC-02 on iOS failed, then passed, and the newest counts.
+    expect(m.open).toEqual(["AC-04 on web: fail", "AC-04 on android: fail", "AC-04 on ios: fail"]);
   });
   it("are appended, the newest per cell wins, and the matrix is complete when everything passes or does not apply", () => {
     const all = ["AC-01", "AC-02", "AC-03", "AC-04", "AC-05"].flatMap((ac) => platforms.map((platform) => ({ ac, platform, verdict: "pass" as const })));

@@ -150,15 +150,17 @@ async function demo(f: Record<string, string>) {
   const remote = addDemoRemote(root);
   let server: RunningServer | undefined;
   const host = demoHost({ root, remote, onSettled: () => server?.notify() });
+  // The demo's clock starts at the fixture's time and moves on, so saves and what the site reads agree.
   const started = Date.now();
+  const clock = () => new Date(Date.parse(fixture.now) + (Date.now() - started));
   const actions = actionHandler({
     root,
     identity: (u) => ({ name: opened.project?.roles.people.find((p) => p.user === u)?.name ?? u, email: `${u}@example.com` }),
     pushOptions: () => [],
-    now: () => new Date(Date.parse(fixture.now) + (Date.now() - started)),
+    now: clock,
     afterPush: host.afterPush,
   });
-  server = await listen(() => openProject(root, { now: fixture.now }), user, Number(f["port"] ?? 4173), true, { actions });
+  server = await listen(() => openProject(root, { now: clock().toISOString() }), user, Number(f["port"] ?? 4173), true, { actions });
   watchFiles([dir], server);
   const people = opened.project?.roles.people.map((p) => `${p.user} (${p.roles.join(", ")})`).join(", ") ?? "";
   console.log(

@@ -2,7 +2,7 @@
 // remote, and only then pushed. The site's action and the plugin's hub_signoff and hub_return both use this.
 
 import { awaitsSignoff, bugChange, bugEditChange, guard, loadProject, peopleChange, platformsOf, releaseChange, signoffChange, verdictChange, verificationMatrix, type BugEdit, type BugInput, type PeopleEdit, type ReleaseEdit, type VerdictInput, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
-import { Unchanged, type Save, type Saver } from "./index.ts";
+import { Pending, Unchanged, type Save, type Saver } from "./index.ts";
 
 export type SaveOutcome =
   | { ok: true; save: Save }
@@ -265,6 +265,7 @@ function checkedSave(saver: Saver, user: string, o: { label: string; title: stri
   } catch (e) {
     if (e instanceof Refused) return { ok: false, code: "refused", error: "hub-guard would refuse this", findings: e.findings };
     if (e instanceof Unchanged) return { ok: false, code: "unchanged", error: e.message };
+    if (e instanceof Pending) return { ok: false, code: "pending", error: e.message };
     return { ok: false, code: "failed", error: (e as Error).message };
   }
 }

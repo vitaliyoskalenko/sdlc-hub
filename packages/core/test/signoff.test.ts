@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { base, dir, SPEC } from "@sdlc-hub/fixtures";
+import { base, dir, fixtures, SPEC } from "@sdlc-hub/fixtures";
 import { approvedFile, awaitsSignoff, bugChange, bugEditChange, contentHash, detectFeature, guard, loadProject, memorySource, parseBugFile, parseSignoffs, signoffChange } from "../src/index.ts";
 
 const slug = "tasks-issues";
@@ -56,6 +56,15 @@ describe("a gate that waits for its sign-off", () => {
     expect(awaitsSignoff(project, state, "clarify")).toBe(true);
     expect(awaitsSignoff(project, state, "specify")).toBe(false); // no gate
     expect(awaitsSignoff(project, state, "epic")).toBe(false); // epic waits for clarify first
+  });
+  it("is accept once the final check passed: the PO's sign-off and the PM's go are both people's records", () => {
+    const f = fixtures["release-walk"]!;
+    const signed = `${f.main["docs/features/gift-cards/hub/signoffs.yaml"]}- { step: verify, user: iryna.s, at: "2026-10-07T10:00:00Z" }\n- { step: qa-final, user: iryna.s, at: "2026-10-07T11:00:00Z" }\n`;
+    const main = { ...f.main, "docs/features/gift-cards/hub/signoffs.yaml": signed, "docs/features/gift-cards/hub/release.yaml": "staging: { smoke: passed }\n" };
+    const p = loadProject(memorySource(main)).value!;
+    const st = detectFeature(p, { specs: memorySource(main), hubState: memorySource(f.hubState!), teamClone: () => null, now: f.now }, "gift-cards");
+    expect(st.current).toBe("accept");
+    expect(awaitsSignoff(p, st, "accept")).toBe(true);
   });
 });
 

@@ -656,4 +656,19 @@ const QA_PASSED = [
   };
 }
 
+{
+  // A shipped web feature at staging, green in CI, with a watch period of 0 days: the walk from staging to released
+  // with the site as the only tracker (phase 3).
+  const slug = "gift-cards";
+  const s = shippedWebFeature(slug);
+  s.main[".hub/flow.yaml"] = s.main[".hub/flow.yaml"]!.replace("watch_days: 7", "watch_days: 0");
+  fixtures["release-walk"] = {
+    description: "One shipped web feature at staging, green in CI, with no watch period: from staging to released on the site.",
+    now: NOW,
+    main: s.main,
+    hubState: { ...s.hubState, [`features/${slug}/tests/ci-web-41.json`]: testRun("web", "ci", 0, "2026-10-06T10:00:00Z", 40, "main@4f1c2aa") },
+    expected: { [slug]: { current: "staging", steps: { ...DONE_THROUGH_SHIP, staging: "ready", autotests: "done" }, waitingOn: { staging: ["bohdan.r"] } } },
+  };
+}
+
 export { fixtures };

@@ -14,7 +14,7 @@ const BUG_STATUS: Record<string, string> = { open: "bad", fixing: "warn", retest
 const SITE_HINT: Record<Action["kind"], string> = {
   step: "The step, its gate and its files are on the feature's Flow screen.",
   waits: "Tasks and what they wait for are on the feature's Tasks screen.",
-  qa: "The step, the bugs and the test runs of the feature are on its Flow screen; the QA screen arrives in phase 3.",
+  qa: "The verdicts, the bugs, the test runs and the final decision are on the feature's QA screen.",
 };
 
 export function TaskPage({ action, close }: { action: Action; close: () => void }) {
@@ -36,7 +36,12 @@ export function TaskPage({ action, close }: { action: Action; close: () => void 
   const step = steps.find((s) => s.id === action.step);
   const state = d?.state.steps.find((s) => s.id === action.step);
   const cmd = !d || !step || !state ? null : action.kind === "waits" ? (me.roles.includes("pm") ? hubCmd(assistant, "status", action.slug) : hubCmd(assistant, "next", action.slug)) : stepCommand(assistant, step, state, d.state.current, action.slug);
-  const target = action.kind === "waits" ? { path: `/features/${action.slug}/tasks`, label: "Open tasks", params: {} } : { path: `/features/${action.slug}`, label: "Open the step", params: { step: action.step } };
+  const target =
+    action.kind === "waits"
+      ? { path: `/features/${action.slug}/tasks`, label: "Open tasks", params: {} }
+      : action.kind === "qa"
+        ? { path: `/features/${action.slug}/qa`, label: "Open QA", params: {} }
+        : { path: `/features/${action.slug}`, label: "Open the step", params: { step: action.step } };
   const leave = (path: string, params: Record<string, string | undefined> = {}) => {
     close();
     go(path, params);

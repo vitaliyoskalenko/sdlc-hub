@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { refusalPath } from "@sdlc-hub/core";
-import { createSaver, gitlabPushOptions } from "../src/index.ts";
+import { createSaver, gitlabPushOptions, Pending } from "../src/index.ts";
 
 const temp: string[] = [];
 afterAll(() => temp.forEach((d) => rmSync(d, { recursive: true, force: true })));
@@ -97,6 +97,16 @@ describe("saving from the site", () => {
     a.save({ user: "olena.k", label: "x", title: "x", build: () => [{ path: "docs/x.md", next: "x\n" }] });
     expect(git(clone, "status", "--porcelain")).toBe("");
     expect(createSaver({ root: clone, identity: { name: "O", email: "o@x" } }).list()).toHaveLength(1);
+  });
+
+  it("refuses a second change to a file while the person's first one still waits to merge", () => {
+    const { clone } = setup();
+    const saver = createSaver({ root: clone, identity: { name: "O", email: "o@x" }, now: () => new Date("2026-10-08T13:00:00Z") });
+    saver.save({ user: "olena.k", label: "a", title: "a", build: () => [{ path: "docs/x.md", next: "a\n" }] });
+    expect(() => saver.save({ user: "olena.k", label: "b", title: "b", build: () => [{ path: "docs/x.md", next: "b\n" }] })).toThrow(Pending);
+    // Another file, or another person, is fine.
+    saver.save({ user: "olena.k", label: "c", title: "c", build: () => [{ path: "docs/y.md", next: "c\n" }] });
+    saver.save({ user: "taras.m", label: "d", title: "d", build: () => [{ path: "docs/x.md", next: "d\n" }] });
   });
 
   it("refuses a change that changes nothing", () => {

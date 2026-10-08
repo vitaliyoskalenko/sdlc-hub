@@ -12,6 +12,9 @@ import { refSource } from "@sdlc-hub/git";
 /** The change is already on main. */
 export class Unchanged extends Error {}
 
+/** The person's earlier change to the same file still waits to merge: a second one would conflict with it. */
+export class Pending extends Error {}
+
 export interface Save {
   branch: string;
   title: string;
@@ -114,6 +117,9 @@ export function createSaver(o: SaverOptions) {
     save(req: SaveRequest): Save {
       fetch(target);
       const changes = req.build(refSource(o.root, mainRef));
+      const touched = new Set(changes.flatMap((c) => (c.from ? [c.from, c.path] : [c.path])));
+      const waiting = () => read().filter((s) => s.state === "pending" && s.user === req.user && s.paths.some((p) => touched.has(p)));
+      if (waiting().length && (this.refresh(), waiting().length)) throw new Pending(`Your earlier change to ${[...touched].join(", ")} is still waiting to merge; wait for it, then try again`);
       const wt = checkout();
       for (const c of changes) {
         if (c.from && c.from !== c.path) rmSync(join(wt, c.from), { force: true });

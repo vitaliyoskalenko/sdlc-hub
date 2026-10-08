@@ -88,7 +88,7 @@ describe("QA and release from the site", () => {
   it("refuses QA's sign-off of verify while a criterion has no passing verdict", async () => {
     const r = await post("/signoff", "iryna.s", { slug: "tasks-issues", step: "verify", decision: "pass" });
     expect(r.status).toBe(409);
-    expect((r.body as { error: string }).error).toMatch(/Not every criterion passes yet: AC-01 on web: no verdict/);
+    expect((r.body as { error: string }).error).toMatch(/Not every criterion passes yet: AC-04 on web: fail/);
   });
   it("lets the owning team change a bug's status, and refuses another team", async () => {
     saved(await post("/bug-edit", "taras.m", { slug: "tasks-issues", id: "BUG-0012", edit: { status: "fixing" } }));

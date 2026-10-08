@@ -5,15 +5,29 @@ import { useEffect, useState } from "preact/hooks";
 import { api, type FeatureDetail, type FlowStep, type StepState, type Summary } from "./api.ts";
 import { layout, Loop } from "./features.tsx";
 import { engineCmd, hubCmd, LEGEND, roleOf, STATUS, STEP } from "./text.ts";
+import { QA } from "./qa.tsx";
+import { Release } from "./release.tsx";
 import { SignoffBox } from "./saves.tsx";
 import { Cmd, CopyButton, Link, names, Pill, personName, RoleChip, StatusPill, useApp, WaitMark, waitText } from "./ui.tsx";
 
 const md = new MarkdownIt({ html: false, linkify: false, typographer: false });
 
+/** Steps recorded on the QA or Release screen. */
+const SCREEN: Record<string, [string, string]> = {
+  staging: ["release", "Open Release"],
+  verify: ["qa", "Open QA"],
+  autotests: ["qa", "Open QA"],
+  "qa-final": ["qa", "Open QA"],
+  accept: ["release", "Open Release"],
+  release: ["release", "Open Release"],
+};
+
 const TABS: [string, string][] = [
   ["flow", "Flow"],
   ["documents", "Documents"],
   ["tasks", "Tasks"],
+  ["qa", "QA"],
+  ["release", "Release"],
 ];
 
 const SOURCE: Record<string, string> = { specs: "main of product-specs", "hub-state": "the hub-state branch", "local-clone": "your local copy of the team repository" };
@@ -122,7 +136,17 @@ export function Feature({ slug, tab, params }: { slug: string; tab: string; para
           ))}
         </div>
       </div>
-      {tab === "documents" ? <Documents slug={slug} detail={d} params={params} /> : tab === "tasks" ? <Tasks detail={d} params={params} /> : <Flow detail={d} params={params} />}
+      {tab === "documents" ? (
+        <Documents slug={slug} detail={d} params={params} />
+      ) : tab === "tasks" ? (
+        <Tasks detail={d} params={params} />
+      ) : tab === "qa" ? (
+        <QA detail={d} />
+      ) : tab === "release" ? (
+        <Release detail={d} />
+      ) : (
+        <Flow detail={d} params={params} />
+      )}
     </>
   );
 }
@@ -366,6 +390,14 @@ export function StepPanel({ detail, id }: { detail: FeatureDetail; id: string })
         )}
       </div>
       {detail.awaiting.includes(id) && gateOwner && <SignoffBox slug={slug} step={id} />}
+      {SCREEN[id] && (
+        <div class="row">
+          <button type="button" class="btn" data-screen={SCREEN[id]![0]} onClick={() => go(`/features/${slug}/${SCREEN[id]![0]}`)}>
+            {SCREEN[id]![1]}
+          </button>
+          <span class="muted">This step is recorded there.</span>
+        </div>
+      )}
       <div class="card">
         <span class="k">In your assistant</span>
         <Cmd text={cmd} />

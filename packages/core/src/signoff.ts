@@ -67,7 +67,7 @@ export function signoffChange(project: Project, specs: FileSource, slug: string,
 
 /**
  * Whether a step's gate waits for a sign-off now: its evidence is there (status signoff), it came back after a
- * return, or the sign-off is the step's only evidence (clarify) and the step is open.
+ * return, or its evidence is only people's records (clarify's sign-off; accept's sign-off and go) and the step is open.
  */
 export function awaitsSignoff(project: Project, state: FeatureState, stepId: string): boolean {
   const step = project.flow.steps.find((s) => s.id === stepId);
@@ -75,8 +75,10 @@ export function awaitsSignoff(project: Project, state: FeatureState, stepId: str
   if (!step?.gate || step.gate.role === "auto" || !st) return false;
   if (st.status === "signoff" || st.status === "returned") return true;
   if (st.status !== "ready" && st.status !== "running") return false;
+  // The step's evidence is people's records only: its own sign-off, and at accept the PM's go in release.yaml.
   const reqs = project.engine.steps[stepId]?.done_when ?? step.evidence ?? [];
-  return reqs.length > 0 && reqs.every((r) => r.anyOf.every((a) => a.kind === "signoff" && a.step === stepId));
+  const byPeople = (a: (typeof reqs)[number]["anyOf"][number]) => (a.kind === "signoff" && a.step === stepId) || (a.kind === "release" && a.what === "go");
+  return reqs.some((r) => r.anyOf.some((a) => a.kind === "signoff" && a.step === stepId)) && reqs.every((r) => r.anyOf.every(byPeople));
 }
 
 export interface BugInput {

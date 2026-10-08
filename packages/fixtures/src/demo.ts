@@ -118,6 +118,13 @@ const TI_DOCS: Files = {
   "hub/bugs/BUG-0012.md": "---\nid: BUG-0012\ntitle: Task visible after access to the order was revoked\nac: AC-04\nplatforms: [web, android, ios]\nteam: backend\nseverity: high\nstatus: retest\nfound_by: iryna.s\nfound_in: verify\n---\nOpen an order as a staff member whose access to it was revoked.\n\nExpected: the tasks block is hidden. Actual: the task is listed, on all three clients.\n",
   "hub/bugs/BUG-0014.md": "---\nid: BUG-0014\ntitle: Task form has no state for a 403 response\nac: AC-04\nplatforms: [web]\nteam: web\nseverity: medium\nstatus: fixing\nfound_by: iryna.s\nfound_in: verify\n---\nAssign a task to a colleague without access to the order. Expected: an inline error. Actual: a blank form.\n",
   "hub/bugs/BUG-0013.md": "---\nid: BUG-0013\ntitle: Due date picker opens one day early on iOS\nac: AC-02\nplatforms: [ios]\nteam: ios\nseverity: low\nstatus: closed\nfound_by: iryna.s\nfound_in: verify\n---\nFixed in build 2.31.0 (513).\n",
+  // QA's verdicts: cycle 1 found BUG-0012 (AC-04 on every client) and BUG-0013 (AC-02 on iOS, fixed and passed since).
+  "hub/verification.yaml":
+    "verdicts:\n" +
+    ["AC-01", "AC-02", "AC-03", "AC-05"].flatMap((ac) => ["web", "android", "ios"].map((p) => `  - { ac: ${ac}, platform: ${p}, verdict: pass, user: iryna.s, at: 2026-10-03T15:00:00Z }\n`)).join("") +
+    "  - { ac: AC-02, platform: ios, verdict: fail, bugs: [BUG-0013], user: iryna.s, at: 2026-10-03T15:10:00Z }\n" +
+    ["web", "android", "ios"].map((p) => `  - { ac: AC-04, platform: ${p}, verdict: fail, bugs: [BUG-0012], user: iryna.s, at: 2026-10-03T15:20:00Z }\n`).join("") +
+    "  - { ac: AC-02, platform: ios, verdict: pass, user: iryna.s, at: 2026-10-06T11:00:00Z }\n",
 };
 
 const TI_TASKS: Record<string, TaskSpec[]> = {

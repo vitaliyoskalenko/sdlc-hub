@@ -392,3 +392,6 @@ svg.dag{max-width:none} /* the task graph keeps its size and scrolls inside its 
 fieldset.fld{border:0;padding:0;margin:0}
 #sc-text{max-height:60vh;overflow:auto}
 @media (max-width:760px){.form{grid-template-columns:1fr}}
+.pendinglist{display:flex;flex-direction:column;gap:6px}
+.checklist{display:flex;flex-direction:column;gap:6px;padding-left:22px}
+.history{padding-left:18px}

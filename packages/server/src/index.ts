@@ -7,7 +7,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { extname, resolve, sep } from "node:path";
-import { awaitsSignoff, CONTRACT_LEAD_RULES, parsePersonState, personStatePath, scriptName, setupScript, type FileSource, DEFAULT_ROLE_RULES, detectFeature, LEAD_RULES, listDocuments, listFeatures, parseFeature, type FeatureState, type Issue, type Project, type ProjectView } from "@sdlc-hub/core";
+import { awaitsSignoff, CONTRACT_LEAD_RULES, parseSignoffs, platformsOf, releaseView, verificationMatrix, parsePersonState, personStatePath, scriptName, setupScript, type FileSource, DEFAULT_ROLE_RULES, detectFeature, LEAD_RULES, listDocuments, listFeatures, parseFeature, type FeatureState, type Issue, type Project, type ProjectView } from "@sdlc-hub/core";
 
 export interface OpenedProject {
   root: string;
@@ -259,7 +259,20 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
         const st = state(slug)!;
         // The gates that wait for a sign-off now: the site offers Sign off and Return there.
         const awaiting = project.flow.steps.filter((x) => awaitsSignoff(project, st, x.id)).map((x) => x.id);
-        return send(res, 200, { feature, state: st, summary: summary(slug, st, opened), documents: listDocuments(opened.view.specs, slug), awaiting });
+        // The QA and Release screens: the verdict matrix, the final decisions so far, and the release as it stands.
+        const platforms = platformsOf(project.config, st);
+        const signoffs = parseSignoffs(opened.view.specs.read(`${dir}/hub/signoffs.yaml`) ?? "[]", "signoffs.yaml").value ?? [];
+        const rel = releaseView(opened.view.specs, project.flow, slug);
+        const watchEnds = rel.watch ? new Date(Date.parse(rel.watch.started) + rel.watch.days * 86_400_000).toISOString().replace(/\.\d+Z$/, "Z") : null;
+        return send(res, 200, {
+          feature,
+          state: st,
+          summary: summary(slug, st, opened),
+          documents: listDocuments(opened.view.specs, slug),
+          awaiting,
+          qa: { matrix: verificationMatrix(opened.view.specs, slug, platforms), decisions: signoffs.filter((e) => e.step === "qa-final" || e.step === "verify") },
+          release: { ...rel, watchEnds, now: opened.view.now },
+        });
       }
       if (parts.length === 3 && parts[2] === "file") {
         const path = url.searchParams.get("path") ?? "";

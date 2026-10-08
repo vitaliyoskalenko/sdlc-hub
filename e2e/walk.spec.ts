@@ -143,6 +143,13 @@ for (const vp of VIEWPORTS) {
           await page.locator("[data-team]").nth(k).click();
           await check(`${person} ${slug} tasks team ${k}`);
         }
+
+        await page.click('.tab[data-ftab="qa"]');
+        await expect(page.locator("#matrix")).toBeVisible();
+        await check(`${person} ${slug} qa`);
+        await page.click('.tab[data-ftab="release"]');
+        await expect(page.locator("#checklist")).toBeVisible();
+        await check(`${person} ${slug} release`);
       }
     }
     console.log(`${vp.name}: ${PEOPLE.length} people, ${tasks} task pages, ${dialogs} help dialogs, ${errors.length} errors, ${bad.length} overflows`);

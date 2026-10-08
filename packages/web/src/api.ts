@@ -150,6 +150,44 @@ export interface FeatureDetail {
   documents: { path: string; owner: string; signoff: "current" | "stale" | "none" }[];
   /** Steps whose gate waits for a sign-off now. */
   awaiting: string[];
+  qa: { matrix: Matrix; decisions: SignoffEntry[] };
+  release: ReleaseInfo;
+}
+
+export interface VerdictRecord {
+  ac: string;
+  platform: string;
+  verdict: "pass" | "fail" | "na";
+  bugs?: string[];
+  user: string;
+  at: string;
+}
+
+export interface Matrix {
+  platforms: string[];
+  criteria: { id: string; text: string; cells: Record<string, VerdictRecord | null> }[];
+  complete: boolean;
+  open: string[];
+}
+
+export interface SignoffEntry {
+  step: string;
+  user: string;
+  at: string;
+  decision: "pass" | "return" | "confirm";
+  reason?: string;
+  bugs?: string[];
+  cycle?: number;
+}
+
+export interface ReleaseInfo {
+  staging?: { smoke: "pending" | "passed" | "failed"; at?: string };
+  checklist: { item: string; done: boolean; user?: string; at?: string }[];
+  go?: { value: "go" | "no-go"; user: string; at: string };
+  rollout?: { stage: number; at?: string };
+  watch?: { started: string; days: number };
+  watchEnds: string | null;
+  now: string;
 }
 
 export interface Finding {
@@ -217,6 +255,8 @@ export const api = {
   signoff: (as: string | undefined, body: { slug: string; step: string; decision: "pass" | "return"; reason?: string }) => action("signoff", as, body),
   person: (as: string | undefined, body: { kind: "set"; person: PersonInput } | { kind: "remove"; user: string }) => action("person", as, body),
   people: () => get<{ people: PersonRow[]; release: string }>("/api/people"),
+  /** Any other save: verdicts, bug, bug-edit, release. */
+  act: (name: "verdicts" | "bug" | "bug-edit" | "release" | "signoff", as: string | undefined, body: unknown) => action(name, as, body),
   script: (user: string, shell: "bash" | "powershell", as?: string) =>
     get<{ name: string; text: string; release: string }>(`/api/script?user=${encodeURIComponent(user)}&shell=${shell}${as ? `&as=${encodeURIComponent(as)}` : ""}`),
   session: (as?: string) => get<Session>(`/api/session${as ? `?as=${encodeURIComponent(as)}` : ""}`),
