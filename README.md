@@ -13,18 +13,20 @@ npm run demo -- --as iryna.s     # build, write the demo project to a temporary 
 
 Open the address it prints, `http://127.0.0.1:4173/?as=iryna.s`. The dashed "Demo" control in the top bar switches the person and the assistant; `--as <user>` picks who you are at start. The people are `nazar.t` (admin), `olena.k` (PO), `maksym.d` (PM), `daria.l` (designer), `taras.m`, `petro.v`, `andrii.p`, `sofiia.h` (team leads of backend, web, Android, iOS), `iryna.s` (QA) and `bohdan.r` (Ops). Ctrl+C stops the demo and deletes the folder.
 
+To try saving: open `returns-portal` as `olena.k`, step clarify, and press Sign off; or `order-webhooks` as `taras.m`, step tech-design, and Return with a reason. The save waits to merge for a moment while the demo's stand-in for GitLab runs hub-guard, then the step moves on.
+
 Other fixtures: `npm run demo -- --fixture <name>`, for example `quick-route`, `implement-blocked`, `qa-return-cycle-2` or `no-user-interface` (all in `packages/fixtures/src/cases.ts`).
 
 On a real `product-specs` checkout: `npm run build`, then from inside the checkout `node <this repo>/packages/cli/dist/cli.mjs serve`. You are the person in `.hub/roles.yaml` that matches your git identity, or `--as <user>`.
 
-## First install on GitLab (phase 1b)
+## First install on GitLab
 
 ```
 npm run build
 node packages/cli/dist/cli.mjs init        # npx sdlc-hub init once the package is published
 ```
 
-The setup site opens at `http://127.0.0.1:4173/setup`. Paste a personal access token of a group Owner with the `api` scope. Install writes the hub into the specifications repository, creates `hub-state`, stores `HUB_STATE_TOKEN` and opens one hub-report merge request per team repository. Then clone the repository and run `node hub/cli.js serve` in it.
+The setup site opens at `http://127.0.0.1:4173/setup`. Paste a personal access token of a group Owner with the `api` scope. Install writes the hub into the specifications repository, creates `hub-state`, stores `HUB_STATE_TOKEN` and opens one hub-report merge request per team repository. It also creates `hub-ci` with the hub-guard job, stores `HUB_GUARD_TOKEN`, turns on "Pipelines must succeed" and protects `main`. Run it again after an upgrade; once `main` is protected its changes arrive as a merge request that merges itself. Then clone the repository and run `node hub/cli.js serve` in it.
 
 To try it on a local GitLab CE in Docker (about 4 GB of memory, 10 minutes for the first start):
 
