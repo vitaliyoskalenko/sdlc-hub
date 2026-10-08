@@ -35,6 +35,13 @@ State on 7 October 2026, revision 51 of the specification. Items already fixed a
 
 Claims 8 to 13 were found while planning phase 1, 14 to 16 while building the guard in phase 2. Claims 3, 11 and 12 are verified, 9 is replaced, 10 is verified on macOS and 13 is a confirmed, accepted risk. Phase 1b is not blocked; claim 10 on Linux and Windows is the open part.
 
+## Not built yet in phase 2
+
+- **Saving: rebase once, then ask.** A save is cut from the newest `main`, so it conflicts only when two people append to the same `signoffs.yaml` at once; the second merge request then fails to merge. Rebasing it once and asking the person after that is not built.
+- **Saving offline.** A push that fails is reported, not queued for the next sync.
+- **Other saves.** Bugs, `release.yaml`, People and roles and light edits still need the assistant or a merge request by hand.
+- **Stale guard results** (claim 14) and **group Maintainers** (claim 15) are accepted risks for now.
+
 ## Decided in code during phase 1a
 
 The owner confirmed three of these on 7 October 2026: the contract team per feature, CI results not counting as later evidence, and partial evidence (see `docs/decisions.md`). The rest are notes:

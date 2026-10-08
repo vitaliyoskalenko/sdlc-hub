@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 8, 2026 · @Vitaliy · revision 57
+Oct 8, 2026 · @Vitaliy · revision 58
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -729,7 +729,7 @@ The hub stores no Jira, Confluence or Figma credential. Those connections belong
 
 The design keeps secrets off the repository and treats the local machine as untrusted for anything that affects other people.
 
-- **Secrets.** None in the repository, the setup script or the site. Host credentials stay in the operating system's keychain. CI holds two kinds of token as masked, protected variables: `HUB_STATE_TOKEN`, meant for `hub-state` only, and one fan-out token per team repository. Neither grants more than a Developer already has. On GitLab Free a Developer token can push to any unprotected branch, so until `main` is protected in phase 2 this is an accepted risk (`docs/open-items.md`, claim 13).
+- **Secrets.** None in the repository, the setup script or the site. Host credentials stay in the operating system's keychain. CI holds three kinds of token as masked variables. They are not protected, because the jobs that need them run on unprotected branches. `HUB_STATE_TOKEN` (a group variable) writes `hub-state` for `hub-report`, and for `hub-guard` when it records a refused save and deletes its branch. `HUB_GUARD_TOKEN` (a variable of product-specs, `read_api`) lets `hub-guard` read who opened a merge request and who pushed to it. There is also one fan-out token per team repository. None grants more than a Developer already has. On GitLab Free a Developer token can push to any unprotected branch; since phase 2 `main` takes no pushes, so nothing a token writes reaches `main` without a merge request that passes `hub-guard` (`docs/open-items.md`, claim 13).
 - **Local server.** It listens on the loopback address only and rejects any request whose Host or Origin is not its own address, so another site in the browser cannot call it. The session token is created at each start, kept in an HttpOnly cookie for the page and in a file only the person can read for the assistant's MCP server. The port is 4173 by default, can be changed, and falls back to a free one. Assistants are started with an argument list, never through a shell.
 - **Roles.** They are checked at merge against `roles.yaml` on `main`. Editing a local file changes only what that person's own site shows.
 - **Headless runs.** Off by default. In version 1 the only headless run is validation: read-only tools, a turn limit, the person's own seat, and the result shown before anything is saved. Stages stay copy-and-run. Running a stage from the site is a later step behind a second admin switch.
@@ -777,9 +777,12 @@ This section closes gaps found in a review of the design: what the guard checks 
 
 ### Saving, conflicts and work offline
 
-- The local server commits in its own git worktree and never touches the checkout the assistant works in.
-- A save is pending until its merge request merges. The site shows it as pending with a link.
-- If the guard refuses the change, the merge request is closed, the branch is deleted and the site shows the path and the rule.
+- The local server commits in its own git worktree (`.git/sdlc-hub/worktree`) and never touches the checkout the assistant works in. Its record of saves is `.git/sdlc-hub/saves.json`, outside the repository.
+- A save is one branch, `hub/<user>/<label>-<time>`, cut from `main` of the remote as it is at that moment. On GitLab it is pushed with push options that open the merge request and set it to merge when the pipeline succeeds. So git alone is enough, over HTTPS or SSH, and a person needs no API token.
+- Before it pushes, the server runs the same guard on the change against `main` of the remote. A change the guard would refuse is not pushed, and the site shows the path and the rule at once.
+- A save is pending until its merge request merges: until `main` has its commit, or the same contents after a squash. The site shows it as pending with a link.
+- If `hub-guard` refuses the change at merge, the job writes the reason to `hub-state` at `saves/<user>/<label>-<time>.json` and deletes the branch with `HUB_STATE_TOKEN`, which closes the merge request. The person's site reads the record and shows the path and the rule. Only `hub/<user>/…` branches are closed this way; a refused merge request opened by hand just fails its pipeline.
+- In version 1 the site saves a sign-off or a return of a gate that waits for the person. Bugs, `release.yaml` and People and roles follow.
 - If the change conflicts, the server rebases once. If that fails, the person chooses between their version and the newer one.
 - Without a connection, saves queue locally and are sent at the next sync.
 - Sync fast-forwards `main` only when the tree is clean, and says so otherwise.

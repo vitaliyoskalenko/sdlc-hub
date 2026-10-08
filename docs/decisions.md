@@ -2,6 +2,22 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-08: Revision 58, saving from the site
+
+### A save is a git push; the guard records refusals in hub-state
+- **Decision:** The site saves with git alone. The local server commits in its own worktree and pushes a branch `hub/<user>/<label>-<time>` with GitLab push options, which open the merge request and set it to merge when the pipeline succeeds (claim 16). It sees a save merged when `main` has it. When `hub-guard` refuses a save branch, the job writes the reason to `hub-state` and deletes the branch with `HUB_STATE_TOKEN`, which closes the merge request (verified on GitLab CE). The site reads the reason from there.
+- **Why:** People sign in with a credential manager or an SSH key and may have no API token. A personal API token for everyone was the alternative; it would shut out people on SSH alone and give every machine a broader token.
+- **By:** Owner.
+
+### The site checks a save with the guard before it pushes
+- **Decision:** The server builds the change from `main` of the remote and runs the same `guard()` on it before pushing. A refusal is shown at once and nothing is pushed. A sign-off records the file it approves and its content hash: the step's own file in product-specs, or the previous step's when the gate is the step's only evidence (clarify approves `spec.md`). Steps whose files live in team repositories record none.
+- **Why:** A refusal at merge takes a pipeline run; most mistakes can be caught on the person's machine with the same code.
+- **By:** Proposed.
+
+### The demo has a stand-in for the git host
+- **Decision:** `npm run demo` gives the demo checkout a bare remote. After each save it runs `hub-guard` on the branch, as the CI job would, then merges it or records the refusal, and brings the checkout up to date. Sign off and Return can be clicked through without GitLab.
+- **By:** Proposed.
+
 ## 2026-10-08: Revision 57, hub-guard on GitLab
 
 ### The guard runs main's hub/cli.js, configured from hub-ci
