@@ -7,7 +7,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { extname, resolve, sep } from "node:path";
-import { CONTRACT_LEAD_RULES, DEFAULT_ROLE_RULES, detectFeature, LEAD_RULES, listDocuments, listFeatures, parseFeature, type FeatureState, type Issue, type Project, type ProjectView } from "@sdlc-hub/core";
+import { awaitsSignoff, CONTRACT_LEAD_RULES, DEFAULT_ROLE_RULES, detectFeature, LEAD_RULES, listDocuments, listFeatures, parseFeature, type FeatureState, type Issue, type Project, type ProjectView } from "@sdlc-hub/core";
 
 export interface OpenedProject {
   root: string;
@@ -233,7 +233,10 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
       const dir = `docs/features/${slug}`;
       if (parts.length === 2) {
         const feature = parseFeature(opened.view.specs.read(`${dir}/hub/feature.yaml`) ?? "", "feature.yaml").value ?? null;
-        return send(res, 200, { feature, state: state(slug), summary: summary(slug, state(slug)!, opened), documents: listDocuments(opened.view.specs, slug) });
+        const st = state(slug)!;
+        // The gates that wait for a sign-off now: the site offers Sign off and Return there.
+        const awaiting = project.flow.steps.filter((x) => awaitsSignoff(project, st, x.id)).map((x) => x.id);
+        return send(res, 200, { feature, state: st, summary: summary(slug, st, opened), documents: listDocuments(opened.view.specs, slug), awaiting });
       }
       if (parts.length === 3 && parts[2] === "file") {
         const path = url.searchParams.get("path") ?? "";

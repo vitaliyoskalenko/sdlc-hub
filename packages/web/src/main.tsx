@@ -2,7 +2,7 @@
 
 import { render } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { api, onChanges, type Assistant, type ProjectInfo, type Session, type Summary } from "./api.ts";
+import { api, onChanges, type Assistant, type ProjectInfo, type Save, type Session, type Summary } from "./api.ts";
 import { Feature } from "./feature.tsx";
 import { Features } from "./features.tsx";
 import { Guide } from "./guide.tsx";
@@ -36,6 +36,7 @@ function Root() {
   const [error, setError] = useState<string | null>(null);
   const [help, setHelp] = useState<string | null>(null);
   const [task, setTask] = useState<Action | null>(null);
+  const [saves, setSaves] = useState<{ list: Save[]; enabled: boolean }>({ list: [], enabled: false });
   // The latest open layers, for the Escape handler registered once.
   const layers = useRef({ help: false, task: false });
   layers.current = { help: help !== null, task: task !== null };
@@ -99,6 +100,20 @@ function Root() {
     );
   }, [version]);
 
+  // My saves: loaded with every change, and looked at again every few seconds while one waits to merge.
+  const viewer = session?.me?.user;
+  useEffect(() => {
+    if (!viewer) return;
+    let live = true;
+    const load = () => api.saves(session?.demo ? viewer : undefined).then((x) => live && setSaves({ list: x.saves, enabled: x.enabled }), () => undefined);
+    void load();
+    const timer = setInterval(() => saves.list.some((x) => x.state === "pending") && void load(), 8000);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [viewer, version, saves.list.some((x) => x.state === "pending")]);
+
   const r = route(loc.split("?")[0]!);
   useEffect(() => {
     document.title = `SDLC Hub · ${r.page === "feature" ? r.slug : TITLE[r.page]}`;
@@ -131,7 +146,20 @@ function Root() {
   const me = session.me;
   const asst = params.get("asst");
   const assistant: Assistant = session.demo && (asst === "claude" || asst === "codex" || asst === "cursor") ? asst : me.assistant;
-  const state: AppState = { session, me, project, features, assistant, version, go, help: openHelp, openTask };
+  const state: AppState = {
+    session,
+    me,
+    project,
+    features,
+    assistant,
+    version,
+    go,
+    help: openHelp,
+    openTask,
+    saves: saves.list,
+    savesEnabled: saves.enabled,
+    addSave: (x: Save) => setSaves((v) => ({ ...v, list: [x, ...v.list] })),
+  };
   const actions = actionsFor(me, project, features).length;
   const nav: [string, string, number | null][] = [
     ["/", "Home", actions],
@@ -209,7 +237,7 @@ function Root() {
           </main>
         </div>
         <p class="muted">
-          Signed in as {me.name} · {roleLabel(me)}. Read only in this version.
+          Signed in as {me.name} · {roleLabel(me)}. {saves.enabled ? "Your saves reach main through merge requests that merge by themselves when hub-guard passes." : "Read only: this checkout has no remote to save to."}
         </p>
       </div>
       {task !== null && (

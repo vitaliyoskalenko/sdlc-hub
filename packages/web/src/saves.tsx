@@ -1,0 +1,155 @@
+// Saving from the site: Sign off and Return on a gate, and what became of each save. A save is a merge request that
+// merges by itself when hub-guard passes; until then it is pending, and a refusal shows the path and the rule.
+
+import { useState } from "preact/hooks";
+import { api, type Finding, type Save } from "./api.ts";
+import { Pill, useApp } from "./ui.tsx";
+
+const STATE: Record<Save["state"], [string, string]> = { pending: ["warn", "waiting to merge"], merged: ["ok", "merged"], refused: ["bad", "refused"] };
+
+export function SaveState({ save }: { save: Save }) {
+  const { session } = useApp();
+  const [kind, label] = STATE[save.state];
+  return (
+    <span class="row">
+      <Pill kind={kind}>{label}</Pill>
+      {save.mr?.url ? (
+        <a href={save.mr.url} target="_blank" rel="noopener noreferrer">
+          {session.demo ? "" : "!"}
+          {save.mr.iid} ↗
+        </a>
+      ) : (
+        <code>{save.branch}</code>
+      )}
+    </span>
+  );
+}
+
+function Findings({ findings }: { findings: Finding[] }) {
+  return (
+    <ul class="findings">
+      {findings.map((f, i) => (
+        <li key={i}>
+          <code>
+            {f.path}
+            {f.line ? `:${f.line}` : ""}
+          </code>{" "}
+          — {f.reason}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Sign off or return a gate that waits for me; then its save until it merges. */
+export function SignoffBox({ slug, step }: { slug: string; step: string }) {
+  const { me, session, saves, savesEnabled, addSave } = useApp();
+  const [returning, setReturning] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<{ error: string; findings?: Finding[] } | null>(null);
+  const mine = saves.filter((x) => x.meta?.["slug"] === slug && x.meta?.["step"] === step);
+  const pending = mine.find((x) => x.state === "pending");
+  const refused = mine[0]?.state === "refused" ? mine[0] : undefined;
+
+  if (pending)
+    return (
+      <div class="card savebox" data-save="pending">
+        <span class="k">Your {pending.meta?.["decision"] === "return" ? "return" : "sign-off"}</span>
+        <SaveState save={pending} />
+        <p class="muted">It merges by itself when hub-guard passes, and the step moves on then. Nothing else is needed from you.</p>
+      </div>
+    );
+
+  const send = async (decision: "pass" | "return") => {
+    setBusy(true);
+    setProblem(null);
+    const r = await api.signoff(session.demo ? me.user : undefined, { slug, step, decision, ...(decision === "return" ? { reason } : {}) });
+    setBusy(false);
+    if (r.ok) {
+      addSave(r.save);
+      setReturning(false);
+      setReason("");
+    } else setProblem({ error: r.error, ...(r.findings ? { findings: r.findings } : {}) });
+  };
+
+  return (
+    <div class="card savebox">
+      {refused && (
+        <div data-save="refused">
+          <span class="row">
+            <span class="k">Your last save was refused</span>
+            <SaveState save={refused} />
+          </span>
+          {refused.findings && <Findings findings={refused.findings} />}
+        </div>
+      )}
+      <div class="row">
+        <button type="button" class="btn pri" id="signoff" disabled={!savesEnabled || busy} onClick={() => void send("pass")}>
+          Sign off
+        </button>
+        <button type="button" class="btn" id="return" disabled={!savesEnabled || busy} aria-expanded={returning} onClick={() => setReturning(!returning)}>
+          Return…
+        </button>
+        {!savesEnabled && <span class="reason">This checkout has no remote to save to.</span>}
+        {busy && <span class="reason">Saving…</span>}
+      </div>
+      {returning && (
+        <div class="returnform">
+          <label for="reason" class="k">
+            What has to change
+          </label>
+          <textarea id="reason" value={reason} onInput={(e) => setReason((e.target as HTMLTextAreaElement).value)} placeholder="For example: AC-03 needs a time limit" />
+          <div class="row">
+            <button type="button" class="btn" id="send-return" disabled={!reason.trim() || busy} onClick={() => void send("return")}>
+              Send back
+            </button>
+            {!reason.trim() && <span class="reason">Write the reason first: the owner of the step reads it.</span>}
+          </div>
+        </div>
+      )}
+      {problem && (
+        <div class="problem" role="alert">
+          <p>{problem.error}</p>
+          {problem.findings && <Findings findings={problem.findings} />}
+        </div>
+      )}
+      <p class="muted">The site records it in signoffs.yaml through a merge request in your name. It merges by itself when hub-guard passes.</p>
+    </div>
+  );
+}
+
+/** My saves that are not merged yet, or were refused, for Home. */
+export function YourSaves() {
+  const { saves, go } = useApp();
+  const open = saves.filter((x) => x.state !== "merged");
+  if (!open.length) return null;
+  return (
+    <section>
+      <h2>Your saves</h2>
+      <div class="card">
+        <table>
+          <tbody>
+            {open.map((x) => (
+              <tr key={x.branch} data-save={x.state}>
+                <td class="wide">
+                  {x.meta?.["slug"] ? (
+                    <button type="button" class="linkbtn" onClick={() => go(`/features/${x.meta!["slug"]}`, { step: x.meta!["step"] })}>
+                      {x.title}
+                    </button>
+                  ) : (
+                    x.title
+                  )}
+                  {x.state === "refused" && x.findings && <Findings findings={x.findings} />}
+                </td>
+                <td class="nw">
+                  <SaveState save={x} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}

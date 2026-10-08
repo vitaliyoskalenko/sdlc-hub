@@ -34,7 +34,7 @@ export function Guide() {
         </div>
         <div class="card">
           <span class="k">2 · On this site</span>
-          <p>Where every feature is, who it waits on and why. In this version the site is read only; sign-offs and light edits arrive in phase 2.</p>
+          <p>Where every feature is, who it waits on and why. Sign off or return a gate that waits for you; the site saves it through a merge request in your name. Light edits arrive later.</p>
           <ul>
             {site.map((x) => (
               <li key={x}>{x}</li>

@@ -1,6 +1,7 @@
 // Home: project statistics, your next actions, your numbers and the features in progress.
 
 import type { Person, ProjectInfo, Summary } from "./api.ts";
+import { YourSaves } from "./saves.tsx";
 import { STEP } from "./text.ts";
 import { Kpi, Link, listOf, names, Pill, Progress, RoleChip, roleLabel, StatusPill, taskLabel, teamName, useApp, WaitMark, waitingTeams, waitText } from "./ui.tsx";
 
@@ -182,6 +183,7 @@ export function Home() {
         </div>
         <RepoLabels me={me} />
       </div>
+      <YourSaves />
       <section>
         <h2>Project statistics</h2>
         <div class="kpis four">

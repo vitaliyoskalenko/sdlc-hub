@@ -5,7 +5,8 @@ import { useEffect, useState } from "preact/hooks";
 import { api, type FeatureDetail, type FlowStep, type StepState, type Summary } from "./api.ts";
 import { layout, Loop } from "./features.tsx";
 import { engineCmd, hubCmd, LEGEND, roleOf, STATUS, STEP } from "./text.ts";
-import { Cmd, CopyButton, LaterButton, Link, names, Pill, personName, RoleChip, StatusPill, useApp, WaitMark, waitText } from "./ui.tsx";
+import { SignoffBox } from "./saves.tsx";
+import { Cmd, CopyButton, Link, names, Pill, personName, RoleChip, StatusPill, useApp, WaitMark, waitText } from "./ui.tsx";
 
 const md = new MarkdownIt({ html: false, linkify: false, typographer: false });
 
@@ -364,7 +365,7 @@ export function StepPanel({ detail, id }: { detail: FeatureDetail; id: string })
           </>
         )}
       </div>
-      {(st.status === "signoff" || st.status === "returned") && gateOwner && <LaterButton label="Sign off" primary />}
+      {detail.awaiting.includes(id) && gateOwner && <SignoffBox slug={slug} step={id} />}
       <div class="card">
         <span class="k">In your assistant</span>
         <Cmd text={cmd} />

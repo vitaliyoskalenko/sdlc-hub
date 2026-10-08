@@ -1,4 +1,4 @@
-// The read-only API of the local server, and the live change events.
+// The API of the local server, and the live change events. Saves go through actions that push a merge request.
 
 export type StepStatus = "done" | "running" | "signoff" | "returned" | "blocked" | "ready" | "todo" | "skipped" | "missed";
 export type Assistant = "claude" | "codex" | "cursor";
@@ -135,7 +135,31 @@ export interface FeatureDetail {
   state: FeatureState;
   summary: Summary;
   documents: { path: string; owner: string; signoff: "current" | "stale" | "none" }[];
+  /** Steps whose gate waits for a sign-off now. */
+  awaiting: string[];
 }
+
+export interface Finding {
+  user: string;
+  path: string;
+  reason: string;
+  line?: number;
+}
+
+export interface Save {
+  branch: string;
+  title: string;
+  user: string;
+  paths: string[];
+  at: string;
+  state: "pending" | "merged" | "refused";
+  meta?: Record<string, string>;
+  mr?: { iid: number; url: string };
+  findings?: Finding[];
+}
+
+/** The answer to an action: the save, or why it was not made. */
+export type ActionResult = { ok: true; save: Save } | { ok: false; error: string; findings?: Finding[] };
 
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(path, { credentials: "same-origin" });
@@ -143,7 +167,16 @@ async function get<T>(path: string): Promise<T> {
   return (await r.json()) as T;
 }
 
+const asQuery = (as?: string) => (as ? `?as=${encodeURIComponent(as)}` : "");
+
 export const api = {
+  /** My saves; `as` matters only in the demo. */
+  saves: (as?: string) => get<{ saves: Save[]; enabled: boolean }>(`/api/saves${asQuery(as)}`),
+  async signoff(as: string | undefined, body: { slug: string; step: string; decision: "pass" | "return"; reason?: string }): Promise<ActionResult> {
+    const r = await fetch(`/api/actions/signoff${asQuery(as)}`, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const data = (await r.json().catch(() => ({}))) as { save?: Save; error?: string; findings?: Finding[] };
+    return r.ok && data.save ? { ok: true, save: data.save } : { ok: false, error: data.error ?? `The server answered ${r.status}`, ...(data.findings ? { findings: data.findings } : {}) };
+  },
   session: (as?: string) => get<Session>(`/api/session${as ? `?as=${encodeURIComponent(as)}` : ""}`),
   project: () => get<ProjectInfo>("/api/project"),
   features: () => get<{ features: Summary[]; now: string }>("/api/features"),
@@ -158,6 +191,7 @@ export const api = {
 export function onChanges(onChange: () => void, onLive: (live: boolean) => void): () => void {
   const es = new EventSource("/api/events");
   es.addEventListener("changed", onChange);
+  es.addEventListener("saves", onChange);
   es.onopen = () => onLive(true);
   es.onerror = () => onLive(false);
   return () => es.close();

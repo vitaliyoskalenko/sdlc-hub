@@ -2,7 +2,7 @@
 
 import { createContext, type ComponentChildren } from "preact";
 import { useContext } from "preact/hooks";
-import type { Assistant, Person, ProjectInfo, Session, StepStatus, Summary } from "./api.ts";
+import type { Assistant, Person, ProjectInfo, Save, Session, StepStatus, Summary } from "./api.ts";
 import type { Action } from "./home.tsx";
 import { roleOf, STATUS } from "./text.ts";
 
@@ -18,6 +18,11 @@ export interface AppState {
   help: (command: string) => void;
   /** Opens an action from Home as a task page over the current screen. */
   openTask: (action: Action) => void;
+  /** My saves from the site, newest first. */
+  saves: Save[];
+  /** False when the server cannot save (no remote): controls that save are disabled with that reason. */
+  savesEnabled: boolean;
+  addSave: (save: Save) => void;
 }
 
 export const App = createContext<AppState | null>(null);
@@ -132,18 +137,6 @@ export function Kpi({ value, label, tone, onClick }: { value: string; label: str
     </button>
   ) : (
     <div class="kpi">{body}</div>
-  );
-}
-
-/** A control that saves arrives with phase 2; until then it shows why it is disabled. */
-export function LaterButton({ label, primary }: { label: string; primary?: boolean }) {
-  return (
-    <span class="row">
-      <button type="button" class={`btn sm${primary ? " pri" : ""}`} disabled>
-        {label}
-      </button>
-      <span class="reason">This version of the site is read only. Saving from the site arrives in phase 2.</span>
-    </span>
   );
 }
 
