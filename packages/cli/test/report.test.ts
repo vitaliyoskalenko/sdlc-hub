@@ -3,8 +3,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { parseTeamSnapshot } from "@sdlc-hub/core";
-import { report } from "../src/report.ts";
+import { parseTeamSnapshot, parseTestRun } from "@sdlc-hub/core";
+import { report, reportTests } from "../src/report.ts";
 
 const temp: string[] = [];
 afterAll(() => temp.forEach((d) => rmSync(d, { recursive: true, force: true })));
@@ -62,5 +62,15 @@ describe("hub report", () => {
     const before = execFileSync("git", ["--git-dir", specs, "rev-parse", "hub-state"], { encoding: "utf8" });
     expect(report({ ...opts, now: "2026-10-08T11:00:00Z" }).pushed).toBe(false);
     expect(execFileSync("git", ["--git-dir", specs, "rev-parse", "hub-state"], { encoding: "utf8" })).toBe(before);
+  });
+});
+
+describe("hub report --tests", () => {
+  it("records the pipeline's result for each feature, labelled ci, with its address and commit", () => {
+    const { specs, team } = repos();
+    const r = reportTests({ team: "web", cwd: team, specsUrl: specs, result: "failed", env: { CI_COMMIT_REF_NAME: "main", CI_COMMIT_SHA: "abc1234def", CI_PIPELINE_ID: "77", CI_PIPELINE_URL: "https://gl/shop/web-admin/-/pipelines/77" }, now: "2026-10-08T10:00:00Z" });
+    expect(r).toEqual({ slugs: ["bulk-order-export"], pushed: true });
+    const run = parseTestRun(git(specs, "show", "hub-state:features/bulk-order-export/tests/ci-web-77.json"), "t");
+    expect(run.value).toEqual({ source: "ci", team: "web", result: "failed", at: "2026-10-08T10:00:00Z", url: "https://gl/shop/web-admin/-/pipelines/77", ref: "main@abc1234" });
   });
 });

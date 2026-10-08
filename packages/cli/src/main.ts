@@ -14,7 +14,7 @@ import { baseTime, formatFindings, guardRepo, mergeRequestPeople, recordRefusal 
 import { actionHandler } from "./actions.ts";
 import { addDemoRemote, demoHost } from "./demo-host.ts";
 import { doctor, personSetup, print } from "./person.ts";
-import { report } from "./report.ts";
+import { report, reportTests } from "./report.ts";
 import { createHubMcp, sessionContext, type ToolContext } from "@sdlc-hub/plugin";
 import { createSaver } from "@sdlc-hub/save";
 import { gitCredentials, setupHandler } from "./setup.ts";
@@ -25,8 +25,9 @@ const HELP = `SDLC Hub
   hub init [--port <n>] [--no-open] [--no-keychain]
       Open the first-install site at http://127.0.0.1:4173/setup. Five screens, then Install.
 
-  hub report --team <id> --specs-url <url> [--push]
-      In a team repository's CI: publish the team's snapshot of each feature to hub-state.
+  hub report --team <id> --specs-url <url> [--push] [--tests passed|failed]
+      In a team repository's CI: publish the team's snapshot of each feature to hub-state,
+      or with --tests the result of this pipeline, for the autotests gate.
 
   hub guard [--rules <ref>] [--server-url <url>]
       In the hub-guard job of a product-specs merge request: refuse changes outside the roles of the author
@@ -189,6 +190,12 @@ async function init(f: Record<string, string>) {
 
 async function reportCommand(f: Record<string, string>) {
   if (!f["team"] || !f["specs-url"]) throw new Error("Give --team <id> and --specs-url <url>");
+  if (f["tests"]) {
+    if (f["tests"] !== "passed" && f["tests"] !== "failed") throw new Error("--tests is passed or failed");
+    const t = reportTests({ team: f["team"], cwd: process.cwd(), specsUrl: f["specs-url"], result: f["tests"], env: process.env, now: new Date().toISOString().replace(/\.\d+Z$/, "Z") });
+    console.log(`hub-report: pipeline ${f["tests"]} · ${t.slugs.length ? t.slugs.join(", ") : "no features in docs/features"}`);
+    return;
+  }
   const r = report({ team: f["team"], cwd: process.cwd(), specsUrl: f["specs-url"], push: f["push"] !== undefined, env: process.env, now: new Date().toISOString().replace(/\.\d+Z$/, "Z") });
   console.log(`hub-report: ${r.slugs.length ? r.slugs.join(", ") : "no features in docs/features"}${r.pushed ? " · published to hub-state" : f["push"] !== undefined ? " · nothing changed" : ""}`);
   if (f["push"] === undefined) console.log(JSON.stringify(r.snapshots, null, 2));

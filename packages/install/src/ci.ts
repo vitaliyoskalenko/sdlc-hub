@@ -5,31 +5,57 @@ import { isMap, isScalar, isSeq, parseDocument, YAMLSeq } from "yaml";
 export const HUB_REPORT_FILE = "ci/hub-report.gitlab-ci.yml";
 
 /**
- * The job publishes the team's snapshot of each feature to hub-state of product-specs. The hub code comes from
- * product-specs itself, at main. HUB_STATE_TOKEN (a masked group variable) is the only credential; it goes to git
- * through its environment, never on a command line. HUB_GIT_URL overrides the server address for runners that reach
- * GitLab under another name.
+ * The jobs publish the team's snapshot of each feature, and the pipeline's result, to hub-state of product-specs.
+ * The hub code comes from product-specs itself, at main. HUB_STATE_TOKEN (a masked group variable) is the only
+ * credential; it goes to git through its environment, never on a command line. HUB_GIT_URL overrides the server
+ * address for runners that reach GitLab under another name. Every job may fail without turning the pipeline red,
+ * and a failure of hub-report never counts as a failed test: allowed failures do not stop on_success jobs.
  */
 export function hubReportJob(opts: { specs: string; team: string; stage: string }): string {
-  return `# Added by SDLC Hub. Publishes this team's tasks, tracker, review verdict and merge request for each feature
-# to the hub-state branch of ${opts.specs}. It changes nothing in this repository.
-hub-report:
-  stage: ${opts.stage}
+  const run = 'node /tmp/hub-specs/hub/cli.js report --team "$HUB_TEAM" --specs-url "$HUB_GIT_BASE/$HUB_SPECS.git" --push';
+  return `# Added by SDLC Hub. Publishes this team's tasks, tracker, review verdict, merge request and the result of each
+# pipeline for each feature to the hub-state branch of ${opts.specs}. It changes nothing in this repository.
+.sdlc-hub:
   image: node:22-alpine
-  rules:
-    - if: $HUB_STATE_TOKEN
-      when: always
+  allow_failure: true
   variables:
     HUB_SPECS: "${opts.specs}"
     HUB_TEAM: "${opts.team}"
   # One literal block: a line such as "Authorization: Basic" would otherwise be read as a YAML key.
-  script:
+  before_script:
     - |
       apk add --no-cache git >/dev/null
       export HUB_GIT_BASE="\${HUB_GIT_URL:-$CI_SERVER_URL}"
       export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader GIT_CONFIG_VALUE_0="Authorization: Basic $(printf 'hub-report:%s' "$HUB_STATE_TOKEN" | base64 | tr -d '\\n')"
       git clone --quiet --depth 1 --branch main "$HUB_GIT_BASE/$HUB_SPECS.git" /tmp/hub-specs
-      node /tmp/hub-specs/hub/cli.js report --team "$HUB_TEAM" --specs-url "$HUB_GIT_BASE/$HUB_SPECS.git" --push
+
+hub-report:
+  extends: .sdlc-hub
+  stage: ${opts.stage}
+  rules:
+    - if: $HUB_STATE_TOKEN
+      when: always
+  script:
+    - ${run}
+
+# The autotests gate reads these: the latest pipeline of every team repository must be green.
+hub-tests-passed:
+  extends: .sdlc-hub
+  stage: .post
+  rules:
+    - if: $HUB_STATE_TOKEN
+      when: on_success
+  script:
+    - ${run} --tests passed
+
+hub-tests-failed:
+  extends: .sdlc-hub
+  stage: .post
+  rules:
+    - if: $HUB_STATE_TOKEN
+      when: on_failure
+  script:
+    - ${run} --tests failed
 `;
 }
 

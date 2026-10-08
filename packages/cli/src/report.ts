@@ -81,3 +81,40 @@ export function report(o: ReportOptions): ReportResult {
   });
   return { slugs, snapshots, pushed };
 }
+
+export interface TestsOptions {
+  team: string;
+  cwd: string;
+  specsUrl: string;
+  result: "passed" | "failed";
+  /** GitLab CI variables: CI_COMMIT_REF_NAME, CI_COMMIT_SHA, CI_PIPELINE_ID, CI_PIPELINE_URL. */
+  env: Record<string, string | undefined>;
+  now: string;
+}
+
+/**
+ * The result of this pipeline, for the autotests gate: one record per feature the branch reports, named by the
+ * pipeline so a retried job does not add a second one. The hub-tests-passed and hub-tests-failed jobs run it.
+ */
+export function reportTests(o: TestsOptions): { slugs: string[]; pushed: boolean } {
+  const slugs = slugsOf(o.cwd, o.env.CI_COMMIT_REF_NAME);
+  if (!slugs.length) return { slugs, pushed: false };
+  const id = o.env.CI_PIPELINE_ID ?? o.now.replace(/\D/g, "");
+  const branch = o.env.CI_COMMIT_REF_NAME;
+  const sha = o.env.CI_COMMIT_SHA?.slice(0, 7);
+  const run = { source: "ci", team: o.team, result: o.result, at: o.now, ...(o.env.CI_PIPELINE_URL ? { url: o.env.CI_PIPELINE_URL } : {}), ...(branch && sha ? { ref: `${branch}@${sha}` } : {}) };
+  const pushed = writeHubState({
+    url: o.specsUrl,
+    message: `hub-report: ${o.team} pipeline ${id} ${o.result}`,
+    author: { name: o.env.GITLAB_USER_NAME ?? "hub-report", email: o.env.GITLAB_USER_EMAIL ?? "hub-report@localhost" },
+    edit(dir) {
+      for (const slug of slugs) {
+        const path = join(dir, "features", slug, "tests", `ci-${o.team}-${id}.json`);
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(path, JSON.stringify(run, null, 2) + "\n");
+      }
+      return true;
+    },
+  });
+  return { slugs, pushed };
+}
