@@ -2,6 +2,25 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-08: Revision 60, People and roles and the setup scripts
+
+### hub setup records who the checkout belongs to
+- **Decision:** `hub setup` sets `git config hub.user` once it has confirmed the person's roles on `main`. The site, the plugin and `hub doctor` take the person from there first, and from the git identity only when it is not set.
+- **Why:** A git e-mail often does not match the username in `roles.yaml`, and the person would then not be recognised.
+- **By:** Proposed.
+
+### What the script expects of the hub, and what the admin sees
+- **Decision:**
+  - The script's hub release is a short hash of `hub/cli.js` on `main`. A newer hub is noted, not refused, because the checkout always runs `main`'s hub.
+  - `hub setup` writes `people/<user>.json` to `hub-state` with the person's own credential, and People and roles shows it as "set up" with the date.
+  - The local Claude Code path rules are guidance only: they deny edits to `.hub/`, `hub/`, `.claude-plugin/` and `signoffs.yaml` to everyone but the admin. The local settings file is kept out of commits in the checkout itself and in `.gitignore`, because a machine may have no global ignore for it.
+- **Why:** A version number would need a release process the hub does not have yet. The admin needs to see who has finished setup without asking.
+- **By:** Proposed; verified by running a generated script against GitLab CE.
+
+### People and roles saves like everything else
+- **Decision:** Adding, changing or removing a person is one change to `.hub/roles.yaml`, saved through a self-merging merge request. The site checks it first, like the guard: an unknown role or team, a lead without a team, removing the last admin, a username a script cannot carry. Everyone can read People and roles and the setup scripts, which hold nothing secret; only the admin changes people.
+- **By:** Proposed.
+
 ## 2026-10-08: Revision 59, the Claude Code plugin
 
 ### The MCP server reads the checkout itself, not the local server

@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 8, 2026 · @Vitaliy · revision 59
+Oct 8, 2026 · @Vitaliy · revision 60
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -629,7 +629,7 @@ The SDLC Hub Setup prototype plays these screens for both hosts.
 ### Admin: add people and generate scripts
 
 1. Add each person: GitLab username, name, role or roles, team, team-lead flag, operating system and assistant.
-2. Saving writes `roles.yaml` through a merge request that only the admin role can pass.
+2. Saving writes `roles.yaml` through a merge request that only the admin role can pass. The file keeps its comments and style, and the site refuses an unknown role or team, a lead without a team, and removing the last admin before anything is pushed.
 3. Choose a person and press Generate script. The site shows it for macOS and Linux (bash) or for Windows (PowerShell), to copy or download.
 4. Send the script to the person through any channel.
 
@@ -641,35 +641,40 @@ The SDLC Hub Setup prototype plays these screens for both hosts.
 | Person and role | `iryna.s`, QA |
 | Team repositories for that role | `shop/web-admin`, `shop/android-app`, `shop/ios-app` |
 | Assistant | Claude Code |
-| Hub release | `v1.0.0` and the commit it expects |
+| Hub release | A short hash of `hub/cli.js` on `main` when the script was made; a newer hub on `main` is fine and only noted |
 | Work folder | `~/work/shop` |
 
 It never carries tokens, keys or passwords, so it can travel by chat or email.
 
 ```bash
 #!/usr/bin/env bash
-# SDLC Hub setup for iryna.s (QA). Generated 2026-10-07 by the admin. Contains no secrets.
+# SDLC Hub setup for iryna.s (qa). Generated 2026-10-08 by nazar.t. Contains no secrets. Safe to run again.
 set -euo pipefail
+
 HUB_GIT_PROVIDER="gitlab"
 HUB_GIT_HOST="https://gitlab.example.com"
 HUB_REPO="shop/product-specs"
 HUB_USER="iryna.s"
 HUB_ROLES="qa"            # one role, or several separated by spaces
-HUB_TEAM_REPOS="shop/web-admin shop/android-app shop/ios-app"
+HUB_TEAM_REPOS="shop/backend shop/web-admin shop/android-app shop/ios-app"
 HUB_ASSISTANT="claude"
-HUB_RELEASE="v1.0.0"
-WORK="$HOME/work/shop"
-# 1 prerequisites  2 sign-in to the git host  3 clone  4 hub setup  5 role files  6 doctor and start
+HUB_RELEASE="3f9c0a12be47"
+WORK="${HUB_WORK:-$HOME/work/shop}"
+# 1 prerequisites  2 sign-in to the git host  3 clone  4 hub setup  5 doctor  6 the site on Your guide
 ```
 
 ### What the script does
 
 1. Checks git, Node 22 or newer and the assistant. For anything missing it prints the install command for the person's system and stops.
-2. Signs in to GitLab through the git credential manager or an SSH key. The credential stays in the operating system's keychain.
-3. Clones `product-specs` and the team repositories of the role into the work folder.
-4. Runs `hub setup`. It confirms on `main` that the username really has the roles named in the script, and stops if it does not.
-5. Writes the role's local files: path rules for the assistant, the MCP entry and, for Codex or Cursor, the engine's skills.
-6. Runs `hub doctor`, starts the server and opens Your guide for the role.
+2. Signs in to the git host through the person's git credential manager or SSH key. The credential stays in the operating system's keychain; the script only checks that `git ls-remote` reaches the repository.
+3. Clones `product-specs` and the team repositories of the role into the work folder, or pulls them when they are there. Engineering clones its own team's repository; QA, Ops and the admin clone every team's.
+4. Runs `hub setup` in product-specs, which does four things:
+   - It confirms on `main` that the username has exactly the roles named in the script, and stops if not.
+   - It records who the checkout belongs to as `git config hub.user`, so the site and the plugin know the person whatever their git e-mail says.
+   - It writes the local files for the assistant: path rules in `.claude/settings.local.json`, kept out of commits through `.git/info/exclude`. Then it runs `claude plugin marketplace add <the clone> --scope local` and `claude plugin install hub@product-specs --scope local`, and installs the engine's plugin.
+   - It tells the admin by writing `people/<user>.json` to `hub-state`, which People and roles shows as "set up".
+5. Runs `hub doctor`, which checks Node, `.hub/`, who the person is, the git host and `hub-state`, and the assistant's plugin.
+6. Starts the site and opens Your guide. `HUB_NO_START=1` skips this step, and `HUB_WORK` sets another work folder.
 
 The script is safe to run again, because each step checks before it acts.
 

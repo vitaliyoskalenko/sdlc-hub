@@ -32,8 +32,9 @@ State on 7 October 2026, revision 51 of the specification. Items already fixed a
 | 14 | A passed `hub-guard` stays valid until the merge request merges, even if `roles.yaml` on `main` changes in between | 2 | Found while wiring the guard. GitLab merges on the last pipeline's result; a person removed from a role after their pipeline passed could still merge | **Accepted risk** for now. A fix: when a change to `.hub/roles.yaml` merges, re-run the pipelines of open merge requests (phase 2 or later) |
 | 15 | On GitLab Free a protected branch cannot be limited to the Owner: a Maintainer of the group can change `hub-ci` and the protection of `main` | 2 | Found while wiring the guard | **Accepted risk**: setup tells the admin to keep the people of the hub at Developer in the group. `hub-ci`'s `main` takes pushes and merges from Maintainers only |
 | 16 | A save can open its merge request and set it to merge itself with git alone (push options), so it works over HTTPS or SSH without an API token | 2 | `git push -o merge_request.create -o merge_request.target=main -o merge_request.merge_when_pipeline_succeeds -o merge_request.remove_source_branch` as a Developer | **Verified** (GitLab CE 19.4.1 Free, 8 October 2026): pushed as olena.k with only her git credential, the merge request opened, was set to merge when the pipeline succeeds, and merged in her name after `hub-guard` passed |
+| 17 | The PowerShell setup script runs on Windows | 2 | Run a generated `setup-<user>.ps1` on Windows with Git Credential Manager, Node 22 and Claude Code | **Open.** Only its content is checked: there is no Windows machine or `pwsh` here. The bash script is verified by `bash -n`, by a full run against bare repositories and by a full run against GitLab CE |
 
-Claims 8 to 13 were found while planning phase 1, 14 to 16 while building the guard in phase 2. Claims 3, 11 and 12 are verified, 9 is replaced, 10 is verified on macOS and 13 is a confirmed, accepted risk. Phase 1b is not blocked; claim 10 on Linux and Windows is the open part.
+Claims 8 to 13 were found while planning phase 1, 14 to 17 while building phase 2. Claims 3, 11 and 12 are verified, 9 is replaced, 10 is verified on macOS and 13 is a confirmed, accepted risk. Phase 1b is not blocked; claim 10 on Linux and Windows is the open part.
 
 ## Not built yet in phase 2
 
@@ -41,6 +42,7 @@ Claims 8 to 13 were found while planning phase 1, 14 to 16 while building the gu
 - **Saving offline.** A push that fails is reported, not queued for the next sync.
 - **Other saves.** On the site: bugs, `release.yaml`, People and roles and light edits. The plugin files bugs (`/hub:bug`); the rest need a merge request by hand.
 - **Plugin: still to come.** `hub_record` and the hooks that record a stage's start and finish in `events.jsonl`, usage (phase 4), Codex and Cursor skills (phase 5), and refreshing the cached plugin copy after `hub/plugin` changes (`hub sync` should run `claude plugin marketplace update` and `claude plugin update`).
+- **People and roles: still to come.** The check that a person is a member of the group on the host (the site only says to add them), Settings, and adding a team later.
 - **Stale guard results** (claim 14) and **group Maintainers** (claim 15) are accepted risks for now.
 
 ## Decided in code during phase 1a
