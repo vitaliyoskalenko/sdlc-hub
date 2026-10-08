@@ -3,9 +3,12 @@
 // merge request cannot widen its own rights. See the specification, "Guard rules".
 
 import { execFileSync } from "node:child_process";
-import { guard, loadProject, type Change, type Finding } from "@sdlc-hub/core";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { guard, loadProject, refusalPath, type Change, type Finding, type SaveRefusal } from "@sdlc-hub/core";
 import { refSource } from "@sdlc-hub/git";
 import type { GitLab } from "@sdlc-hub/host";
+import { tokenEnv, writeHubState } from "./hub-state.ts";
 
 export interface GuardRepoOptions {
   /** A checkout of product-specs that has the merge request's commits. */
@@ -92,4 +95,25 @@ export function formatFindings(r: GuardResult, author: string, pushers: string[]
   if (r.ok) return `hub-guard: passed (${who})`;
   const lines = r.findings.map((f) => `  ✗ ${f.path}${f.line ? `:${f.line}` : ""} — ${f.reason}${f.user !== author ? ` (${f.user})` : ""}`);
   return [`hub-guard: refused (${who})`, ...lines, "", "Only the people whose role allows a path may change it. Ask the admin if your role is wrong."].join("\n");
+}
+
+/**
+ * A refused save from the site: the reason goes to hub-state, where the person's site reads it, and the branch is
+ * deleted, which closes its merge request. Uses HUB_STATE_TOKEN through git's environment.
+ */
+export function recordRefusal(o: SaveRefusal & { url: string; token: string; env?: NodeJS.ProcessEnv }): void {
+  const { url, token, env: base, ...record } = o;
+  const env = tokenEnv(token, base);
+  writeHubState({
+    url,
+    env,
+    message: `hub-guard: refused ${record.branch}`,
+    edit(dir) {
+      const path = join(dir, refusalPath(record.branch));
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, JSON.stringify(record, null, 2) + "\n");
+      return true;
+    },
+  });
+  execFileSync("git", ["push", "-q", url, "--delete", record.branch], { env: { ...env, GIT_TERMINAL_PROMPT: "0" }, stdio: "pipe" });
 }

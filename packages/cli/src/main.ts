@@ -4,12 +4,13 @@ import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, watch } from "n
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { gitIdentity, openProject, topLevel, userFor } from "@sdlc-hub/git";
 import { startServer, type RunningServer, type ServerOptions } from "@sdlc-hub/server";
 import { GitLab } from "@sdlc-hub/host";
-import { baseTime, formatFindings, guardRepo, mergeRequestPeople } from "./guard.ts";
+import { isSaveBranch } from "@sdlc-hub/core";
+import { baseTime, formatFindings, guardRepo, mergeRequestPeople, recordRefusal } from "./guard.ts";
 import { report } from "./report.ts";
 import { gitCredentials, setupHandler } from "./setup.ts";
 import { WEB_ASSETS } from "./web-assets.ts";
@@ -164,7 +165,21 @@ async function guardCommand(f: Record<string, string>) {
   const { author, pushers } = await mergeRequestPeople(new GitLab(server, token), env, baseTime(cwd, base));
   const r = guardRepo({ cwd, baseSha: base, rulesRef: f["rules"] ?? base, author, pushers });
   console.log(formatFindings(r, author, pushers));
-  if (!r.ok) process.exit(1);
+  if (r.ok) return;
+  // A save from the site: tell the person's site why, and close the merge request by deleting its branch.
+  const branch = env["CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"] ?? "";
+  const stateToken = env["HUB_STATE_TOKEN"];
+  if (isSaveBranch(branch) && stateToken) {
+    try {
+      const sha = env["CI_COMMIT_SHA"] ?? execFileSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).trim();
+      const at = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+      recordRefusal({ url: `${server.replace(/\/+$/, "")}/${env["CI_PROJECT_PATH"]}.git`, token: stateToken, branch, mr: Number(env["CI_MERGE_REQUEST_IID"]), author, sha, at, findings: r.findings });
+      console.log(`hub-guard: recorded the refusal in hub-state and deleted ${branch}, which closes the merge request`);
+    } catch (e) {
+      console.log(`hub-guard: could not record the refusal: ${(e as Error).message}`);
+    }
+  }
+  process.exit(1);
 }
 
 const [command, ...rest] = process.argv.slice(2);

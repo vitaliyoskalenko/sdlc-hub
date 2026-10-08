@@ -1,12 +1,11 @@
 // hub report: run by the hub-report CI job in a team repository. It builds the team's snapshot of each feature and
 // publishes it to hub-state of product-specs. Git gets its credentials from the environment the job sets up.
 
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { buildTeamSnapshot, parseTeamSnapshot, type TeamSnapshot } from "@sdlc-hub/core";
 import { workingTreeSource } from "@sdlc-hub/git";
+import { writeHubState } from "./hub-state.ts";
 
 export interface ReportOptions {
   team: string;
@@ -63,14 +62,11 @@ export function report(o: ReportOptions): ReportResult {
   }
   if (!o.push || !snapshots.length) return { slugs, snapshots, pushed: false };
 
-  // Someone else may push between our fetch and push: try again from a fresh copy.
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const dir = mkdtempSync(join(tmpdir(), "hub-report-"));
-    const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, stdio: "pipe", env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_AUTHOR_NAME: o.env.GITLAB_USER_NAME ?? "hub-report", GIT_AUTHOR_EMAIL: o.env.GITLAB_USER_EMAIL ?? "hub-report@localhost", GIT_COMMITTER_NAME: "hub-report", GIT_COMMITTER_EMAIL: "hub-report@localhost" } }).toString();
-    try {
-      git("init", "-q");
-      git("fetch", "-q", "--depth", "1", o.specsUrl, "hub-state");
-      git("checkout", "-q", "-B", "hub-state", "FETCH_HEAD");
+  const pushed = writeHubState({
+    url: o.specsUrl,
+    message: `hub-report: ${o.team} (${snapshots.map((s) => s.slug).join(", ")})`,
+    author: { name: o.env.GITLAB_USER_NAME ?? "hub-report", email: o.env.GITLAB_USER_EMAIL ?? "hub-report@localhost" },
+    edit(dir) {
       let changed = false;
       for (const s of snapshots) {
         const path = join(dir, "features", s.slug, "teams", `${o.team}.json`);
@@ -80,18 +76,8 @@ export function report(o: ReportOptions): ReportResult {
         writeFileSync(path, text);
         changed = true;
       }
-      if (!changed) return { slugs, snapshots, pushed: false };
-      git("add", "-A");
-      git("commit", "-q", "-m", `hub-report: ${o.team} (${snapshots.map((s) => s.slug).join(", ")})`);
-      try {
-        git("push", "-q", o.specsUrl, "HEAD:refs/heads/hub-state");
-        return { slugs, snapshots, pushed: true };
-      } catch (e) {
-        if (attempt === 3) throw new Error(`Could not push to hub-state after 3 attempts: ${(e as Error).message}`);
-      }
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  }
-  return { slugs, snapshots, pushed: false };
+      return changed;
+    },
+  });
+  return { slugs, snapshots, pushed };
 }

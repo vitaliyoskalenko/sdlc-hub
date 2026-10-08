@@ -77,7 +77,9 @@ hub-guard:
   variables:
     GIT_DEPTH: "0"
   # HUB_GUARD_TOKEN (a masked project variable, read_api) lets the guard ask GitLab who opened the merge request
-  # and who pushed to it. HUB_GIT_URL overrides the server address for runners that reach GitLab under another name.
+  # and who pushed to it. When it refuses a save from the site (a hub/<user>/... branch), it records the reason in
+  # hub-state and deletes the branch with HUB_STATE_TOKEN. HUB_GIT_URL overrides the server address for runners
+  # that reach GitLab under another name.
   script:
     - |
       apk add --no-cache git >/dev/null

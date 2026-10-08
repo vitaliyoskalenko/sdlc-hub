@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { base } from "@sdlc-hub/fixtures";
 import { GitLab } from "@sdlc-hub/host";
-import { formatFindings, guardRepo, mergeRequestPeople } from "../src/guard.ts";
+import { formatFindings, guardRepo, mergeRequestPeople, recordRefusal } from "../src/guard.ts";
 
 const temp: string[] = [];
 afterAll(() => temp.forEach((d) => rmSync(d, { recursive: true, force: true })));
@@ -91,5 +91,22 @@ describe("the people of a merge request", () => {
     const text = formatFindings({ ok: false, findings: [{ user: "daria.l", path: ".hub/config.yaml", reason: "No role of daria.l (designer) may change .hub/config.yaml" }] }, "olena.k", ["daria.l", "olena.k"]);
     expect(text).toContain("refused (author olena.k; also pushed: daria.l)");
     expect(text).toContain("✗ .hub/config.yaml — No role of daria.l");
+  });
+});
+
+describe("a refused save from the site", () => {
+  it("is recorded in hub-state and its branch deleted, which closes the merge request", () => {
+    const work = mkdtempSync(join(tmpdir(), "hub-refuse-"));
+    const remote = mkdtempSync(join(tmpdir(), "hub-remote-"));
+    temp.push(work, remote);
+    git(remote, "init", "-q", "--bare", "-b", "main");
+    git(work, "init", "-q", "-b", "main");
+    write(work, { "README.md": "x\n" });
+    git(work, "add", ".");
+    git(work, "commit", "-q", "-m", "main");
+    git(work, "push", "-q", remote, "main", "main:hub-state", "main:hub/olena.k/config-1");
+    recordRefusal({ url: remote, token: "t", branch: "hub/olena.k/config-1", mr: 3, author: "olena.k", sha: "abcdef1", at: "2026-10-08T10:00:00Z", findings: [{ user: "olena.k", path: ".hub/config.yaml", reason: "No role" }], env });
+    expect(JSON.parse(git(remote, "show", "hub-state:saves/olena.k/config-1.json"))).toMatchObject({ mr: 3, findings: [{ path: ".hub/config.yaml" }] });
+    expect(git(remote, "branch", "--list", "hub/*")).toBe("");
   });
 });
