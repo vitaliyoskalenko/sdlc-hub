@@ -164,6 +164,18 @@ export function gitIdentity(root: string): { name: string; email: string } {
   return { name: (git(root, ["config", "user.name"]) ?? "").trim(), email: (git(root, ["config", "user.email"]) ?? "").trim() };
 }
 
+/** The person `hub setup` recorded for this checkout (git config hub.user), if any. */
+export function hubUser(root: string): string | undefined {
+  return git(root, ["config", "--get", "hub.user"])?.trim() || undefined;
+}
+
+/** Who this checkout belongs to: the person hub setup recorded, else the one whose git identity matches. */
+export function personOf(root: string, roles: Roles | undefined): string | undefined {
+  const recorded = hubUser(root);
+  if (recorded && roles?.people.some((p) => p.user === recorded)) return recorded;
+  return userFor(roles, gitIdentity(root));
+}
+
 /** The roles.yaml user for a git identity, or undefined. */
 export function userFor(roles: Roles | undefined, id: { name: string; email: string }): string | undefined {
   const local = id.email.split("@")[0] ?? "";

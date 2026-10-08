@@ -7,6 +7,9 @@ import { parseRoles } from "./files.ts";
 import { BUILTIN_ROLES } from "./schema/common.ts";
 import type { Config } from "./schema/project.ts";
 import type { FileSource } from "./source.ts";
+import { z } from "zod";
+import { parseJson } from "./parse.ts";
+import { isoTime } from "./schema/common.ts";
 
 export interface PersonInput {
   user: string;
@@ -66,3 +69,15 @@ export function peopleChange(main: FileSource, config: Config, edit: PeopleEdit)
   if (!check.value) throw new Error(check.issues.map((x) => x.message).join("; "));
   return { path: ROLES_FILE, base, next };
 }
+
+/** hub-state `people/<user>.json`: written by `hub setup` on the person's machine, shown on People and roles. */
+export const personStateSchema = z.strictObject({
+  user: z.string().min(1),
+  setup_at: isoTime,
+  release: z.string(),
+  assistant: z.enum(["claude", "codex", "cursor"]),
+  platform: z.string(),
+});
+export type PersonState = z.output<typeof personStateSchema>;
+export const parsePersonState = (text: string, file: string) => parseJson(personStateSchema, text, file);
+export const personStatePath = (user: string) => `people/${user}.json`;

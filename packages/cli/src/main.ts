@@ -6,13 +6,14 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile, execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { gitIdentity, openProject, topLevel, userFor } from "@sdlc-hub/git";
+import { gitIdentity, openProject, personOf, topLevel } from "@sdlc-hub/git";
 import { startServer, type RunningServer, type ServerOptions } from "@sdlc-hub/server";
 import { GitLab } from "@sdlc-hub/host";
 import { isSaveBranch } from "@sdlc-hub/core";
 import { baseTime, formatFindings, guardRepo, mergeRequestPeople, recordRefusal } from "./guard.ts";
 import { actionHandler } from "./actions.ts";
 import { addDemoRemote, demoHost } from "./demo-host.ts";
+import { doctor, personSetup, print } from "./person.ts";
 import { report } from "./report.ts";
 import { createHubMcp, sessionContext, type ToolContext } from "@sdlc-hub/plugin";
 import { createSaver } from "@sdlc-hub/save";
@@ -37,7 +38,13 @@ const HELP = `SDLC Hub
   hub mcp [--assistant claude|codex|cursor]
       The MCP server the hub skills call, over stdio. The assistant starts it; you do not.
 
-  hub serve [--port <n>] [--as <user>]
+  hub setup --user <username> --roles <role ...> [--assistant claude|codex|cursor] [--release <hash>]
+      Run by your setup script: confirms your roles on main and sets up this checkout and your assistant.
+
+  hub doctor
+      Checks Node.js, .hub/, who you are, the git host and your assistant's hub plugin.
+
+  hub serve [--port <n>] [--as <user>] [--open <path>]
       Serve the site for the product-specs checkout you are in.
       You are the person in .hub/roles.yaml that matches your git identity, or --as.
 
@@ -99,7 +106,7 @@ async function serve(f: Record<string, string>) {
     for (const i of first.issues) console.error(`${i.file}${i.line ? `:${i.line}` : ""}: ${i.message}`);
     throw new Error(".hub/ does not load; fix the files above.");
   }
-  const user = f["as"] ?? userFor(first.project.roles, gitIdentity(root));
+  const user = f["as"] ?? personOf(root, first.project.roles);
   if (!user) throw new Error("Your git identity matches nobody in .hub/roles.yaml. Ask the admin to add you, or pass --as <user>.");
   // Saves need a remote to push to; without one the site stays read only and says why.
   let hasRemote = true;
@@ -112,6 +119,8 @@ async function serve(f: Record<string, string>) {
   const server = await listen(() => openProject(root), user, Number(f["port"] ?? 4173), false, actions ? { actions } : {});
   watchFiles([root], server);
   console.log(`SDLC Hub · ${first.project.config.project.name} · ${user}\nServing http://127.0.0.1:${server.port} (this machine only)\nCtrl+C stops the server.`);
+  // --open /guide: the setup script ends on Your guide.
+  if (f["open"]) openBrowser(`http://127.0.0.1:${server.port}${f["open"] === "true" ? "/" : f["open"].startsWith("/") ? f["open"] : `/${f["open"]}`}`);
 }
 
 async function demo(f: Record<string, string>) {
@@ -220,7 +229,7 @@ function pluginContext(f: Record<string, string>): ToolContext {
   const assistant = f["assistant"] === "codex" || f["assistant"] === "cursor" ? f["assistant"] : "claude";
   return {
     open: () => openProject(root),
-    user: () => userFor(openProject(root).project?.roles, gitIdentity(root)),
+    user: () => personOf(root, openProject(root).project?.roles),
     assistant,
     saver: () => createSaver({ root, identity: gitIdentity(root) }),
     now: () => new Date(),
@@ -242,8 +251,25 @@ async function hook(_f: Record<string, string>, event: string | undefined) {
   }
 }
 
+async function setupCommand(f: Record<string, string>) {
+  const root = topLevel(process.cwd());
+  if (!root) throw new Error("Run hub setup in your clone of product-specs; the setup script does this for you.");
+  if (!f["user"] || !f["roles"]) throw new Error("Give --user <username> and --roles <role ...>; the setup script does this for you.");
+  const r = personSetup({ root, user: f["user"], roles: f["roles"].split(/[ ,]+/).filter(Boolean), assistant: f["assistant"] ?? "claude", ...(f["release"] ? { release: f["release"] } : {}) });
+  console.log(print(r.lines));
+  if (!r.ok) process.exit(1);
+}
+
+async function doctorCommand() {
+  const root = topLevel(process.cwd());
+  if (!root) throw new Error("Run hub doctor in your clone of product-specs.");
+  const r = doctor(root);
+  console.log(print(r.lines));
+  if (!r.ok) process.exit(1);
+}
+
 const [command, ...rest] = process.argv.slice(2);
-const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "hook" ? (f: Record<string, string>) => hook(f, rest[0]) : undefined;
+const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(f, rest[0]) : undefined;
 if (!run) {
   console.log(HELP);
   process.exit(command && command !== "help" && command !== "--help" ? 1 : 0);
