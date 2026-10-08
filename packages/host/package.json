@@ -1,0 +1,13 @@
+{
+  "name": "@sdlc-hub/host",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The git host adapter: words, checks and API calls. GitLab in version 1; GitHub has its words and stops before Install.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@sdlc-hub/core": "*"
+  }
+}

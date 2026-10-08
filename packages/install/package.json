@@ -1,0 +1,15 @@
+{
+  "name": "@sdlc-hub/install",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The first install: setup answers to .hub/ files, checks before install, and the install steps on the git host.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@sdlc-hub/core": "*",
+    "@sdlc-hub/host": "*",
+    "yaml": "^2.9.1"
+  }
+}

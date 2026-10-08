@@ -10,7 +10,9 @@
   "dependencies": {
     "@sdlc-hub/core": "*",
     "@sdlc-hub/git": "*",
-    "@sdlc-hub/server": "*"
+    "@sdlc-hub/server": "*",
+    "@sdlc-hub/install": "*",
+    "@sdlc-hub/host": "*"
   },
   "devDependencies": {
     "@sdlc-hub/fixtures": "*",
