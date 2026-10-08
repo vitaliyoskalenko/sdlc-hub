@@ -9,6 +9,9 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { parseSaveRefusal, refusalPath, saveBranch, type Change, type FileSource, type Finding } from "@sdlc-hub/core";
 import { refSource } from "@sdlc-hub/git";
 
+/** The change is already on main. */
+export class Unchanged extends Error {}
+
 export interface Save {
   branch: string;
   title: string;
@@ -122,7 +125,7 @@ export function createSaver(o: SaverOptions) {
         }
       }
       run(wt, ["add", "-A"]);
-      if (tryRun(wt, ["diff", "--cached", "--quiet"]) !== undefined) throw new Error("Nothing to save: main already has this");
+      if (tryRun(wt, ["diff", "--cached", "--quiet"]) !== undefined) throw new Unchanged("Nothing to save: main already has this");
       const at = now();
       const id = { GIT_AUTHOR_NAME: o.identity.name, GIT_AUTHOR_EMAIL: o.identity.email, GIT_COMMITTER_NAME: o.identity.name, GIT_COMMITTER_EMAIL: o.identity.email, GIT_AUTHOR_DATE: at.toISOString(), GIT_COMMITTER_DATE: at.toISOString() };
       run(wt, ["commit", "-q", "-m", req.title], { ...baseEnv, ...id });
@@ -170,4 +173,4 @@ export function createSaver(o: SaverOptions) {
 }
 
 export type Saver = ReturnType<typeof createSaver>;
-export { saveBug, savePeople, saveSignoff, type BugSaveInput, type PeopleSaveInput, type SaveOutcome, type SignoffInput } from "./signoff.ts";
+export { saveBug, saveBugEdit, savePeople, saveRelease, saveSignoff, saveVerdicts, type BugSaveInput, type FeatureSaveInput, type PeopleSaveInput, type SaveOutcome, type SignoffInput } from "./signoff.ts";

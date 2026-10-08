@@ -1,12 +1,12 @@
 // A sign-off or a return of a gate, saved: checked with the same guard that runs at merge, on main as it is on the
 // remote, and only then pushed. The site's action and the plugin's hub_signoff and hub_return both use this.
 
-import { awaitsSignoff, bugChange, guard, loadProject, peopleChange, signoffChange, type BugInput, type PeopleEdit, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
-import type { Save, Saver } from "./index.ts";
+import { awaitsSignoff, bugChange, bugEditChange, guard, loadProject, peopleChange, platformsOf, releaseChange, signoffChange, verdictChange, verificationMatrix, type BugEdit, type BugInput, type PeopleEdit, type ReleaseEdit, type VerdictInput, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
+import { Unchanged, type Save, type Saver } from "./index.ts";
 
 export type SaveOutcome =
   | { ok: true; save: Save }
-  | { ok: false; code: "bad-input" | "no-feature" | "not-waiting" | "pending" | "refused" | "failed"; error: string; findings?: Finding[] };
+  | { ok: false; code: "bad-input" | "no-feature" | "not-waiting" | "pending" | "unchanged" | "refused" | "failed"; error: string; findings?: Finding[] };
 
 export interface SignoffInput {
   saver: Saver;
@@ -17,6 +17,10 @@ export interface SignoffInput {
   step: unknown;
   decision: unknown;
   reason?: unknown;
+  /** For a return at the final check: the bugs it sends back. */
+  bugs?: unknown;
+  /** product-specs as this machine has it, for the checks before anything is fetched. */
+  local?: FileSource;
   /** The time the entry records, ISO 8601 without fractions. */
   at: string;
 }
@@ -35,11 +39,18 @@ export function saveSignoff(i: SignoffInput): SaveOutcome {
   const reason = typeof i.reason === "string" ? i.reason.trim() : "";
   if (i.decision === "return" && !reason) return { ok: false, code: "bad-input", error: "A return needs a reason" };
   const { slug, step } = { slug: i.slug, step: i.step };
-  const action: SignoffAction = i.decision === "pass" ? { decision: "pass", step } : { decision: "return", step, reason };
+  const bugs = Array.isArray(i.bugs) && i.bugs.every((b) => typeof b === "string" && /^BUG-\d{4,}$/.test(b)) ? (i.bugs as string[]) : undefined;
+  if (i.bugs !== undefined && !bugs) return { ok: false, code: "bad-input", error: "Name bugs as BUG-NNNN" };
+  const action: SignoffAction = i.decision === "pass" ? { decision: "pass", step } : { decision: "return", step, reason, ...(bugs?.length ? { bugs } : {}) };
 
   const state = i.state(slug);
   if (!state) return { ok: false, code: "no-feature", error: `There is no feature ${slug}` };
   if (!awaitsSignoff(i.project, state, step)) return { ok: false, code: "not-waiting", error: `${step} of ${slug} does not wait for a sign-off now` };
+  // The verify gate: every criterion passes or does not apply on every platform.
+  if (step === "verify" && action.decision === "pass" && i.local) {
+    const m = verificationMatrix(i.local, slug, platformsOf(i.project.config, state));
+    if (!m.complete) return { ok: false, code: "not-waiting", error: m.criteria.length ? `Not every criterion passes yet: ${m.open.slice(0, 6).join("; ")}${m.open.length > 6 ? "; …" : ""}` : `The spec of ${slug} has no criteria to verify` };
+  }
   if (i.saver.list().some((x) => x.state === "pending" && x.user === i.user && x.meta?.["slug"] === slug && x.meta?.["step"] === step))
     return { ok: false, code: "pending", error: `Your save for ${step} of ${slug} is still waiting to merge` };
 
@@ -67,6 +78,9 @@ export function saveBug(i: BugSaveInput): SaveOutcome {
   if (typeof i.slug !== "string" || !SLUG.test(i.slug)) return { ok: false, code: "bad-input", error: "Give the feature's slug" };
   const b = i.bug;
   if (typeof b.title !== "string" || typeof b.team !== "string" || typeof b.severity !== "string") return { ok: false, code: "bad-input", error: "A bug needs a title, a team and a severity" };
+  if (b.ac !== undefined && (typeof b.ac !== "string" || !/^AC-\d+$/.test(b.ac))) return { ok: false, code: "bad-input", error: "Write the criterion as AC-NN" };
+  if (b.platforms !== undefined && (!Array.isArray(b.platforms) || !b.platforms.every((p) => typeof p === "string" && /^[a-z0-9-]+$/.test(p)))) return { ok: false, code: "bad-input", error: "Give the platforms as a list of names" };
+  if (b.body !== undefined && typeof b.body !== "string") return { ok: false, code: "bad-input", error: "The description is text" };
   const slug = i.slug;
   const input: BugInput = { title: b.title, team: b.team, severity: b.severity, ...(b.ac ? { ac: b.ac } : {}), ...(b.platforms ? { platforms: b.platforms } : {}), ...(b.body ? { body: b.body } : {}) };
   try {
@@ -139,6 +153,97 @@ export function savePeople(i: PeopleSaveInput): SaveOutcome {
   });
 }
 
+export interface FeatureSaveInput {
+  saver: Saver;
+  project: Project;
+  state: (slug: string) => FeatureState | undefined;
+  local: FileSource;
+  user: string;
+  slug: unknown;
+  at: string;
+}
+
+/** Checks the slug and returns the feature's state, or why not. */
+function feature(i: FeatureSaveInput): { slug: string; state: FeatureState } | SaveOutcome {
+  if (typeof i.slug !== "string" || !SLUG.test(i.slug)) return { ok: false, code: "bad-input", error: "Give the feature's slug" };
+  const state = i.state(i.slug);
+  return state ? { slug: i.slug, state } : { ok: false, code: "no-feature", error: `There is no feature ${i.slug}` };
+}
+const isOutcome = (x: unknown): x is SaveOutcome => typeof x === "object" && x !== null && "ok" in x;
+
+/** QA's verdicts at verify, appended to hub/verification.yaml. */
+export function saveVerdicts(i: FeatureSaveInput & { verdicts: unknown }): SaveOutcome {
+  const f = feature(i);
+  if (isOutcome(f)) return f;
+  if (!Array.isArray(i.verdicts) || !i.verdicts.every((v) => v && typeof v === "object")) return { ok: false, code: "bad-input", error: "Give the verdicts" };
+  const verdicts = i.verdicts as VerdictInput[];
+  const platforms = platformsOf(i.project.config, f.state);
+  try {
+    verdictChange(i.local, f.slug, platforms, verdicts, i.user, i.at);
+  } catch (e) {
+    return { ok: false, code: "bad-input", error: (e as Error).message };
+  }
+  return checkedSave(i.saver, i.user, {
+    label: `verdicts-${f.slug}`,
+    title: `Verdicts for ${f.slug}: ${verdicts.map((v) => `${v.ac} ${v.platform} ${v.verdict}`).join(", ")}`.slice(0, 200),
+    meta: { kind: "verdicts", slug: f.slug },
+    build: (main) => verdictChange(main, f.slug, platforms, verdicts, i.user, i.at),
+    fallback: i.project,
+  });
+}
+
+/** A bug's status, severity, team or title. */
+export function saveBugEdit(i: FeatureSaveInput & { id: unknown; edit: unknown }): SaveOutcome {
+  const f = feature(i);
+  if (isOutcome(f)) return f;
+  if (typeof i.id !== "string" || !/^BUG-\d{4,}$/.test(i.id)) return { ok: false, code: "bad-input", error: "Name the bug as BUG-NNNN" };
+  const raw = (i.edit ?? {}) as Record<string, unknown>;
+  const edit: BugEdit = Object.fromEntries(["status", "severity", "team", "title"].filter((k) => typeof raw[k] === "string").map((k) => [k, raw[k]]));
+  if (!Object.keys(edit).length) return { ok: false, code: "bad-input", error: "Change the status, severity, team or title" };
+  const id = i.id;
+  const teams = i.project.config.teams.map((t) => t.id);
+  try {
+    bugEditChange(i.local, f.slug, id, edit, teams);
+  } catch (e) {
+    return { ok: false, code: "bad-input", error: (e as Error).message };
+  }
+  return checkedSave(i.saver, i.user, {
+    label: `bug-${id}`,
+    title: `${id} in ${f.slug}: ${Object.entries(edit).map(([k, v]) => `${k} ${v}`).join(", ")}`,
+    meta: { kind: "bug", slug: f.slug, bug: id },
+    build: (main) => bugEditChange(main, f.slug, id, edit, teams),
+    fallback: i.project,
+  });
+}
+
+/** A field of release.yaml: the smoke check, the checklist and the rollout (Ops), the go or no-go (PM). */
+export function saveRelease(i: FeatureSaveInput & { edit: unknown }): SaveOutcome {
+  const f = feature(i);
+  if (isOutcome(f)) return f;
+  const e = (i.edit ?? {}) as Record<string, unknown>;
+  const ok =
+    (e["kind"] === "smoke" && ["pending", "passed", "failed"].includes(e["value"] as string)) ||
+    (e["kind"] === "go" && ["go", "no-go"].includes(e["value"] as string)) ||
+    (e["kind"] === "check" && typeof e["item"] === "string" && typeof e["done"] === "boolean") ||
+    (e["kind"] === "add-item" && typeof e["item"] === "string") ||
+    (e["kind"] === "rollout" && typeof e["stage"] === "number");
+  if (!ok) return { ok: false, code: "bad-input", error: "Not a release change the site knows" };
+  const edit = e as ReleaseEdit;
+  try {
+    releaseChange(i.local, i.project.flow, f.slug, edit, i.user, i.at);
+  } catch (err) {
+    return { ok: false, code: "bad-input", error: (err as Error).message };
+  }
+  const what = edit.kind === "smoke" ? `staging smoke ${edit.value}` : edit.kind === "go" ? edit.value : edit.kind === "rollout" ? `rollout ${edit.stage}%` : edit.kind === "check" ? `${edit.done ? "done" : "not done"}: ${edit.item}` : `new item: ${edit.item}`;
+  return checkedSave(i.saver, i.user, {
+    label: `release-${edit.kind}-${f.slug}`,
+    title: `Release of ${f.slug}: ${what}`,
+    meta: { kind: "release", slug: f.slug, field: edit.kind },
+    build: (main, p) => releaseChange(main, p.flow, f.slug, edit, i.user, i.at),
+    fallback: i.project,
+  });
+}
+
 /** Builds one change from main of the remote, checks it with the guard as the author, and pushes it. */
 function checkedSave(saver: Saver, user: string, o: { label: string; title: string; meta: Record<string, string>; build: (main: FileSource, p: Project) => Change; fallback: Project }): SaveOutcome {
   try {
@@ -159,6 +264,7 @@ function checkedSave(saver: Saver, user: string, o: { label: string; title: stri
     return { ok: true, save };
   } catch (e) {
     if (e instanceof Refused) return { ok: false, code: "refused", error: "hub-guard would refuse this", findings: e.findings };
+    if (e instanceof Unchanged) return { ok: false, code: "unchanged", error: e.message };
     return { ok: false, code: "failed", error: (e as Error).message };
   }
 }

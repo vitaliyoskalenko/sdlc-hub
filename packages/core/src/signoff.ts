@@ -5,7 +5,6 @@ import { contentHash } from "./content/hash.ts";
 import type { Change } from "./access.ts";
 import type { FeatureState, Project } from "./detect.ts";
 import { parseBugFile, parseSignoffs } from "./files.ts";
-import { parseDocument } from "yaml";
 import { splitFrontMatter } from "./parse.ts";
 import { BUG_STATUSES, SEVERITIES } from "./schema/feature.ts";
 import type { FileSource } from "./source.ts";
@@ -133,9 +132,14 @@ export function bugEditChange(specs: FileSource, slug: string, id: string, edit:
   if (edit.severity !== undefined && !(SEVERITIES as readonly string[]).includes(edit.severity)) throw new Error(`A severity is one of ${SEVERITIES.join(", ")}`);
   if (edit.team !== undefined && teams && !teams.includes(edit.team)) throw new Error(`There is no team ${edit.team}`);
   if (edit.title !== undefined && !edit.title.trim()) throw new Error("A bug needs a title");
-  const doc = parseDocument(split.front);
-  for (const [k, v] of Object.entries(edit)) if (v !== undefined) doc.set(k, k === "title" ? String(v).trim() : v);
-  const front = doc.toString({ lineWidth: 0 });
+  // Line by line, so every other line stays byte for byte: a developer may change the status line only.
+  let front = split.front;
+  for (const [k, v] of Object.entries(edit)) {
+    if (v === undefined) continue;
+    const line = `${k}: ${k === "title" ? q(String(v).trim()) : v}`;
+    const re = new RegExp(`^${k}:.*$`, "m");
+    front = re.test(front) ? front.replace(re, line) : `${front}${front.endsWith("\n") || !front ? "" : "\n"}${line}`;
+  }
   const at = base.indexOf(split.front);
   const next = base.slice(0, at) + front + base.slice(at + split.front.length);
   const parsed = parseBugFile(next, path);

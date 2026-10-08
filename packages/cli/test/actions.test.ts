@@ -72,6 +72,42 @@ describe("sign-off and return from the site", () => {
   });
 });
 
+describe("QA and release from the site", () => {
+  const post = (path: string, user: string, body: object) => {
+    const { remote, ctx, handler } = project();
+    return handler.handle("POST", path, user, body, ctx).then((r) => ({ ...r, remote }));
+  };
+  const saved = (r: { status: number; body: unknown }) => {
+    expect(r.status, JSON.stringify(r.body)).toBe(202);
+    return (r.body as { save: { branch: string } }).save.branch;
+  };
+  it("records QA's verdicts in hub/verification.yaml", async () => {
+    const r = await post("/verdicts", "iryna.s", { slug: "tasks-issues", verdicts: [{ ac: "AC-04", platform: "ios", verdict: "fail", bugs: ["BUG-0012"] }] });
+    expect(git(r.remote, "show", `${saved(r)}:docs/features/tasks-issues/hub/verification.yaml`)).toContain("{ ac: AC-04, platform: ios, verdict: fail, bugs: [BUG-0012]");
+  });
+  it("refuses QA's sign-off of verify while a criterion has no passing verdict", async () => {
+    const r = await post("/signoff", "iryna.s", { slug: "tasks-issues", step: "verify", decision: "pass" });
+    expect(r.status).toBe(409);
+    expect((r.body as { error: string }).error).toMatch(/Not every criterion passes yet: AC-01 on web: no verdict/);
+  });
+  it("lets the owning team change a bug's status, and refuses another team", async () => {
+    saved(await post("/bug-edit", "taras.m", { slug: "tasks-issues", id: "BUG-0012", edit: { status: "fixing" } }));
+    expect((await post("/bug-edit", "taras.m", { slug: "tasks-issues", id: "BUG-0012", edit: { status: "retest" } })).status).toBe(409); // already so
+    expect((await post("/bug-edit", "petro.v", { slug: "tasks-issues", id: "BUG-0012", edit: { status: "closed" } })).status).toBe(403);
+  });
+  it("files QA's bug from the site", async () => {
+    saved(await post("/bug", "iryna.s", { slug: "tasks-issues", bug: { title: "Counter stays", team: "web", severity: "medium", ac: "AC-05", platforms: ["web"] } }));
+    expect((await post("/bug", "iryna.s", { slug: "tasks-issues", bug: { title: "x", team: "web", severity: "low", platforms: ["web]\nx: [y"] } })).status).toBe(400);
+  });
+  it("records Ops' staging check and the PM's go, and refuses them the other way round", async () => {
+    const smoke = await post("/release", "bohdan.r", { slug: "tasks-issues", edit: { kind: "smoke", value: "passed" } });
+    expect(git(smoke.remote, "show", `${saved(smoke)}:docs/features/tasks-issues/hub/release.yaml`)).toMatch(/smoke: passed/);
+    saved(await post("/release", "maksym.d", { slug: "tasks-issues", edit: { kind: "go", value: "go" } }));
+    expect((await post("/release", "bohdan.r", { slug: "tasks-issues", edit: { kind: "go", value: "go" } })).status).toBe(403);
+    expect((await post("/release", "bohdan.r", { slug: "tasks-issues", edit: { kind: "launch" } })).status).toBe(400);
+  }, 30_000);
+});
+
 describe("People and roles from the site", () => {
   it("saves the admin's new person in roles.yaml as a branch", async () => {
     const { remote, ctx, handler } = project();
