@@ -5,9 +5,12 @@ import { contentHash } from "./content/hash.ts";
 import type { Change } from "./access.ts";
 import type { FeatureState, Project } from "./detect.ts";
 import { parseBugFile, parseSignoffs } from "./files.ts";
+import { parseDocument } from "yaml";
+import { splitFrontMatter } from "./parse.ts";
+import { BUG_STATUSES, SEVERITIES } from "./schema/feature.ts";
 import type { FileSource } from "./source.ts";
 
-export type SignoffAction = { decision: "pass"; step: string } | { decision: "return"; step: string; reason: string };
+export type SignoffAction = { decision: "pass"; step: string } | { decision: "return"; step: string; reason: string; bugs?: string[] };
 
 /** The file names a step's evidence asks for in product-specs, in order; globs are skipped. */
 function ownFiles(project: Project, stepId: string): string[] | null {
@@ -55,7 +58,9 @@ export function signoffChange(project: Project, specs: FileSource, slug: string,
   lines.push(`  decision: ${action.decision}`);
   if (action.decision === "return") {
     const before = (base ? (parseSignoffs(base, path).value ?? []) : []).filter((e) => e.step === action.step && e.decision === "return").length;
-    lines.push(`  reason: ${q(action.reason.trim())}`, `  cycle: ${before + 1}`);
+    lines.push(`  reason: ${q(action.reason.trim())}`);
+    if (action.bugs?.length) lines.push(`  bugs: [${action.bugs.join(", ")}]`);
+    lines.push(`  cycle: ${before + 1}`);
   }
   const head = base === undefined || base.trim() === "" || base.trim() === "[]" ? "" : base.endsWith("\n") ? base : `${base}\n`;
   return { path, ...(base !== undefined ? { base } : {}), next: `${head}${lines.join("\n")}\n` };
@@ -108,4 +113,32 @@ export function bugChange(specs: FileSource, slug: string, b: BugInput, user: st
   const parsed = parseBugFile(next, path);
   if (!parsed.value) throw new Error(parsed.issues.map((i) => i.message).join("; "));
   return { path, next };
+}
+
+export interface BugEdit {
+  status?: (typeof BUG_STATUSES)[number];
+  severity?: (typeof SEVERITIES)[number];
+  team?: string;
+  title?: string;
+}
+
+/** A bug with some of its fields changed: only those lines of the front matter differ, the description stays. */
+export function bugEditChange(specs: FileSource, slug: string, id: string, edit: BugEdit, teams?: string[]): Change {
+  const path = `docs/features/${slug}/hub/bugs/${id}.md`;
+  const base = specs.read(path);
+  if (base === undefined) throw new Error(`There is no bug ${id} in ${slug}`);
+  const split = splitFrontMatter(base);
+  if (!split) throw new Error(`${id} has no front matter`);
+  if (edit.status !== undefined && !(BUG_STATUSES as readonly string[]).includes(edit.status)) throw new Error(`A status is one of ${BUG_STATUSES.join(", ")}`);
+  if (edit.severity !== undefined && !(SEVERITIES as readonly string[]).includes(edit.severity)) throw new Error(`A severity is one of ${SEVERITIES.join(", ")}`);
+  if (edit.team !== undefined && teams && !teams.includes(edit.team)) throw new Error(`There is no team ${edit.team}`);
+  if (edit.title !== undefined && !edit.title.trim()) throw new Error("A bug needs a title");
+  const doc = parseDocument(split.front);
+  for (const [k, v] of Object.entries(edit)) if (v !== undefined) doc.set(k, k === "title" ? String(v).trim() : v);
+  const front = doc.toString({ lineWidth: 0 });
+  const at = base.indexOf(split.front);
+  const next = base.slice(0, at) + front + base.slice(at + split.front.length);
+  const parsed = parseBugFile(next, path);
+  if (!parsed.value) throw new Error(parsed.issues.map((i) => i.message).join("; "));
+  return { path, base, next };
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { base, dir, SPEC } from "@sdlc-hub/fixtures";
-import { approvedFile, awaitsSignoff, bugChange, contentHash, detectFeature, guard, loadProject, memorySource, parseBugFile, parseSignoffs, signoffChange } from "../src/index.ts";
+import { approvedFile, awaitsSignoff, bugChange, bugEditChange, contentHash, detectFeature, guard, loadProject, memorySource, parseBugFile, parseSignoffs, signoffChange } from "../src/index.ts";
 
 const slug = "tasks-issues";
 const F = dir(slug);
@@ -74,5 +74,34 @@ describe("a bug filed from the plugin", () => {
   it("refuses a bug that would not be valid", () => {
     expect(() => bugChange(withBugs, slug, { title: "", team: "web", severity: "high" }, "iryna.s")).toThrow(/title/i);
     expect(() => bugChange(withBugs, slug, { title: "x", team: "nope", severity: "high" }, "iryna.s", undefined, ["web"])).toThrow(/team/i);
+  });
+});
+
+describe("a bug changed on the site", () => {
+  const bug = "---\nid: BUG-0012\ntitle: Task visible after access was revoked\nac: AC-04\nteam: backend\nseverity: high\nstatus: open\nfound_by: iryna.s\n---\nOpen an order.\n\nExpected: hidden.\n";
+  const withBug = memorySource({ ...files, [`${F}/hub/bugs/BUG-0012.md`]: bug });
+  const ctx = () => ({ config: project.config, roles: project.roles, flow: project.flow, feature: () => undefined });
+  it("changes the fields asked for and nothing else", () => {
+    const c = bugEditChange(withBug, slug, "BUG-0012", { status: "fixing" });
+    expect(c.next).toBe(bug.replace("status: open", "status: fixing"));
+  });
+  it("lets the owning team change the status, and only QA the rest", () => {
+    const status = bugEditChange(withBug, slug, "BUG-0012", { status: "retest" });
+    expect(guard({ author: "taras.m", pushers: [], changes: [status] }, ctx()).ok).toBe(true);
+    expect(guard({ author: "petro.v", pushers: [], changes: [status] }, ctx()).ok).toBe(false); // another team
+    const severity = bugEditChange(withBug, slug, "BUG-0012", { severity: "medium" });
+    expect(guard({ author: "taras.m", pushers: [], changes: [severity] }, ctx()).ok).toBe(false);
+    expect(guard({ author: "iryna.s", pushers: [], changes: [severity] }, ctx()).ok).toBe(true);
+  });
+  it("refuses an unknown bug or value", () => {
+    expect(() => bugEditChange(withBug, slug, "BUG-0099", { status: "closed" })).toThrow(/no bug BUG-0099/);
+    expect(() => bugEditChange(withBug, slug, "BUG-0012", { status: "gone" as never })).toThrow();
+  });
+});
+
+describe("the QA decision at the final check", () => {
+  it("returns to verify with the reason and the bugs", () => {
+    const c = signoffChange(project, specs, slug, "iryna.s", { decision: "return", step: "qa-final", reason: "BUG-0012 reproduces", bugs: ["BUG-0012"] }, at);
+    expect(parseSignoffs(c.next!, "s").value!.at(-1)).toMatchObject({ step: "qa-final", decision: "return", reason: "BUG-0012 reproduces", bugs: ["BUG-0012"], cycle: 1 });
   });
 });

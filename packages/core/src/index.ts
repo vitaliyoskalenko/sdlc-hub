@@ -28,3 +28,4 @@ export * from "./next.ts";
 export * from "./people.ts";
 export * from "./script.ts";
 export * from "./verification.ts";
+export * from "./release.ts";

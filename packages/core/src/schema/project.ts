@@ -140,7 +140,11 @@ export const flowSchema = z
   .strictObject({
     schema_version: schemaVersion,
     lanes: z.array(z.string()).min(1),
-    release: z.strictObject({ watch_days: z.number().int().min(0) }),
+    release: z.strictObject({
+      watch_days: z.number().int().min(0),
+      /** The release checklist each feature starts with; Ops ticks it and may add items. */
+      checklist: z.array(z.string().min(1)).optional(),
+    }),
     steps: z.array(step).min(1),
   })
   .superRefine((f, ctx) => {

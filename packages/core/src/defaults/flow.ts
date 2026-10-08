@@ -5,6 +5,11 @@ export const DEFAULT_FLOW_YAML = `schema_version: 1
 lanes: [po, pm, designer, dev, qa, ops]
 release:
   watch_days: 7
+  checklist:
+    - Every team's production deploy is done
+    - The rollback plan is checked
+    - Monitoring and alerts are on for the feature
+    - Release notes are published
 steps:
   - id: specify
     role: po
