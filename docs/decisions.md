@@ -7,7 +7,7 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
 ### CI results come from the hub job at the end of each team pipeline
 - **Decision:**
   - When a team has CI of its own, the template has `hub-tests-passed` (`when: on_success`) and `hub-tests-failed` (`when: on_failure`) in `.post`. Exactly one runs, and it publishes the team's snapshot and the pipeline's result for every feature the branch reports, as `tests/ci-<team>-<pipeline>.json` on `hub-state`.
-  - A repository with no CI gets one `hub-report` job in `test`, because GitLab needs a job outside `.post`; that pipeline counts as passed.
+  - A repository with no CI gets one `hub-report` job in `test`, because GitLab needs a job outside `.post`; that pipeline counts as passed. Install works the layout out again on every run, from the jobs in the team's `.gitlab-ci.yml`; a file that only includes the hub has none. A team that adds tests later gets the end-of-pipeline jobs through a merge request on the next install run.
   - The hub job has `allow_failure: true`, so the hub never turns a team's pipeline red. A run records passed or failed; counts are optional.
   - Pushes to `hub-state` carry `-o ci.skip`, so machine data starts no pipeline in product-specs.
 - **Why:** It needs no token and no setup per team. The alternatives were reading JUnit reports at a known path, or asking GitLab at decision time with a token on QA's machine. The first version had a separate hub-report job beside the result jobs. On GitLab CE that doubled the hub's jobs, and the queue made merge requests wait minutes; one job per pipeline fixed it.
