@@ -15,15 +15,24 @@ export interface OpenedProject {
   issues: Issue[];
 }
 
+/** The first-install site's API: the only place the server accepts a POST. */
+export interface SetupHandler {
+  handle(method: string, path: string, body: unknown, emit: (event: string, data: unknown) => void): Promise<{ status: number; body: unknown }>;
+}
+
 export interface ServerOptions {
-  /** Opens the project; called again after every change. */
+  /** Opens the project; called again after every change. Not used in setup mode. */
   open: () => OpenedProject;
+  /** Setup mode: serve the setup site at /setup and its API. */
+  setup?: SetupHandler;
   /** The roles.yaml user this site is for. */
   user: string;
   /** Demo mode: the page may view as any person with ?as=<user>. */
   demo?: boolean;
-  /** The built web app. */
+  /** The built web app, as a folder. */
   webRoot?: string;
+  /** The built web app, as path → base64, when it is bundled into the CLI. */
+  assets?: Record<string, string> | null;
   /** 0 picks a free port. */
   port?: number;
 }
@@ -86,11 +95,20 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
     if (!own.includes(req.headers.host ?? "")) return send(res, 403, { error: "Wrong host" });
     const origin = req.headers.origin;
     if (origin !== undefined && !own.map((h) => `http://${h}`).includes(origin)) return send(res, 403, { error: "Wrong origin" });
+    const url = new URL(req.url ?? "/", `http://${HOST}:${port}`);
+    if (opts.setup && url.pathname.startsWith("/api/setup/") && req.method === "POST") {
+      if (!hasSession(req)) return send(res, 401, { error: "Open the setup page first: the session cookie is missing" });
+      // A form on another site cannot send JSON without a preflight; together with the Origin check this stops CSRF.
+      if (!/^application\/json\b/.test(req.headers["content-type"] ?? "")) return send(res, 415, { error: "Send JSON" });
+      return readJson(req, res, (body) => setupCall("POST", url.pathname.slice("/api/setup".length), body, res));
+    }
     if (req.method !== "GET" && req.method !== "HEAD") return send(res, 405, { error: "This site is read only" }, { allow: "GET, HEAD" });
 
-    const url = new URL(req.url ?? "/", `http://${HOST}:${port}`);
     if (url.pathname.startsWith("/api/")) {
       if (!hasSession(req)) return send(res, 401, { error: "Open the site first: the session cookie is missing" });
+      if (opts.setup && url.pathname === "/api/setup/events") return events(res, setupClients);
+      if (opts.setup && url.pathname.startsWith("/api/setup/")) return setupCall("GET", url.pathname.slice("/api/setup".length), null, res);
+      if (opts.setup) return send(res, 404, { error: "Setup mode serves the setup API only" });
       return api(url, res);
     }
     return page(url, res);
@@ -103,6 +121,22 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
 
   function page(url: URL, res: ServerResponse) {
     const cookie = `${COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/`;
+    if (!opts.webRoot && opts.assets) {
+      let path: string;
+      try {
+        path = decodeURIComponent(url.pathname).replace(/^\/+/, "");
+      } catch {
+        return send(res, 404, { error: "Not found" });
+      }
+      const known = Object.hasOwn(opts.assets, path) ? path : undefined;
+      if (!known && extname(path)) return send(res, 404, { error: "Not found" });
+      const name = known ?? (opts.setup ? "setup.html" : "index.html");
+      const type = TYPES[extname(name)] ?? "application/octet-stream";
+      const headers: Record<string, string> = { "content-type": type, ...SECURITY };
+      if (type.startsWith("text/html")) Object.assign(headers, { "set-cookie": cookie, "cache-control": "no-store" });
+      res.writeHead(200, headers);
+      return res.end(Buffer.from(opts.assets[name] ?? "", "base64"));
+    }
     if (!opts.webRoot) {
       res.writeHead(200, { "content-type": "text/plain; charset=utf-8", "set-cookie": cookie, ...SECURITY });
       return res.end("SDLC Hub: the web app is not built. Run npm run build -w @sdlc-hub/web.");
@@ -118,7 +152,7 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
     if (file !== root && !file.startsWith(root + sep)) return send(res, 404, { error: "Not found" });
     const isFile = existsSync(file) && statSync(file).isFile();
     if (!isFile && extname(path)) return send(res, 404, { error: "Not found" });
-    const target = isFile ? file : resolve(root, "index.html"); // the app's own routes
+    const target = isFile ? file : resolve(root, opts.setup ? "setup.html" : "index.html"); // the app's own routes
     const type = TYPES[extname(target)] ?? "application/octet-stream";
     const headers: Record<string, string> = { "content-type": type, ...SECURITY };
     if (type.startsWith("text/html")) Object.assign(headers, { "set-cookie": cookie, "cache-control": "no-store" });
@@ -189,11 +223,40 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
     return send(res, 404, { error: "Not found" });
   }
 
-  function events(res: ServerResponse) {
+  function events(res: ServerResponse, to: Set<ServerResponse> = clients) {
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive", ...SECURITY });
     res.write(": connected\n\n");
-    clients.add(res);
-    res.on("close", () => clients.delete(res));
+    to.add(res);
+    res.on("close", () => to.delete(res));
+  }
+
+  const setupClients = new Set<ServerResponse>();
+  function setupCall(method: string, path: string, body: unknown, res: ServerResponse) {
+    const emit = (event: string, data: unknown) => setupClients.forEach((c) => c.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+    opts.setup!.handle(method, path, body, emit).then(
+      (r) => send(res, r.status, r.body),
+      (e) => send(res, 500, { error: String(e instanceof Error ? e.message : e) }),
+    );
+  }
+
+  function readJson(req: IncomingMessage, res: ServerResponse, then: (body: unknown) => void) {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (c: Buffer) => {
+      size += c.length;
+      if (size > 1_000_000) {
+        send(res, 413, { error: "Too large" });
+        req.destroy();
+      } else chunks.push(c);
+    });
+    req.on("end", () => {
+      if (res.headersSent) return;
+      try {
+        then(JSON.parse(Buffer.concat(chunks).toString("utf8") || "null"));
+      } catch {
+        send(res, 400, { error: "Not valid JSON" });
+      }
+    });
   }
 
   const heartbeat = setInterval(() => clients.forEach((c) => c.write(": ping\n\n")), 25_000);
@@ -215,6 +278,7 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
           new Promise<void>((done) => {
             clearInterval(heartbeat);
             clients.forEach((c) => c.end());
+            setupClients.forEach((c) => c.end());
             server.close(() => done());
             server.closeAllConnections();
           }),

@@ -4,10 +4,21 @@ import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, watch } from "n
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { gitIdentity, openProject, topLevel, userFor } from "@sdlc-hub/git";
-import { startServer, type RunningServer } from "@sdlc-hub/server";
+import { startServer, type RunningServer, type ServerOptions } from "@sdlc-hub/server";
+import { report } from "./report.ts";
+import { gitCredentials, setupHandler } from "./setup.ts";
+import { WEB_ASSETS } from "./web-assets.ts";
 
 const HELP = `SDLC Hub
+
+  hub init [--port <n>] [--no-open]
+      Open the first-install site at http://127.0.0.1:4173/setup. Five screens, then Install.
+
+  hub report --team <id> --specs-url <url> [--push]
+      In a team repository's CI: publish the team's snapshot of each feature to hub-state.
 
   hub serve [--port <n>] [--as <user>]
       Serve the site for the product-specs checkout you are in.
@@ -37,8 +48,8 @@ function webRoot(): string | undefined {
   return undefined;
 }
 
-async function listen(open: Parameters<typeof startServer>[0]["open"], user: string, port: number, demo: boolean, now?: string): Promise<RunningServer> {
-  const opts = { open, user, demo, webRoot: webRoot(), port };
+async function listen(open: ServerOptions["open"], user: string, port: number, demo: boolean, extra: Partial<ServerOptions> = {}): Promise<RunningServer> {
+  const opts: ServerOptions = { open, user, demo, ...(WEB_ASSETS ? { assets: WEB_ASSETS } : { webRoot: webRoot() }), port, ...extra };
   try {
     return await startServer(opts);
   } catch (e) {
@@ -114,8 +125,29 @@ async function demo(f: Record<string, string>) {
   process.on("SIGHUP", stop);
 }
 
+/** Opens a page in the default browser, with an argument list, never a shell. */
+function openBrowser(url: string) {
+  const [cmd, args] = process.platform === "darwin" ? ["open", [url]] : process.platform === "win32" ? ["cmd", ["/c", "start", "", url]] : ["xdg-open", [url]];
+  execFile(cmd as string, args as string[], () => undefined);
+}
+
+async function init(f: Record<string, string>) {
+  const handler = setupHandler({ hubBundle: () => readFileSync(fileURLToPath(import.meta.url), "utf8"), credentials: gitCredentials });
+  const server = await listen(() => ({ root: "", view: null as never, issues: [] }), "", Number(f["port"] ?? 4173), false, { setup: handler });
+  const url = `http://127.0.0.1:${server.port}/setup`;
+  console.log(`SDLC Hub\n✓ Setup is open at ${url}\n  Leave this window open. Ctrl+C stops the setup.`);
+  if (f["no-open"] === undefined) openBrowser(url);
+}
+
+async function reportCommand(f: Record<string, string>) {
+  if (!f["team"] || !f["specs-url"]) throw new Error("Give --team <id> and --specs-url <url>");
+  const r = report({ team: f["team"], cwd: process.cwd(), specsUrl: f["specs-url"], push: f["push"] !== undefined, env: process.env, now: new Date().toISOString().replace(/\.\d+Z$/, "Z") });
+  console.log(`hub-report: ${r.slugs.length ? r.slugs.join(", ") : "no features in docs/features"}${r.pushed ? " · published to hub-state" : f["push"] !== undefined ? " · nothing changed" : ""}`);
+  if (f["push"] === undefined) console.log(JSON.stringify(r.snapshots, null, 2));
+}
+
 const [command, ...rest] = process.argv.slice(2);
-const run = command === "serve" ? serve : command === "demo" ? demo : undefined;
+const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : undefined;
 if (!run) {
   console.log(HELP);
   process.exit(command && command !== "help" && command !== "--help" ? 1 : 0);

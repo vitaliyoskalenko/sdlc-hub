@@ -145,6 +145,8 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
     if (issues.some((i) => i.level === "error")) throw new Error(issues.map((i) => i.message).join("; "));
     if (existingRoles) delete files[".hub/roles.yaml"]; // a second run keeps the people the admin added
     files["hub/cli.js"] = opts.hubBundle;
+    // product-specs has no package.json: this one makes Node load hub/cli.js as the ES module it is.
+    files["hub/package.json"] = '{ "private": true, "type": "module" }\n';
     files["CLAUDE.md"] = withBlock(await gl.file(p.id, "CLAUDE.md", main), CLAUDE_BLOCK);
     if (a.assistants.codex || a.assistants.cursor) files["AGENTS.md"] = withBlock(await gl.file(p.id, "AGENTS.md", main), CLAUDE_BLOCK);
     files[".gitignore"] = withIgnore(await gl.file(p.id, ".gitignore", main), ".claude/sdd.local.md");
