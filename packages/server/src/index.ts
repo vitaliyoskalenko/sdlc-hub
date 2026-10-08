@@ -1,5 +1,6 @@
 // The local server: bound to 127.0.0.1, it checks Host and Origin on every request, gives the page an HttpOnly
-// session cookie, and serves a read-only REST API, server-sent events and the web app.
+// session cookie, and serves a REST API, server-sent events and the web app. It changes nothing itself: a POST goes
+// to the setup handler or, for saves, to the action handler, which pushes a branch whose merge request merges itself.
 // See the specification, "Architecture" and "Security".
 
 import { randomBytes, timingSafeEqual } from "node:crypto";
@@ -15,7 +16,19 @@ export interface OpenedProject {
   issues: Issue[];
 }
 
-/** The first-install site's API: the only place the server accepts a POST. */
+/** What an action may look at: the project and the detected state of a feature, and a way to tell the pages. */
+export interface ActionContext {
+  project: Project;
+  state: (slug: string) => FeatureState | undefined;
+  emit: (event: string, data?: unknown) => void;
+}
+
+/** Saves from the site: POST /api/actions/<name> and GET /api/saves. */
+export interface ActionHandler {
+  handle(method: "GET" | "POST", path: string, user: string, body: unknown, ctx: ActionContext): Promise<{ status: number; body: unknown }>;
+}
+
+/** The first-install site's API. */
 export interface SetupHandler {
   handle(method: string, path: string, body: unknown, emit: (event: string, data: unknown) => void): Promise<{ status: number; body: unknown }>;
 }
@@ -25,6 +38,8 @@ export interface ServerOptions {
   open: () => OpenedProject;
   /** Setup mode: serve the setup site at /setup and its API. */
   setup?: SetupHandler;
+  /** Saves from the site. Without it the site is read only. */
+  actions?: ActionHandler;
   /** The roles.yaml user this site is for. */
   user: string;
   /** Demo mode: the page may view as any person with ?as=<user>. */
@@ -102,7 +117,12 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
       if (!/^application\/json\b/.test(req.headers["content-type"] ?? "")) return send(res, 415, { error: "Send JSON" });
       return readJson(req, res, (body) => setupCall("POST", url.pathname.slice("/api/setup".length), body, res));
     }
-    if (req.method !== "GET" && req.method !== "HEAD") return send(res, 405, { error: "This site is read only" }, { allow: "GET, HEAD" });
+    if (opts.actions && !opts.setup && url.pathname.startsWith("/api/actions/") && req.method === "POST") {
+      if (!hasSession(req)) return send(res, 401, { error: "Open the site first: the session cookie is missing" });
+      if (!/^application\/json\b/.test(req.headers["content-type"] ?? "")) return send(res, 415, { error: "Send JSON" });
+      return readJson(req, res, (body) => action("POST", url.pathname.slice("/api/actions".length), body, url, res));
+    }
+    if (req.method !== "GET" && req.method !== "HEAD") return send(res, 405, { error: "This site saves through actions only" }, { allow: "GET, HEAD" });
 
     if (url.pathname.startsWith("/api/")) {
       if (!hasSession(req)) return send(res, 401, { error: "Open the site first: the session cookie is missing" });
@@ -198,6 +218,11 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
       });
     }
 
+    if (parts[0] === "saves" && parts.length === 1) {
+      if (!opts.actions) return send(res, 200, { saves: [], enabled: false });
+      return action("GET", "/saves", null, url, res);
+    }
+
     if (parts[0] === "features" && parts.length === 1) {
       const features = listFeatures(opened.view.specs).map((slug) => summary(slug, state(slug)!, opened));
       return send(res, 200, { features, now: opened.view.now });
@@ -228,6 +253,18 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
     res.write(": connected\n\n");
     to.add(res);
     res.on("close", () => to.delete(res));
+  }
+
+  /** The person acting: the site's own, or in the demo the person it views as. */
+  const actor = (url: URL) => (opts.demo ? url.searchParams.get("as") : null) ?? opts.user;
+  function action(method: "GET" | "POST", path: string, body: unknown, url: URL, res: ServerResponse) {
+    const project = data().opened.project;
+    if (!project) return send(res, 503, { error: "The project in .hub/ does not load" });
+    const emit = (event: string, d?: unknown) => clients.forEach((c) => c.write(`event: ${event}\ndata: ${JSON.stringify(d ?? null)}\n\n`));
+    opts.actions!.handle(method, path, actor(url), body, { project, state, emit }).then(
+      (r) => send(res, r.status, r.body),
+      (e) => send(res, 500, { error: String(e instanceof Error ? e.message : e) }),
+    );
   }
 
   const setupClients = new Set<ServerResponse>();

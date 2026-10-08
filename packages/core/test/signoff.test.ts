@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { base, dir, SPEC } from "@sdlc-hub/fixtures";
-import { approvedFile, contentHash, guard, loadProject, memorySource, parseSignoffs, signoffChange } from "../src/index.ts";
+import { approvedFile, awaitsSignoff, contentHash, detectFeature, guard, loadProject, memorySource, parseSignoffs, signoffChange } from "../src/index.ts";
 
 const slug = "tasks-issues";
 const F = dir(slug);
@@ -45,5 +45,16 @@ describe("a sign-off from the site", () => {
   });
   it("needs a reason for a return", () => {
     expect(() => signoffChange(project, specs, slug, "olena.k", { decision: "return", step: "clarify", reason: " " }, at)).toThrow(/reason/);
+  });
+});
+
+describe("a gate that waits for its sign-off", () => {
+  const { [`${F}/screens.md`]: _screens, ...early } = files;
+  const view = { specs: memorySource(early), hubState: null, teamClone: () => null, now: at };
+  it("is clarify once the spec is written, because the sign-off is its only evidence", () => {
+    const state = detectFeature(project, view, slug);
+    expect(awaitsSignoff(project, state, "clarify")).toBe(true);
+    expect(awaitsSignoff(project, state, "specify")).toBe(false); // no gate
+    expect(awaitsSignoff(project, state, "epic")).toBe(false); // epic waits for clarify first
   });
 });

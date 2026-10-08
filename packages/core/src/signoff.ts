@@ -3,7 +3,7 @@
 
 import { contentHash } from "./content/hash.ts";
 import type { Change } from "./access.ts";
-import type { Project } from "./detect.ts";
+import type { FeatureState, Project } from "./detect.ts";
 import { parseSignoffs } from "./files.ts";
 import type { FileSource } from "./source.ts";
 
@@ -59,4 +59,18 @@ export function signoffChange(project: Project, specs: FileSource, slug: string,
   }
   const head = base === undefined || base.trim() === "" || base.trim() === "[]" ? "" : base.endsWith("\n") ? base : `${base}\n`;
   return { path, ...(base !== undefined ? { base } : {}), next: `${head}${lines.join("\n")}\n` };
+}
+
+/**
+ * Whether a step's gate waits for a sign-off now: its evidence is there (status signoff), it came back after a
+ * return, or the sign-off is the step's only evidence (clarify) and the step is open.
+ */
+export function awaitsSignoff(project: Project, state: FeatureState, stepId: string): boolean {
+  const step = project.flow.steps.find((s) => s.id === stepId);
+  const st = state.steps.find((s) => s.id === stepId);
+  if (!step?.gate || step.gate.role === "auto" || !st) return false;
+  if (st.status === "signoff" || st.status === "returned") return true;
+  if (st.status !== "ready" && st.status !== "running") return false;
+  const reqs = project.engine.steps[stepId]?.done_when ?? step.evidence ?? [];
+  return reqs.length > 0 && reqs.every((r) => r.anyOf.every((a) => a.kind === "signoff" && a.step === stepId));
 }

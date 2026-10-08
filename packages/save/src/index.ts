@@ -19,6 +19,8 @@ export interface Save {
   /** The blob of each saved path (null for a deletion), to see a squashed merge on main. */
   blobs: Record<string, string | null>;
   state: "pending" | "merged" | "refused";
+  /** What the save was, for the site: for example kind, slug and step. */
+  meta?: Record<string, string>;
   mr?: { iid: number; url: string };
   findings?: Finding[];
 }
@@ -29,6 +31,7 @@ export interface SaveRequest {
   label: string;
   /** The commit message and the merge request title. */
   title: string;
+  meta?: Record<string, string>;
   /** The changes, built from main as it is on the remote right now. */
   build: (main: FileSource) => Change[];
 }
@@ -132,7 +135,7 @@ export function createSaver(o: SaverOptions) {
       if (push.status !== 0) throw new Error(`The push failed: ${(push.stderr || push.error?.message || "").trim()}`);
       // GitLab answers with the merge request's address.
       const link = /(https?:\/\/\S+\/-\/merge_requests\/(\d+))/.exec(push.stderr ?? "");
-      const s: Save = { branch, title: req.title, user: req.user, paths, at: at.toISOString().replace(/\.\d+Z$/, "Z"), sha, blobs, state: "pending", ...(link ? { mr: { iid: Number(link[2]), url: link[1]! } } : {}) };
+      const s: Save = { branch, title: req.title, user: req.user, paths, at: at.toISOString().replace(/\.\d+Z$/, "Z"), sha, blobs, state: "pending", ...(req.meta ? { meta: req.meta } : {}), ...(link ? { mr: { iid: Number(link[2]), url: link[1]! } } : {}) };
       write([s, ...read()]);
       return s;
     },

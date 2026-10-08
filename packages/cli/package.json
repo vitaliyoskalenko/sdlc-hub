@@ -11,6 +11,7 @@
     "@sdlc-hub/core": "*",
     "@sdlc-hub/git": "*",
     "@sdlc-hub/server": "*",
+    "@sdlc-hub/save": "*",
     "@sdlc-hub/install": "*",
     "@sdlc-hub/host": "*"
   },

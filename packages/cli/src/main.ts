@@ -11,6 +11,8 @@ import { startServer, type RunningServer, type ServerOptions } from "@sdlc-hub/s
 import { GitLab } from "@sdlc-hub/host";
 import { isSaveBranch } from "@sdlc-hub/core";
 import { baseTime, formatFindings, guardRepo, mergeRequestPeople, recordRefusal } from "./guard.ts";
+import { actionHandler } from "./actions.ts";
+import { addDemoRemote, demoHost } from "./demo-host.ts";
 import { report } from "./report.ts";
 import { gitCredentials, setupHandler } from "./setup.ts";
 import { WEB_ASSETS } from "./web-assets.ts";
@@ -91,7 +93,15 @@ async function serve(f: Record<string, string>) {
   }
   const user = f["as"] ?? userFor(first.project.roles, gitIdentity(root));
   if (!user) throw new Error("Your git identity matches nobody in .hub/roles.yaml. Ask the admin to add you, or pass --as <user>.");
-  const server = await listen(() => openProject(root), user, Number(f["port"] ?? 4173), false);
+  // Saves need a remote to push to; without one the site stays read only and says why.
+  let hasRemote = true;
+  try {
+    execFileSync("git", ["remote", "get-url", "origin"], { cwd: root, stdio: "ignore" });
+  } catch {
+    hasRemote = false;
+  }
+  const actions = hasRemote ? actionHandler({ root, identity: () => gitIdentity(root) }) : undefined;
+  const server = await listen(() => openProject(root), user, Number(f["port"] ?? 4173), false, actions ? { actions } : {});
   watchFiles([root], server);
   console.log(`SDLC Hub · ${first.project.config.project.name} · ${user}\nServing http://127.0.0.1:${server.port} (this machine only)\nCtrl+C stops the server.`);
 }
@@ -114,7 +124,19 @@ async function demo(f: Record<string, string>) {
   const opened = openProject(root, { now: fixture.now });
   if (!opened.project?.roles.people.some((p) => p.user === user))
     console.log(`Note: ${user} is not in roles.yaml of this fixture; the site will ask who you are.`);
-  const server = await listen(() => openProject(root, { now: fixture.now }), user, Number(f["port"] ?? 4173), true);
+  // Saves go to a bare remote next to the checkout; a stand-in for the git host runs hub-guard and merges.
+  const remote = addDemoRemote(root);
+  let server: RunningServer | undefined;
+  const host = demoHost({ root, remote, onSettled: () => server?.notify() });
+  const started = Date.now();
+  const actions = actionHandler({
+    root,
+    identity: (u) => ({ name: opened.project?.roles.people.find((p) => p.user === u)?.name ?? u, email: `${u}@example.com` }),
+    pushOptions: () => [],
+    now: () => new Date(Date.parse(fixture.now) + (Date.now() - started)),
+    afterPush: host.afterPush,
+  });
+  server = await listen(() => openProject(root, { now: fixture.now }), user, Number(f["port"] ?? 4173), true, { actions });
   watchFiles([dir], server);
   const people = opened.project?.roles.people.map((p) => `${p.user} (${p.roles.join(", ")})`).join(", ") ?? "";
   console.log(
