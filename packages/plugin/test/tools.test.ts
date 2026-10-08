@@ -7,7 +7,7 @@ import { parseBugFile, parseSignoffs } from "@sdlc-hub/core";
 import { fixtures, materialize } from "@sdlc-hub/fixtures";
 import { openProject } from "@sdlc-hub/git";
 import { createSaver } from "@sdlc-hub/save";
-import { hubBug, hubNext, hubSignoff, hubStatus, sessionContext, type ToolContext } from "../src/index.ts";
+import { hubBug, hubDecide, hubNext, hubQa, hubRelease, hubReleaseEdit, hubSignoff, hubStatus, hubVerdicts, sessionContext, type ToolContext } from "../src/index.ts";
 
 const temp: string[] = [];
 afterAll(() => temp.forEach((d) => rmSync(d, { recursive: true, force: true })));
@@ -115,5 +115,26 @@ describe("a new assistant session", () => {
   it("still starts when the person is unknown", () => {
     const { ctx } = demo("olena.k");
     expect(sessionContext({ ...ctx, user: () => undefined })).toMatch(/^SDLC Hub: Your git identity matches nobody/);
+  });
+});
+
+describe("QA and release from the assistant", () => {
+  it("shows QA the open cells, the bugs and the latest CI runs", () => {
+    const { text } = hubQa(demo("iryna.s").ctx, "tasks-issues");
+    expect(text).toContain("open: AC-04 on web: fail; AC-04 on android: fail; AC-04 on ios: fail");
+    expect(text).toContain("BUG-0012 high retest (backend, AC-04)");
+    expect(text).toContain("Final decisions: return by iryna.s 2026-10-05 (BUG-0012 reproduces on all three clients)");
+  });
+  it("records QA's verdicts and refuses the final decision before autotests and verify", () => {
+    const { ctx, remote } = demo("iryna.s");
+    expect(hubVerdicts(ctx, "tasks-issues", [{ ac: "AC-04", platform: "web", verdict: "pass" }]).text).toMatch(/saved as branch hub\/iryna\.s\/verdicts-tasks-issues/);
+    expect(git(remote, "branch", "--list", "hub/*")).toContain("verdicts-tasks-issues");
+    expect(hubDecide(ctx, "tasks-issues", "pass").text).toMatch(/does not wait for a sign-off now/);
+  });
+  it("shows Ops the release and records the smoke check", () => {
+    const { ctx } = demo("bohdan.r");
+    expect(hubRelease(ctx, "tasks-issues").text).toContain("1. [ ] Every team's production deploy is done");
+    expect(hubReleaseEdit(ctx, "returns-portal", { kind: "smoke", value: "passed" }).isError).toBeUndefined();
+    expect(hubReleaseEdit(demo("iryna.s").ctx, "returns-portal", { kind: "go", value: "go" }).text).toMatch(/hub-guard would refuse this/);
   });
 });

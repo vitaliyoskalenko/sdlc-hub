@@ -3,7 +3,7 @@
 
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { hubBug, hubNext, hubSignoff, hubStatus, type ToolContext, type ToolResult } from "./tools.ts";
+import { hubBug, hubDecide, hubNext, hubQa, hubRelease, hubReleaseEdit, hubSignoff, hubStatus, hubTest, hubVerdicts, type ToolContext, type ToolResult } from "./tools.ts";
 
 const text = (r: ToolResult) => ({ content: [{ type: "text" as const, text: r.text }], ...(r.isError ? { isError: true } : {}) });
 const slug = z.string().regex(/^[a-z0-9][a-z0-9-]*$/).describe("The feature's folder name under docs/features, for example tasks-issues");
@@ -74,6 +74,88 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
       annotations: { destructiveHint: false },
     },
     async (a) => text(hubBug(ctx, a)),
+  );
+
+  server.registerTool(
+    "hub_qa",
+    {
+      title: "QA state of a feature",
+      description: "The verdict of every criterion on every platform, the bugs, the latest CI run of each team and the final decisions so far. Reads files and changes nothing.",
+      inputSchema: z.object({ slug }),
+      annotations: { readOnlyHint: true },
+    },
+    async ({ slug: s }) => text(hubQa(ctx, s)),
+  );
+
+  const verdict = z.object({
+    ac: z.string().regex(/^AC-\d+$/).describe("The criterion, for example AC-04"),
+    platform: z.string().describe("A platform of the feature, as hub_qa lists them"),
+    verdict: z.enum(["pass", "fail", "na"]),
+    bugs: z.array(z.string().regex(/^BUG-\d{4,}$/)).optional().describe("For a fail: the bug or bugs it found"),
+  });
+  server.registerTool(
+    "hub_verdicts",
+    {
+      title: "Record verdicts",
+      description: "Records QA's verdicts at verify in hub/verification.yaml, through a merge request in the person's name. A fail names its bug: file it with hub_bug first. Call it only after the person confirmed the verdicts.",
+      inputSchema: z.object({ slug, verdicts: z.array(verdict).min(1) }),
+      annotations: { destructiveHint: false },
+    },
+    async ({ slug: s, verdicts }) => text(hubVerdicts(ctx, s, verdicts)),
+  );
+
+  server.registerTool(
+    "hub_decide",
+    {
+      title: "The QA decision",
+      description: "QA's final check (qa-final): pass to release, or return to verify with the reason and the bugs. Saved through a merge request in the person's name. Call it only after the person confirmed the decision.",
+      inputSchema: z.object({ slug, decision: z.enum(["pass", "return"]), reason: z.string().optional(), bugs: z.array(z.string().regex(/^BUG-\d{4,}$/)).optional() }),
+      annotations: { destructiveHint: false },
+    },
+    async ({ slug: s, decision, reason, bugs }) => text(hubDecide(ctx, s, decision, reason, bugs)),
+  );
+
+  server.registerTool(
+    "hub_release",
+    {
+      title: "Release state of a feature",
+      description: "The staging smoke check, the acceptance and the go or no-go, the checklist, the rollout and the watch period. Reads files and changes nothing.",
+      inputSchema: z.object({ slug }),
+      annotations: { readOnlyHint: true },
+    },
+    async ({ slug: s }) => text(hubRelease(ctx, s)),
+  );
+
+  server.registerTool(
+    "hub_release_edit",
+    {
+      title: "Record a release change",
+      description:
+        "Records one release change in release.yaml through a merge request: the smoke check, a checklist item done or not, a new item, or the rollout stage (Ops); the go or no-go (PM). It records what people did; it never starts a production job. Call it only after the person confirmed the change.",
+      inputSchema: z.object({
+        slug,
+        edit: z.discriminatedUnion("kind", [
+          z.object({ kind: z.literal("smoke"), value: z.enum(["pending", "passed", "failed"]) }),
+          z.object({ kind: z.literal("go"), value: z.enum(["go", "no-go"]) }),
+          z.object({ kind: z.literal("check"), item: z.string(), done: z.boolean() }),
+          z.object({ kind: z.literal("add-item"), item: z.string() }),
+          z.object({ kind: z.literal("rollout"), stage: z.number().min(0).max(100) }),
+        ]),
+      }),
+      annotations: { destructiveHint: false },
+    },
+    async ({ slug: s, edit }) => text(hubReleaseEdit(ctx, s, edit)),
+  );
+
+  server.registerTool(
+    "hub_test",
+    {
+      title: "Run the autotests locally",
+      description: "Runs the team's test command from .hub/config.yaml in the person's clone of the team repository and records the run in hub-state with the label local. A local run never counts for the autotests gate.",
+      inputSchema: z.object({ slug, team: z.string().optional().describe("One team; by default the person's own team") }),
+      annotations: { destructiveHint: false },
+    },
+    async ({ slug: s, team }) => text(hubTest(ctx, s, team)),
   );
 
   return server;

@@ -13,11 +13,11 @@ describe("the Claude Code plugin files", () => {
   });
   it("give the phase 2 commands, and only the person starts the ones that save", () => {
     const skills = Object.keys(files).filter((p) => p.endsWith("SKILL.md")).map((p) => p.split("/")[3]).sort();
-    expect(skills).toEqual(["bug", "next", "return", "signoff", "start", "status"]);
-    for (const s of ["signoff", "return", "bug"]) {
+    expect(skills).toEqual(["bug", "decide", "next", "release", "return", "signoff", "start", "status", "test", "verify"]);
+    for (const s of ["signoff", "return", "bug", "verify", "decide", "release"]) {
       expect(front(`hub/plugin/skills/${s}/SKILL.md`)["disable-model-invocation"]).toBe(true);
       // Their save is not pre-allowed, and the person confirms in the chat first: in auto mode no prompt appears.
-      expect(String(front(`hub/plugin/skills/${s}/SKILL.md`)["allowed-tools"] ?? "")).not.toMatch(/hub_(signoff|return|bug)/);
+      expect(String(front(`hub/plugin/skills/${s}/SKILL.md`)["allowed-tools"] ?? "")).not.toMatch(/hub_(signoff|return|bug|verdicts|decide|release_edit)/);
       expect(files[`hub/plugin/skills/${s}/SKILL.md`]).toContain("ask the person to confirm it in this chat");
     }
     expect(front("hub/plugin/skills/status/SKILL.md")["allowed-tools"]).toBe(tool("hub_status"));

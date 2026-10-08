@@ -2,9 +2,9 @@
 // They read the product-specs checkout directly and save through the same code as the site: a branch whose merge
 // request merges itself when hub-guard passes.
 
-import { detectFeature, listFeatures, nextFor, type FeatureState, type Project, type StepPlan } from "@sdlc-hub/core";
+import { detectFeature, listFeatures, nextFor, parseSignoffs, platformsOf, releaseView, verificationMatrix, type FeatureState, type Project, type StepPlan } from "@sdlc-hub/core";
 import type { OpenProject } from "@sdlc-hub/git";
-import { saveBug, saveSignoff, type Save, type SaveOutcome, type Saver } from "@sdlc-hub/save";
+import { localTests, saveBug, saveRelease, saveSignoff, saveVerdicts, type Save, type SaveOutcome, type Saver } from "@sdlc-hub/save";
 
 export type Assistant = "claude" | "codex" | "cursor";
 
@@ -206,4 +206,81 @@ export function sessionContext(ctx: ToolContext): string {
   } catch (e) {
     return `SDLC Hub could not read the project: ${(e as Error).message}`;
   }
+}
+
+/** QA's view of a feature: the verdicts still open, the bugs, the latest CI run per team, and the decisions. */
+export function hubQa(ctx: ToolContext, slug: string): ToolResult {
+  const l = load(ctx);
+  if (isResult(l)) return l;
+  const s = featureOrList(l, slug);
+  if ("text" in s) return s;
+  const m = verificationMatrix(l.open.view.specs, slug, platformsOf(l.project.config, s));
+  const signoffs = parseSignoffs(l.open.view.specs.read(`docs/features/${slug}/hub/signoffs.yaml`) ?? "[]", "signoffs.yaml").value ?? [];
+  const runs = s.teams.map((t) => ({ team: t.id, run: s.testRuns.filter((r) => r.team === t.id && r.source === "ci").sort((a, b) => (a.at < b.at ? -1 : 1)).at(-1) }));
+  const step = (id: string) => s.steps.find((x) => x.id === id)?.status ?? "todo";
+  return {
+    text: [
+      `${slug}, cycle ${s.cycle}: verify ${step("verify")}, autotests ${step("autotests")}, qa-final ${step("qa-final")}.`,
+      `Criteria on ${m.platforms.join(", ")}: ${m.criteria.length} criteria, ${m.complete ? "every one passes or does not apply" : `open: ${m.open.join("; ") || "none recorded"}`}.`,
+      ...m.criteria.map((c) => `- ${c.id} ${c.text} | ${m.platforms.map((p) => `${p}: ${c.cells[p]?.verdict ?? "—"}${c.cells[p]?.bugs?.length ? ` (${c.cells[p]!.bugs!.join(", ")})` : ""}`).join(", ")}`),
+      `Bugs: ${s.bugs.length ? s.bugs.map((b) => `${b.id} ${b.severity} ${b.status} (${b.team}${b.ac ? `, ${b.ac}` : ""}): ${b.title}`).join("; ") : "none"}.`,
+      `Latest CI: ${runs.map((r) => `${r.team} ${r.run?.result ?? "no run"}`).join(", ")}. Only CI runs count for autotests.`,
+      `Final decisions: ${signoffs.filter((e) => e.step === "qa-final").map((e) => `${e.decision} by ${e.user} ${e.at.slice(0, 10)}${e.reason ? ` (${e.reason})` : ""}`).join("; ") || "none"}.`,
+    ].join("\n"),
+  };
+}
+
+export function hubVerdicts(ctx: ToolContext, slug: string, verdicts: { ac: string; platform: string; verdict: "pass" | "fail" | "na"; bugs?: string[] }[]): ToolResult {
+  const l = load(ctx);
+  if (isResult(l)) return l;
+  const r = saveVerdicts({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, verdicts, at: iso(ctx.now()) });
+  return outcomeText(r, `${verdicts.length} verdict${verdicts.length === 1 ? "" : "s"} for ${slug}`);
+}
+
+/** The QA decision at the final check: pass to release, or return to verify with the reason and the bugs. */
+export function hubDecide(ctx: ToolContext, slug: string, decision: "pass" | "return", reason?: string, bugs?: string[]): ToolResult {
+  const l = load(ctx);
+  if (isResult(l)) return l;
+  const r = saveSignoff({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, step: "qa-final", decision, reason, ...(bugs?.length ? { bugs } : {}), at: iso(ctx.now()) });
+  return outcomeText(r, decision === "pass" ? `Your decision to pass ${slug} to release` : `Your return of ${slug} to verify`);
+}
+
+/** The release as it stands: staging, acceptance and the go, the checklist, the rollout and the watch period. */
+export function hubRelease(ctx: ToolContext, slug: string): ToolResult {
+  const l = load(ctx);
+  if (isResult(l)) return l;
+  const s = featureOrList(l, slug);
+  if ("text" in s) return s;
+  const r = releaseView(l.open.view.specs, l.project.flow, slug);
+  const step = (id: string) => s.steps.find((x) => x.id === id)?.status ?? "todo";
+  return {
+    text: [
+      `${slug}: staging ${step("staging")}, accept ${step("accept")}, release ${step("release")}.`,
+      `Smoke check on staging: ${r.staging?.smoke ?? "not run"}. Go or no-go: ${r.go ? `${r.go.value} by ${r.go.user}` : "not given"}.`,
+      "Checklist:",
+      ...r.checklist.map((c, i) => `${i + 1}. [${c.done ? "x" : " "}] ${c.item}`),
+      `Rollout: ${r.rollout?.stage ?? 0}%.${r.watch ? ` Watch period: ${r.watch.days} days from ${r.watch.started.slice(0, 10)}.` : ` The watch period of ${l.project.flow.release.watch_days} days starts at 100%.`}`,
+    ].join("\n"),
+  };
+}
+
+export type ReleaseEditArgs =
+  | { kind: "smoke"; value: "pending" | "passed" | "failed" }
+  | { kind: "go"; value: "go" | "no-go" }
+  | { kind: "check"; item: string; done: boolean }
+  | { kind: "add-item"; item: string }
+  | { kind: "rollout"; stage: number };
+
+export function hubReleaseEdit(ctx: ToolContext, slug: string, edit: ReleaseEditArgs): ToolResult {
+  const l = load(ctx);
+  if (isResult(l)) return l;
+  const r = saveRelease({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, edit, at: iso(ctx.now()) });
+  return outcomeText(r, `The release change for ${slug}`);
+}
+
+/** A local run of the team's autotests, recorded with the label local. */
+export function hubTest(ctx: ToolContext, slug: string, team?: string): ToolResult {
+  const open = ctx.open();
+  const r = localTests({ root: open.root, slug, ...(team ? { team } : {}), now: ctx.now, quiet: true });
+  return { text: r.lines.map((x) => `${x.ok ? "✓" : x.blocking === false ? "!" : "✗"} ${x.text}`).join("\n"), ...(r.ok ? {} : { isError: true }) };
 }
