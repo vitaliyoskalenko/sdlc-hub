@@ -14,7 +14,9 @@
     "@sdlc-hub/save": "*",
     "@sdlc-hub/install": "*",
     "@sdlc-hub/host": "*",
-    "@sdlc-hub/plugin": "*"
+    "@sdlc-hub/plugin": "*",
+    "@sdlc-hub/usage": "*",
+    "age-encryption": "^0.3.1"
   },
   "devDependencies": {
     "@sdlc-hub/fixtures": "*",

@@ -268,7 +268,7 @@ async function setupCommand(f: Record<string, string>) {
   const root = topLevel(process.cwd());
   if (!root) throw new Error("Run hub setup in your clone of product-specs; the setup script does this for you.");
   if (!f["user"] || !f["roles"]) throw new Error("Give --user <username> and --roles <role ...>; the setup script does this for you.");
-  const r = personSetup({ root, user: f["user"], roles: f["roles"].split(/[ ,]+/).filter(Boolean), assistant: f["assistant"] ?? "claude", ...(f["release"] ? { release: f["release"] } : {}) });
+  const r = await personSetup({ root, user: f["user"], roles: f["roles"].split(/[ ,]+/).filter(Boolean), assistant: f["assistant"] ?? "claude", ...(f["release"] ? { release: f["release"] } : {}) });
   console.log(print(r.lines));
   if (!r.ok) process.exit(1);
 }

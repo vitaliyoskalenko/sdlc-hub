@@ -47,7 +47,7 @@ describe.skipIf(!existsSync(bundle))("a generated setup script, run", () => {
     const script = setupScript({ config: { ...config, git: { ...config.git, host: `file://${host}` } }, person, shell: "bash", release: "x", date: "2026-10-08", by: "nazar.t" });
     writeFileSync(join(dir, "setup.sh"), script);
     const work = join(dir, "work");
-    const r = spawnSync("bash", [join(dir, "setup.sh")], { encoding: "utf8", env: { ...process.env, PATH: `${bin}:${process.env["PATH"]}`, HUB_WORK: work, HUB_NO_START: "1", GIT_CONFIG_COUNT: "2", GIT_CONFIG_KEY_0: "user.name", GIT_CONFIG_VALUE_0: "Petro V.", GIT_CONFIG_KEY_1: "user.email", GIT_CONFIG_VALUE_1: "petro.v@example.com" } });
+    const r = spawnSync("bash", [join(dir, "setup.sh")], { encoding: "utf8", env: { ...process.env, PATH: `${bin}:${process.env["PATH"]}`, HUB_WORK: work, HUB_NO_START: "1", HUB_KEYS_DIR: join(dir, "keys"), GIT_CONFIG_COUNT: "2", GIT_CONFIG_KEY_0: "user.name", GIT_CONFIG_VALUE_0: "Petro V.", GIT_CONFIG_KEY_1: "user.email", GIT_CONFIG_VALUE_1: "petro.v@example.com" } });
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
     expect(r.stdout).toContain("6/6 Opening the site");
     expect(existsSync(join(work, "product-specs/.git"))).toBe(true);
@@ -59,7 +59,7 @@ describe.skipIf(!existsSync(bundle))("a generated setup script, run", () => {
     expect(r.stdout).toContain("✓ You are Petro V. (petro.v), dev");
 
     // Run again: it checks before it acts.
-    const again = spawnSync("bash", [join(dir, "setup.sh")], { encoding: "utf8", env: { ...process.env, PATH: `${bin}:${process.env["PATH"]}`, HUB_WORK: work, HUB_NO_START: "1" } });
+    const again = spawnSync("bash", [join(dir, "setup.sh")], { encoding: "utf8", env: { ...process.env, PATH: `${bin}:${process.env["PATH"]}`, HUB_WORK: work, HUB_NO_START: "1", HUB_KEYS_DIR: join(dir, "keys") } });
     expect(again.status, `${again.stdout}\n${again.stderr}`).toBe(0);
   }, 120_000);
 });

@@ -9,6 +9,10 @@
   },
   "dependencies": {
     "@sdlc-hub/core": "*",
+    "age-encryption": "^0.3.1",
     "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@sdlc-hub/fixtures": "*"
   }
 }

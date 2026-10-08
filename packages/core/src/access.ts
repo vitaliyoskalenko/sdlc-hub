@@ -106,7 +106,7 @@ export function checkChange(user: string, change: Change, ctx: AccessContext): A
 }
 
 function checkPath(person: Person, ctx: AccessContext, path: string, base: string | undefined, next: string | undefined): AccessResult {
-  if (base === undefined && next !== undefined && ownKeyFile(person, path)) return { ok: true, rule: ".hub/keys/<own user>-<machine>.pub" };
+  if (base === undefined && next !== undefined && ownKeyFile(person, path)) return { ok: true, rule: ".hub/keys/<own user>/<machine>.pub" };
 
   let refusal: AccessResult | undefined;
   for (const rule of rulesFor(person, ctx)) {
@@ -160,7 +160,8 @@ function checkKeys(base: string | undefined, next: string | undefined, keys: Non
 }
 
 function ownKeyFile(person: Person, path: string): boolean {
-  const prefix = `.hub/keys/${person.user}-`;
+  // A folder per person: with <user>-<machine>.pub, user "olena" could add a key named like "olena-k"'s.
+  const prefix = `.hub/keys/${person.user}/`;
   return path.startsWith(prefix) && path.endsWith(".pub") && !path.slice(prefix.length).includes("/");
 }
 

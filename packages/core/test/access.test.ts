@@ -109,9 +109,12 @@ describe("rules below the file level", () => {
 
 describe("own key files", () => {
   it("let a person add their own public key and nothing else under .hub", () => {
-    expect(checkChange("andrii.p", { path: ".hub/keys/andrii.p-laptop.pub", next: "age1x\n" }, ctx()).ok).toBe(true);
-    expect(checkChange("andrii.p", { path: ".hub/keys/petro.v-laptop.pub", next: "age1x\n" }, ctx()).ok).toBe(false);
-    expect(checkChange("andrii.p", { path: ".hub/keys/andrii.p-laptop.pub", base: "age1a\n", next: "age1b\n" }, ctx()).ok).toBe(false);
+    expect(checkChange("andrii.p", { path: ".hub/keys/andrii.p/laptop.pub", next: "age1x\n" }, ctx()).ok).toBe(true);
+    expect(checkChange("andrii.p", { path: ".hub/keys/petro.v/laptop.pub", next: "age1x\n" }, ctx()).ok).toBe(false);
+    expect(checkChange("andrii.p", { path: ".hub/keys/andrii.p/laptop.pub", base: "age1a\n", next: "age1b\n" }, ctx()).ok).toBe(false);
+    // A folder per person: a name that starts like someone else's cannot pass for theirs.
+    expect(checkChange("andrii.p", { path: ".hub/keys/andrii.p-x/laptop.pub", next: "age1x\n" }, ctx()).ok).toBe(false);
+    expect(checkChange("andrii.p", { path: ".hub/keys/andrii.p/a/b.pub", next: "age1x\n" }, ctx()).ok).toBe(false);
   });
 });
 

@@ -10,7 +10,9 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { personStatePath, type Person } from "@sdlc-hub/core";
 import { gitIdentity, openProject, personOf } from "@sdlc-hub/git";
 import { claudeSetupCommands, MARKETPLACE, PLUGIN } from "@sdlc-hub/plugin/files";
-import { writeHubState, type Line } from "@sdlc-hub/save";
+import { createSaver, writeHubState, type Line, type SaverOptions } from "@sdlc-hub/save";
+import { identityToRecipient } from "age-encryption";
+import { keyPath, keyStore, keysOf, machineName, newKeyPair } from "@sdlc-hub/usage";
 
 export type Run = (cmd: string, args: string[], cwd: string) => { status: number; out: string };
 
@@ -38,6 +40,8 @@ export function claudeLocalSettings(existing: string | null, person: Person): st
 
 export interface SetupOptions {
   root: string;
+  /** How saves open their merge request; GitLab's push options by default. */
+  pushOptions?: SaverOptions["pushOptions"];
   user: string;
   roles: string[];
   assistant: string;
@@ -46,7 +50,7 @@ export interface SetupOptions {
   now?: () => Date;
 }
 
-export function personSetup(o: SetupOptions): { ok: boolean; lines: Line[] } {
+export async function personSetup(o: SetupOptions): Promise<{ ok: boolean; lines: Line[] }> {
   const run = o.run ?? runCommand;
   const lines: Line[] = [];
   const say = (ok: boolean, text: string, blocking = true) => lines.push({ ok, text, blocking });
@@ -79,6 +83,35 @@ export function personSetup(o: SetupOptions): { ok: boolean; lines: Line[] } {
   const id = gitIdentity(o.root);
   if (!id.email) say(false, "git has no user.email. Set it: git config --global user.email <your e-mail>", false);
   say(true, `This checkout belongs to ${o.user} (git config hub.user)`);
+
+  // This machine's usage key: the private key stays here, the public one goes to .hub/keys/ by merge request.
+  try {
+    const store = keyStore(remoteUrl(o.root, run));
+    let identity = store.load();
+    let where = "";
+    if (!identity) {
+      const pair = await newKeyPair();
+      identity = pair.identity;
+      where = store.save(identity) === "keychain" ? " (private key in your system keychain)" : " (private key in a file only you can read: no keychain here)";
+    }
+    const recipient = await identityToRecipient(identity);
+    if (keysOf(opened.view.specs, o.user).includes(recipient)) say(true, "Your usage key is in .hub/keys/");
+    else {
+      let machine = machineName();
+      for (let n = 2; opened.view.specs.read(keyPath(o.user, machine)) !== undefined; n++) machine = `${machineName()}-${n}`;
+      const path = keyPath(o.user, machine);
+      createSaver({ root: o.root, identity: { name: id.name || o.user, email: id.email || `${o.user}@localhost` }, ...(o.pushOptions ? { pushOptions: o.pushOptions } : {}) }).save({
+        user: o.user,
+        label: `key-${machine}`,
+        title: `Usage key of ${o.user} on ${machine}`,
+        meta: { kind: "key" },
+        build: (main) => (main.read(path) === undefined ? [{ path, next: `${recipient}\n` }] : []),
+      });
+      say(true, `Proposed your usage key as ${path}${where}; it merges by itself`);
+    }
+  } catch (e) {
+    say(false, `Could not set up your usage key: ${(e as Error).message.split("\n")[0]}. Run your setup script again later.`, false);
+  }
 
   if (o.assistant === "claude") {
     const file = join(o.root, ".claude/settings.local.json");

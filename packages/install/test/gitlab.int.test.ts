@@ -148,7 +148,7 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
         mkdirSync(join(tmp, "bin"));
         writeFileSync(join(tmp, "bin/claude"), `#!/bin/sh\necho "$@" >> "${join(tmp, "claude.log")}"\n`, { mode: 0o755 });
         // His keychain, as git's environment: the script itself carries nothing secret.
-        const env = { ...process.env, PATH: `${join(tmp, "bin")}:${process.env["PATH"]}`, HUB_WORK: join(tmp, "work"), HUB_NO_START: "1", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_COUNT: "3", GIT_CONFIG_KEY_0: "http.extraHeader", GIT_CONFIG_VALUE_0: `Authorization: Basic ${Buffer.from(`oauth2:${secrets.people["taras.m"]}`).toString("base64")}`, GIT_CONFIG_KEY_1: "user.name", GIT_CONFIG_VALUE_1: "Taras M.", GIT_CONFIG_KEY_2: "user.email", GIT_CONFIG_VALUE_2: "taras.m@example.com" };
+        const env = { ...process.env, PATH: `${join(tmp, "bin")}:${process.env["PATH"]}`, HUB_WORK: join(tmp, "work"), HUB_NO_START: "1", HUB_KEYS_DIR: join(tmp, "keys"), GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_COUNT: "3", GIT_CONFIG_KEY_0: "http.extraHeader", GIT_CONFIG_VALUE_0: `Authorization: Basic ${Buffer.from(`oauth2:${secrets.people["taras.m"]}`).toString("base64")}`, GIT_CONFIG_KEY_1: "user.name", GIT_CONFIG_VALUE_1: "Taras M.", GIT_CONFIG_KEY_2: "user.email", GIT_CONFIG_VALUE_2: "taras.m@example.com" };
         const started = Date.now();
         const r = spawnSync("bash", [join(tmp, "setup.sh")], { encoding: "utf8", env, timeout: 300_000 });
         expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
