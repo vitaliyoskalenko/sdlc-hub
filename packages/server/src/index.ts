@@ -3,11 +3,11 @@
 // to the setup handler or, for saves, to the action handler, which pushes a branch whose merge request merges itself.
 // See the specification, "Architecture" and "Security".
 
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { extname, resolve, sep } from "node:path";
-import { awaitsSignoff, CONTRACT_LEAD_RULES, DEFAULT_ROLE_RULES, detectFeature, LEAD_RULES, listDocuments, listFeatures, parseFeature, type FeatureState, type Issue, type Project, type ProjectView } from "@sdlc-hub/core";
+import { awaitsSignoff, CONTRACT_LEAD_RULES, parsePersonState, personStatePath, scriptName, setupScript, type FileSource, DEFAULT_ROLE_RULES, detectFeature, LEAD_RULES, listDocuments, listFeatures, parseFeature, type FeatureState, type Issue, type Project, type ProjectView } from "@sdlc-hub/core";
 
 export interface OpenedProject {
   root: string;
@@ -19,6 +19,8 @@ export interface OpenedProject {
 /** What an action may look at: the project and the detected state of a feature, and a way to tell the pages. */
 export interface ActionContext {
   project: Project;
+  /** product-specs as this machine has it. */
+  specs: FileSource;
   state: (slug: string) => FeatureState | undefined;
   emit: (event: string, data?: unknown) => void;
 }
@@ -223,6 +225,27 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
       return action("GET", "/saves", null, url, res);
     }
 
+    if (parts[0] === "people" && parts.length === 1) {
+      // Each person with what hub setup reported from their machine, for People and roles.
+      const people = project.roles.people.map((p) => {
+        const text = opened.view.hubState?.read(personStatePath(p.user));
+        return { user: p.user, name: p.name, roles: p.roles, team: p.team ?? null, lead: !!p.lead, os: p.os ?? null, assistant: p.assistant ?? "claude", setup: text ? (parsePersonState(text, personStatePath(p.user)).value ?? null) : null };
+      });
+      return send(res, 200, { people, release: release(opened) });
+    }
+
+    if (parts[0] === "script" && parts.length === 1) {
+      const person = project.roles.people.find((p) => p.user === url.searchParams.get("user"));
+      const shell = url.searchParams.get("shell") === "powershell" ? "powershell" : "bash";
+      if (!person) return send(res, 404, { error: "No such person in roles.yaml" });
+      try {
+        const text = setupScript({ config: project.config, person, shell, release: release(opened), date: opened.view.now.slice(0, 10), by: actor(url) });
+        return send(res, 200, { name: scriptName(person.user, shell), text, release: release(opened) });
+      } catch (e) {
+        return send(res, 422, { error: (e as Error).message });
+      }
+    }
+
     if (parts[0] === "features" && parts.length === 1) {
       const features = listFeatures(opened.view.specs).map((slug) => summary(slug, state(slug)!, opened));
       return send(res, 200, { features, now: opened.view.now });
@@ -264,7 +287,7 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
     const project = data().opened.project;
     if (!project) return send(res, 503, { error: "The project in .hub/ does not load" });
     const emit = (event: string, d?: unknown) => clients.forEach((c) => c.write(`event: ${event}\ndata: ${JSON.stringify(d ?? null)}\n\n`));
-    opts.actions!.handle(method, path, actor(url), body, { project, state, emit }).then(
+    opts.actions!.handle(method, path, actor(url), body, { project, specs: data().opened.view.specs, state, emit }).then(
       (r) => send(res, r.status, r.body),
       (e) => send(res, 500, { error: String(e instanceof Error ? e.message : e) }),
     );
@@ -325,6 +348,12 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
       });
     });
   });
+}
+
+/** The hub release a setup script expects: a short hash of hub/cli.js on main, or "none" before it is vendored. */
+function release(opened: OpenedProject): string {
+  const text = opened.view.specs.read("hub/cli.js");
+  return text === undefined ? "none" : createHash("sha256").update(text).digest("hex").slice(0, 12);
 }
 
 /** One row of the Features list. */

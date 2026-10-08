@@ -1,6 +1,6 @@
 // The site's actions: a sign-off or a return of a gate, through the same save the plugin uses.
 
-import { createSaver, saveSignoff, type Save, type SaveOutcome, type SaverOptions } from "@sdlc-hub/save";
+import { createSaver, savePeople, saveSignoff, type Save, type SaveOutcome, type SaverOptions } from "@sdlc-hub/save";
 import type { ActionHandler } from "@sdlc-hub/server";
 
 export interface ActionOptions {
@@ -24,9 +24,12 @@ export function actionHandler(o: ActionOptions): ActionHandler {
   return {
     async handle(method, path, user, body, ctx) {
       if (method === "GET" && path === "/saves") return { status: 200, body: { saves: saver(user).refresh().filter((s) => s.user === user), enabled: true } };
-      if (method !== "POST" || path !== "/signoff") return { status: 404, body: { error: "No such action" } };
+      if (method !== "POST" || (path !== "/signoff" && path !== "/person")) return { status: 404, body: { error: "No such action" } };
       const b = (body ?? {}) as Record<string, unknown>;
-      const r = saveSignoff({ saver: saver(user), project: ctx.project, state: ctx.state, user, slug: b["slug"], step: b["step"], decision: b["decision"], reason: b["reason"], at: iso(now()) });
+      const r =
+        path === "/person"
+          ? savePeople({ saver: saver(user), project: ctx.project, local: ctx.specs, user, edit: b })
+          : saveSignoff({ saver: saver(user), project: ctx.project, state: ctx.state, user, slug: b["slug"], step: b["step"], decision: b["decision"], reason: b["reason"], at: iso(now()) });
       if (!r.ok) return { status: STATUS[r.code], body: { error: r.error, ...(r.findings ? { findings: r.findings } : {}) } };
       ctx.emit("saves");
       o.afterPush?.(r.save);

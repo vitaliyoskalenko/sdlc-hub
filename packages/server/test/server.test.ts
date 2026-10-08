@@ -111,6 +111,20 @@ describe("the API", () => {
     expect((await json("/api/session?as=olena.k")).me).toMatchObject({ user: "olena.k", roles: ["po"] });
     expect((await json("/api/session")).demo).toBe(true);
   });
+  it("lists the people with what hub setup reported, for People and roles", async () => {
+    const r = await json("/api/people");
+    expect(r.people.map((p: { user: string }) => p.user)).toContain("taras.m");
+    expect(r.people.find((p: { user: string }) => p.user === "taras.m")).toMatchObject({ roles: ["dev"], team: "backend", lead: true, setup: null });
+    expect(r.release).toBe("none"); // the demo has no vendored hub
+  });
+  it("generates a person's setup script, bash or PowerShell, and nobody else's", async () => {
+    const bash = await json("/api/script?user=iryna.s&shell=bash&as=nazar.t");
+    expect(bash.name).toBe("setup-iryna.s.sh");
+    expect(bash.text).toContain('HUB_USER="iryna.s"');
+    expect(bash.text).toContain("by nazar.t");
+    expect((await json("/api/script?user=iryna.s&shell=powershell")).name).toBe("setup-iryna.s.ps1");
+    expect((await get("/api/script?user=ghost")).status).toBe(404);
+  });
   it("describes the project: flow, teams, people and engine", async () => {
     const p = await json("/api/project");
     expect(p.flow.steps).toHaveLength(20);

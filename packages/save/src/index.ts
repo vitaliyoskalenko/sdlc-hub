@@ -170,4 +170,4 @@ export function createSaver(o: SaverOptions) {
 }
 
 export type Saver = ReturnType<typeof createSaver>;
-export { saveBug, saveSignoff, type BugSaveInput, type SaveOutcome, type SignoffInput } from "./signoff.ts";
+export { saveBug, savePeople, saveSignoff, type BugSaveInput, type PeopleSaveInput, type SaveOutcome, type SignoffInput } from "./signoff.ts";

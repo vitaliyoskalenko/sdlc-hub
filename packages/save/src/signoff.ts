@@ -1,7 +1,7 @@
 // A sign-off or a return of a gate, saved: checked with the same guard that runs at merge, on main as it is on the
 // remote, and only then pushed. The site's action and the plugin's hub_signoff and hub_return both use this.
 
-import { awaitsSignoff, bugChange, guard, loadProject, signoffChange, type BugInput, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
+import { awaitsSignoff, bugChange, guard, loadProject, peopleChange, signoffChange, type BugInput, type PeopleEdit, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
 import type { Save, Saver } from "./index.ts";
 
 export type SaveOutcome =
@@ -79,6 +79,62 @@ export function saveBug(i: BugSaveInput): SaveOutcome {
     title: `Bug in ${slug}: ${input.title.trim()}`,
     meta: { kind: "bug", slug },
     build: (main, p) => bugChange(main, slug, input, i.user, i.foundIn, p.config.teams.map((t) => t.id)),
+    fallback: i.project,
+  });
+}
+
+export interface PeopleSaveInput {
+  saver: Saver;
+  project: Project;
+  /** product-specs as this machine has it, to refuse a bad edit before anything is fetched. */
+  local: FileSource;
+  user: string;
+  /** The request: { kind: "set", person } or { kind: "remove", user }. */
+  edit: unknown;
+}
+
+const OS = ["macos", "linux", "windows"];
+const ASSISTANTS = ["claude", "codex", "cursor"];
+
+/** The edit a request asks for, or why it is not one. */
+function peopleEdit(x: unknown): PeopleEdit | string {
+  const b = (x ?? {}) as Record<string, unknown>;
+  if (b["kind"] === "remove") return typeof b["user"] === "string" ? { kind: "remove", user: b["user"] } : "Name the person to remove";
+  if (b["kind"] !== "set") return "Give kind: set or remove";
+  const p = (b["person"] ?? {}) as Record<string, unknown>;
+  const str = (k: string) => (typeof p[k] === "string" && (p[k] as string).trim() ? (p[k] as string).trim() : undefined);
+  const user = str("user");
+  const name = str("name");
+  const roles = Array.isArray(p["roles"]) && p["roles"].every((r) => typeof r === "string") ? (p["roles"] as string[]) : undefined;
+  if (!user || !name || !roles?.length) return "A person needs a username, a name and at least one role";
+  const os = str("os");
+  const assistant = str("assistant");
+  if (os && !OS.includes(os)) return `The system is one of ${OS.join(", ")}`;
+  if (assistant && !ASSISTANTS.includes(assistant)) return `The assistant is one of ${ASSISTANTS.join(", ")}`;
+  const team = str("team");
+  return {
+    kind: "set",
+    person: { user, name, roles, ...(team ? { team } : {}), ...(p["lead"] === true ? { lead: true } : {}), ...(os ? { os: os as "macos" } : {}), ...(assistant ? { assistant: assistant as "claude" } : {}) },
+  };
+}
+
+/** Adds, changes or removes a person in .hub/roles.yaml. Only the admin passes the guard. */
+export function savePeople(i: PeopleSaveInput): SaveOutcome {
+  const edit = peopleEdit(i.edit);
+  if (typeof edit === "string") return { ok: false, code: "bad-input", error: edit };
+  try {
+    peopleChange(i.local, i.project.config, edit);
+  } catch (e) {
+    return { ok: false, code: "bad-input", error: (e as Error).message };
+  }
+  const who = edit.kind === "set" ? edit.person.user : edit.user;
+  const isNew = edit.kind === "set" && !i.project.roles.people.some((p) => p.user === who);
+  const verb = edit.kind === "remove" ? "Remove" : isNew ? "Add" : "Change";
+  return checkedSave(i.saver, i.user, {
+    label: `people-${verb.toLowerCase()}-${who}`,
+    title: `${verb} ${who} on People and roles`,
+    meta: { kind: "person", person: who, action: verb.toLowerCase() },
+    build: (main, p) => peopleChange(main, p.config, edit),
     fallback: i.project,
   });
 }

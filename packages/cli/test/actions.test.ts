@@ -26,7 +26,7 @@ function project() {
   git(root, "remote", "add", "origin", remote);
   git(root, "fetch", "-q", "origin");
   const opened = openProject(root, { now: fixture.now });
-  const ctx: ActionContext = { project: opened.project!, state: (slug) => detectFeature(opened.project!, opened.view, slug), emit: () => undefined };
+  const ctx: ActionContext = { project: opened.project!, specs: opened.view.specs, state: (slug) => detectFeature(opened.project!, opened.view, slug), emit: () => undefined };
   const handler = actionHandler({ root, identity: (u) => ({ name: u, email: `${u}@example.com` }), pushOptions: () => [], now: () => new Date("2026-10-08T10:00:00Z") });
   return { root, remote, ctx, handler };
 }
@@ -72,6 +72,27 @@ describe("sign-off and return from the site", () => {
   });
 });
 
+describe("People and roles from the site", () => {
+  it("saves the admin's new person in roles.yaml as a branch", async () => {
+    const { remote, ctx, handler } = project();
+    const r = await handler.handle("POST", "/person", "nazar.t", { kind: "set", person: { user: "anna.b", name: "Anna B.", roles: ["qa"], os: "windows", assistant: "claude" } }, ctx);
+    expect(r.status, JSON.stringify(r.body)).toBe(202);
+    const branch = (r.body as { save: { branch: string; meta: Record<string, string> } }).save;
+    expect(branch.meta).toEqual({ kind: "person", person: "anna.b", action: "add" });
+    expect(git(remote, "show", `${branch.branch}:.hub/roles.yaml`)).toContain("user: anna.b");
+  });
+  it("refuses anyone but the admin, and a bad person, before pushing", async () => {
+    const { remote, ctx, handler } = project();
+    const pm = await handler.handle("POST", "/person", "maksym.d", { kind: "remove", user: "bohdan.r" }, ctx);
+    expect(pm.status).toBe(403);
+    expect(pm.body).toMatchObject({ findings: [{ reason: expect.stringMatching(/No role of maksym\.d/) }] });
+    expect((await handler.handle("POST", "/person", "nazar.t", { kind: "set", person: { user: "x", name: "X", roles: ["boss"] } }, ctx)).status).toBe(400);
+    expect((await handler.handle("POST", "/person", "nazar.t", { kind: "set", person: { user: "x" } }, ctx)).status).toBe(400);
+    expect((await handler.handle("POST", "/person", "nazar.t", { kind: "drop" }, ctx)).status).toBe(400);
+    expect(git(remote, "branch", "--list", "hub/*")).toBe("");
+  });
+});
+
 describe("the demo's stand-in for the git host", () => {
   it("merges a save that hub-guard passes, and the feature moves on", async () => {
     const dir = mkdtempSync(join(tmpdir(), "hub-demohost-"));
@@ -83,7 +104,7 @@ describe("the demo's stand-in for the git host", () => {
     const handler = actionHandler({ root, identity: (u) => ({ name: u, email: `${u}@example.com` }), pushOptions: () => [], afterPush: host.afterPush, now: () => new Date("2026-10-08T10:00:00Z") });
     const ctxNow = () => {
       const opened = openProject(root, { now: fixture.now });
-      return { project: opened.project!, state: (slug: string) => detectFeature(opened.project!, opened.view, slug), emit: () => undefined } satisfies ActionContext;
+      return { project: opened.project!, specs: opened.view.specs, state: (slug: string) => detectFeature(opened.project!, opened.view, slug), emit: () => undefined } satisfies ActionContext;
     };
     expect(ctxNow().state("returns-portal")!.current).toBe("clarify");
     expect((await handler.handle("POST", "/signoff", "olena.k", { slug: "returns-portal", step: "clarify", decision: "pass" }, ctxNow())).status).toBe(202);
