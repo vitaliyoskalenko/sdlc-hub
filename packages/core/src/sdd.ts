@@ -189,3 +189,18 @@ export function buildTeamSnapshot(input: SnapshotInput): Result<TeamSnapshot> {
     issues: [],
   };
 }
+
+// --- acceptance criteria in spec.md
+
+// @assumed-sdd-format: each criterion is a list item that starts with its id, as "- AC-01: text" or "- **AC-01** text".
+const CRITERION = /^\s*[-*]\s+\**(AC-\d+)\**[:.]?\**\s+(.+?)\s*$/;
+
+/** The acceptance criteria of a spec, in order, each once. */
+export function readCriteria(spec: string): { id: string; text: string }[] {
+  const out: { id: string; text: string }[] = [];
+  for (const line of spec.split("\n")) {
+    const m = CRITERION.exec(line);
+    if (m && !out.some((c) => c.id === m[1])) out.push({ id: m[1]!, text: m[2]!.replace(/^[:–-]\s*/, "") });
+  }
+  return out;
+}

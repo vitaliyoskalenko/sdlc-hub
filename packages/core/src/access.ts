@@ -45,7 +45,7 @@ export const DEFAULT_ROLE_RULES: Record<BuiltinRole, string[]> = {
   pm: ["docs/roadmap.md", `${F}/hub/feature.yaml`, `${F}/hub/release.yaml#keys:go`, `${F}/hub/signoffs.yaml`],
   designer: ["docs/design-system.md", `${F}/ux-flows.md`, `${F}/screens.md`, `${F}/hub/signoffs.yaml`],
   dev: [`${F}/hub/bugs/*.md#front:status`, `${F}/hub/signoffs.yaml`],
-  qa: [`${F}/test-plan.md`, `${F}/spec.md#Test plan`, `${F}/hub/bugs/**`, `${F}/hub/signoffs.yaml`],
+  qa: [`${F}/test-plan.md`, `${F}/spec.md#Test plan`, `${F}/hub/bugs/**`, `${F}/hub/verification.yaml`, `${F}/hub/signoffs.yaml`],
   ops: [`${F}/hub/release.yaml#keys:!go`, `${F}/hub/signoffs.yaml`],
 };
 
