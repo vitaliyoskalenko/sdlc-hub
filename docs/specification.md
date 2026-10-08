@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 8, 2026 · @Vitaliy · revision 61
+Oct 9, 2026 · @Vitaliy · revision 62
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -98,7 +98,7 @@ product-specs/                             branch: main (human edits, through me
 │  ├─ flow.yaml                             steps, lanes, gates, return paths, watch period
 │  ├─ engines/sdd.yaml                      adapter for genkovich/sdd
 │  ├─ prompts/<step>.md                     prompt templates
-│  ├─ keys/<user>-<machine>.pub             age public keys for per-person usage
+│  ├─ keys/<user>/<machine>.pub             age public keys for per-person usage, a folder per person
 │  └─ install.log                           steps of the first install, for a resumed run
 ├─ hub/                                     vendored release of the hub
 │  ├─ cli.js                                one bundled file: CLI, server, web app, MCP server
@@ -126,7 +126,7 @@ branch: hub-state (machine-written, never merged into main)
 ├─ features/<slug>/tests/<run>.json         CI and local test runs
 ├─ features/<slug>/events.jsonl             stage start and finish, returns; no username, no token counts
 ├─ metrics/<yyyy-mm>/usage.jsonl            open totals by feature, step, role, assistant
-├─ metrics/<yyyy-mm>/<user>.jsonl.age       per-person usage, one file per person and month, encrypted
+├─ metrics/<yyyy-mm>/<user>/<machine>.jsonl.age   per-person usage, one file per person, machine and month, encrypted
 └─ people/<user>.json                       setup state, last sync, hub version
 ```
 
@@ -153,8 +153,8 @@ State is kept in small text files: one per bug, per test run and per person-mont
 | `features/<slug>/teams/<team>.json` | hub-state | `hub-report` CI job in the team repository | The team's `tasks.json`, statuses and cross-team references from `tasks/tracker.md`, the latest review verdict, the SDD artifacts present, merge request and latest pipeline |
 | `features/<slug>/tests/<run>.json` | hub-state | The hub job of a team pipeline (`hub-tests-passed`, `hub-tests-failed` or `hub-report`), or `/hub:test` | Source (ci or local), team, result (passed or failed), counts when known, the pipeline's address, the branch and commit, and for a local run who ran it |
 | `features/<slug>/events.jsonl` | hub-state | Plugin hooks | Stage started, finished or returned, with role and assistant. No username and no token counts: the site names the person from the git author of the commit that added the event |
-| `metrics/<yyyy-mm>/usage.jsonl` | hub-state | The admin's or PM's machine at sync | Open totals by feature, step, role, team, model and assistant |
-| `metrics/<yyyy-mm>/<user>.jsonl.age` | hub-state | `hub usage`, at sync | One person's usage for the month, encrypted |
+| `metrics/<yyyy-mm>/usage.jsonl` | hub-state | The admin's or PM's machine at sync | Open totals by feature, step, role, team, model, assistant and feature with step: people counted, never named; groups of three people or more |
+| `metrics/<yyyy-mm>/<user>/<machine>.jsonl.age` | hub-state | `hub sync` on that machine | One person's usage on one machine for the month, encrypted with age |
 
 `.size` and `.route` in the feature folder are the source of truth for size and route. `feature.yaml` does not repeat them.
 
@@ -257,7 +257,7 @@ The same commands exist in all three assistants: `/hub:name` in Claude Code, `$h
 | `decide <slug>` | QA | Final check (`qa-final`): pass to release, or return to development with a reason and the bugs | No |
 | `return <step> <slug> <reason>` | Gate owner | Sends a step back instead of signing it off. `<step>` is the step whose gate the person owns; `flow.yaml` names where it goes back to (by default the step itself) | No |
 | `release <slug>` | Ops | Walks the release checklist. Never starts a production job itself | Yes |
-| `sync` | Everyone | Pulls both branches and publishes your usage | No |
+| `sync` | Everyone | Pulls both branches, publishes your usage encrypted, on the admin's or the PM's machine the open totals, and refreshes Claude Code's copy of the hub plugin | No |
 | `doctor` | Everyone | Checks the engine, MCP servers, git identity, role and GitLab token | No |
 
 ### How proxying works
@@ -692,7 +692,7 @@ Token counts come from the assistant's own session data on each machine. Cost is
 
 | Assistant | Interactive sessions | Headless runs | Reliability |
 | --- | --- | --- | --- |
-| Claude Code | A `Stop` hook receives `transcript_path`, and `hub usage` sums the usage records per model since its last mark | `total_cost_usd` and `usage` in the JSON result | Good. The transcript format is internal and may change, so OpenTelemetry export is the fallback |
+| Claude Code | The `Stop` hook reads the session's transcript (`transcript_path`) since its last mark: each assistant message once, by its id, with `message.model` and `message.usage` (input, cache writes for 5 minutes and 1 hour, cache reads, output). It adds one record per model to this month's local file in the git directory. `UserPromptSubmit` (a typed `/hub:x`) and `PostToolUse` on the hub's tools note the feature and step | `total_cost_usd` and `usage` in the JSON result | Good. Verified against Claude Code 2.1.292: the cost from the transcript equals the run's own `total_cost_usd`. The transcript format is internal and may change, so OpenTelemetry export is the fallback |
 | Codex | A `Stop` hook with `transcript_path`, and session files under `~/.codex/sessions` | `turn.completed.usage` in the JSON events | Fair. The session file layout is not officially documented |
 | Cursor | No token data on the machine | An optional `usage` object in the JSON result | Weak. Team totals come from Cursor's Admin API |
 
@@ -702,7 +702,7 @@ Each record is tagged with the feature and step of the last `hub` command in tha
 
 - Tokens and API-equivalent cost per step, feature, role, team, model and assistant.
 - Estimate against actual per step. Estimates start from `flow.yaml`, and the PM can adjust them per feature.
-- Lead time per step and per feature from the event log, and the days teams waited for the team that publishes the API contract.
+- Lead time per step and per feature from the event log, and the days teams waited for the team that publishes the API contract (not built yet: the hooks record usage, not yet stage start and finish).
 - Bugs per feature by severity and by the step that found them, autotest pass rate, and criteria covered.
 
 On Team seats the work is not billed per step. The cost shows what the same work would cost at API list prices.
@@ -717,9 +717,11 @@ On Team seats the work is not billed per step. The cost shows what the same work
 
 The privacy rule covers spend only: no per-person totals, tables or rankings of tokens or cost outside the admin and the PM, and usage records stay encrypted per person. Names on steps, sign-offs, bugs and merge requests are work records that the team already sees in git; the event log carries no username and no token counts, so it cannot be joined to spend.
 
-Usage records are encrypted with `age` before they are committed, each to every public key of the person, the admin and the PM (one key per machine). `hub setup` creates the key pair on the person's machine, keeps the private key in the system keychain and adds the public key to `.hub/keys/` through a merge request. Usage is one file per person and month, published at sync and not after every turn.
+Usage records are encrypted with `age` (X25519 keys, armored) before they are published, each to every public key of the person, the admins and the PMs (one key per machine). `hub setup` creates the key pair on the person's machine, keeps the private key in the system keychain through git's credential helper (or a file only the owner can read where there is none), and proposes the public key as `.hub/keys/<user>/<machine>.pub` through a merge request. A folder per person matters: with `<user>-<machine>.pub`, a user named `olena` could add a key that reads as `olena-k`'s, and the hub would encrypt her usage to it. Usage is one file per person, machine and month, published at `hub sync` when it changed, never after every turn.
 
-Open totals are published by the admin's or the PM's machine during sync. A group of fewer than three people is merged into "other", so a total never shows one person, and the event log carries no username. When the PM changes, `hub usage rekey` re-encrypts the records for the new key. The former PM can still read what was encrypted before; that is accepted.
+Open totals are published by the admin's or the PM's machine during sync, which decrypts every person's month. They are kept per dimension: feature, step, role, team, model, assistant, and feature with step. A group of fewer than three people is merged into "other", and an "other" that still has fewer than three people is left out, so a total never shows one person; the event log carries no username. When the PM changes, `hub usage rekey` re-encrypts the records for the new key (not built yet). The former PM can still read what was encrypted before; that is accepted.
+
+Prices are the API list prices, by model, from Anthropic's pricing page on a known date, carried in the hub; `prices` in `config.yaml` overrides any model. Not modelled: fast mode, US-only inference, batch, and Haiku 5.5's higher tier for long prompts. Estimates: the admin sets `estimate_tokens_m` per step in `flow.yaml`; the PM sets the feature's `estimate.tokens_m` in `feature.yaml` on its Costs screen.
 
 ## Integrations
 

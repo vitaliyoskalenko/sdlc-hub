@@ -17,6 +17,8 @@ To try saving: open `returns-portal` as `olena.k`, step clarify, and press Sign 
 
 QA and release: as `iryna.s`, a feature's QA tab records verdicts, bugs and the final decision; as `bohdan.r` and `maksym.d`, its Release tab records the smoke check, the checklist, the rollout and the go. `npm run demo -- --fixture release-walk --as bohdan.r` has one feature at staging to take all the way to released.
 
+Costs: a feature's Costs tab shows tokens and API-equivalent cost by step for everyone (groups of three people or more), and as `maksym.d` or `nazar.t` each person too. In a real checkout, usage is collected by the plugin's hooks and published, encrypted, by `node hub/cli.js sync`.
+
 Other fixtures: `npm run demo -- --fixture <name>`, for example `quick-route`, `implement-blocked`, `qa-return-cycle-2` or `no-user-interface` (all in `packages/fixtures/src/cases.ts`).
 
 On a real `product-specs` checkout: `npm run build`, then from inside the checkout `node <this repo>/packages/cli/dist/cli.mjs serve`. You are the person in `.hub/roles.yaml` that matches your git identity, or `--as <user>`.

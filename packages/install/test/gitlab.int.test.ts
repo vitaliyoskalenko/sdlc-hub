@@ -43,6 +43,10 @@ const ANSWERS: SetupAnswers = {
 const bundle = `${existsSync("packages/cli/dist/cli.mjs") ? readFileSync("packages/cli/dist/cli.mjs", "utf8") : ""}\n// test run ${Date.now()}\n`;
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+// Every request of this test fails after a minute instead of hanging the run when GitLab does not answer.
+const plainFetch = globalThis.fetch;
+globalThis.fetch = ((input: Parameters<typeof fetch>[0], init: RequestInit = {}) => plainFetch(input, { signal: AbortSignal.timeout(60_000), ...init })) as typeof fetch;
+
 /** Polls a merge request until it merged or its pipeline failed. */
 async function settle(gl: GitLab, projectId: number, iid: number): Promise<MergeRequest> {
   let m = await gl.mergeRequest(projectId, iid);
@@ -102,7 +106,9 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
     }
     // The web team's own CI stays as it was, with the include above it.
     const web = (await owner.project("shop/web-admin"))!;
-    expect(await owner.file(web.id, ".gitlab-ci.yml", "sdlc-hub/hub-report")).toBe("include:\n  - local: ci/hub-report.gitlab-ci.yml\nstages: [build, test]\nbuild:\n  stage: build\n  script: [echo build]\n");
+    // On the merge request's branch, or on main once the team merged it (an earlier run of this test does).
+    const webBranch = (await owner.openMergeRequests(web.id, "sdlc-hub/hub-report"))[0] ? "sdlc-hub/hub-report" : "main";
+    expect(await owner.file(web.id, ".gitlab-ci.yml", webBranch)).toMatch(/^include:\n  - local: ci\/hub-report\.gitlab-ci\.yml\nstages: \[build, test\]\nbuild:\n  stage: build\n  script: \[echo build\]\n/);
     expect(r.left.join("\n")).toMatch(/Renew HUB_STATE_TOKEN before \d{4}-\d{2}-\d{2}/);
     expect(r.left.join("\n")).toMatch(/Renew HUB_GUARD_TOKEN before \d{4}-\d{2}-\d{2}/);
     // Phase 2: hub-ci, the CI configuration, "Pipelines must succeed" and main protected.
@@ -159,6 +165,27 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
         expect(readFileSync(join(tmp, "claude.log"), "utf8")).toContain("plugin install hub@product-specs --scope local");
         const state = await root.file(id, "people/taras.m.json", "hub-state");
         expect(parsePersonState(state!, "p").value).toMatchObject({ user: "taras.m", assistant: "claude" });
+
+        // His usage key: proposed by setup, merged by itself (a person may add their own key and nothing else).
+        let keyOnMain = false;
+        for (let i = 0; i < 60 && !keyOnMain; i++) {
+          const tree = (await fetch(`${URL_}/api/v4/projects/${id}/repository/tree?path=.hub/keys/taras.m&ref=main`, { headers: { "PRIVATE-TOKEN": secrets.rootToken } }).then((r) => (r.ok ? r.json() : []))) as { name: string }[];
+          keyOnMain = tree.some((f) => f.name.endsWith(".pub"));
+          if (!keyOnMain) await wait(5000);
+        }
+        expect(keyOnMain).toBe(true);
+
+        // A session's usage on his machine, then hub sync: published to hub-state, encrypted.
+        const clone = join(tmp, "work/product-specs");
+        mkdirSync(join(clone, ".git/sdlc-hub/usage"), { recursive: true });
+        const month = new Date().toISOString().slice(0, 7);
+        writeFileSync(join(clone, `.git/sdlc-hub/usage/${month}.jsonl`), `${JSON.stringify({ at: new Date().toISOString(), session: "s", assistant: "claude", model: "claude-opus-5-5", role: "dev", team: "backend", slug: "bulk-order-export", step: "implement", messages: 3, tokens: { input: 6, cache_write_5m: 0, cache_write_1h: 16230, cache_read: 93798, output: 477 } })}\n`);
+        const synced = spawnSync("node", ["hub/cli.js", "sync"], { cwd: clone, encoding: "utf8", env });
+        expect(synced.status, `${synced.stdout}\n${synced.stderr}`).toBe(0);
+        expect(synced.stdout).toContain(`Published your usage for ${month}`);
+        const tree = (await fetch(`${URL_}/api/v4/projects/${id}/repository/tree?path=metrics/${month}/taras.m&ref=hub-state`, { headers: { "PRIVATE-TOKEN": secrets.rootToken } }).then((r) => r.json())) as { path: string }[];
+        expect(tree.length).toBe(1);
+        expect(await root.file(id, tree[0]!.path, "hub-state")).toMatch(/^-----BEGIN AGE ENCRYPTED FILE-----/);
       } finally {
         execFileSync("rm", ["-rf", tmp]);
       }

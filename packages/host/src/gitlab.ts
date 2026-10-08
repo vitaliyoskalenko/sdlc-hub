@@ -99,6 +99,8 @@ export class GitLab {
 
   private async call<T>(method: string, path: string, body?: unknown): Promise<T> {
     const res = await this.fetcher(`${this.api}${path}`, {
+      // A request GitLab never answers fails after a minute instead of holding the install forever.
+      signal: AbortSignal.timeout(60_000),
       method,
       headers: { "PRIVATE-TOKEN": this.token, ...(body === undefined ? {} : { "content-type": "application/json" }) },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -138,7 +140,7 @@ export class GitLab {
   runners = (projectId: number) => this.call<GitLabRunner[]>("GET", `/projects/${projectId}/runners?per_page=100`);
   file = (projectId: number, path: string, ref: string) => this.maybeText(`/projects/${projectId}/repository/files/${enc(path)}/raw?ref=${enc(ref)}`);
   private async maybeText(path: string): Promise<string | null> {
-    const res = await this.fetcher(`${this.api}${path}`, { headers: { "PRIVATE-TOKEN": this.token } });
+    const res = await this.fetcher(`${this.api}${path}`, { headers: { "PRIVATE-TOKEN": this.token }, signal: AbortSignal.timeout(60_000) });
     if (res.status === 404) return null;
     if (!res.ok) throw new HostError(`GitLab answered ${res.status} to GET ${path}`, res.status);
     return res.text();

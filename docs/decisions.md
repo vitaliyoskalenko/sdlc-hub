@@ -2,6 +2,29 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-09: Revision 62, metrics
+
+### Usage from the transcript, priced at list prices
+- **Decision:** The `Stop` hook reads Claude Code's transcript since its last mark: each message once by its id, with model and usage, and cache writes split into 5 minutes and 1 hour. The hub prices that with a table taken from Anthropic's pricing page on 2026-10-08, which `prices` in `config.yaml` overrides per model. The session's feature and step come from a typed `/hub:x` (`UserPromptSubmit`) or a hub tool's input (`PostToolUse`). Records stay in the git directory until `hub sync`.
+- **Why:** It needs nothing from the person. In a headless run, the cost the hub computed from the hooks was $0.1581636, exactly Claude Code's own `total_cost_usd` for that run.
+- **By:** Proposed; verified.
+
+### Keys in a folder per person, files per person and machine
+- **Decision:**
+  - Public keys are `.hub/keys/<user>/<machine>.pub`; the guard lets a person add files in their own folder only. Usage files are `metrics/<yyyy-mm>/<user>/<machine>.jsonl.age`.
+  - The private key stays in the system keychain through git's credential helper, or in a file readable only by its owner where there is none.
+  - `HUB_KEYS_DIR` keeps keys in a folder; tests use it, so no test touches a keychain.
+- **Why:** With `<user>-<machine>.pub`, a user named `olena` could add `olena-k-laptop.pub`. The guard would have taken it as her own file, and `olena-k`'s usage would then have been encrypted to her. Two machines of one person would also have overwritten one usage file.
+- **By:** Proposed.
+
+### Open totals keep people out of sight
+- **Decision:** Totals are kept per dimension (feature, step, role, team, model, assistant, and feature with step). A group of fewer than three people is merged into "other". An "other" that still has fewer than three people is left out, because subtracting it from the rest could reveal one person. Only the admin and the PM see each person, decrypted on their own machine; it is never published.
+- **By:** Proposed, from the specification's rule.
+
+### The demo's usage
+- **Decision:** The demo encrypts a month of made-up usage at start, with a key it makes then and keeps only in memory. The repository holds no key.
+- **By:** Proposed.
+
 ## 2026-10-08: Revision 61, QA and release
 
 ### CI results come from the hub job at the end of each team pipeline
