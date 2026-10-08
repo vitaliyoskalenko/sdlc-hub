@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseConfig, parseTeamSnapshot } from "@sdlc-hub/core";
 import { GitLab, type MergeRequest } from "@sdlc-hub/host";
+import { createSaver, type Save } from "@sdlc-hub/save";
 import { install, preflight, type SetupAnswers } from "../src/index.ts";
 
 const URL_ = "http://localhost:8929";
@@ -177,6 +178,37 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
       expect(log).toMatch(/✗ docs\/features\/bulk-order-export\/spec\.md — No role of taras\.m .*\(taras\.m\)/);
       await root.updateMergeRequest(id, mr.iid, { state_event: "close" });
     }, 360_000);
+
+    it("saves from the site with git alone: a merge that passes, and a refusal hub-guard records in hub-state", async () => {
+      // Olena's clone, with her credential in git's environment as her keychain would give it.
+      const env = { ...process.env, GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "http.extraHeader", GIT_CONFIG_VALUE_0: `Authorization: Basic ${Buffer.from(`oauth2:${secrets.people["olena.k"]}`).toString("base64")}`, GIT_TERMINAL_PROMPT: "0" };
+      const clone = execFileSync("mktemp", ["-d"], { encoding: "utf8" }).trim();
+      execFileSync("git", ["clone", "-q", `${URL_}/shop/product-specs.git`, clone], { env, stdio: "pipe" });
+      const saver = createSaver({ root: clone, identity: { name: "Olena K.", email: "olena.k@example.com" }, env });
+      const until = async (s: Save, state: Save["state"]) => {
+        let now = s;
+        for (let i = 0; i < 60 && now.state !== state; i++) {
+          await wait(5000);
+          now = saver.refresh().find((x) => x.branch === s.branch)!;
+        }
+        return now;
+      };
+      try {
+        const ok = saver.save({ user: "olena.k", label: "spec", title: "Spec from the site", build: () => [{ path: "docs/features/bulk-order-export/spec.md", next: `# Bulk order export\n\nSaved from the site ${stamp}.\n` }] });
+        expect(ok.mr?.url).toMatch(/\/-\/merge_requests\/\d+$/);
+        expect((await until(ok, "merged")).state).toBe("merged");
+
+        // The site checks first; this save skips that check, as an older hub might.
+        const bad = saver.save({ user: "olena.k", label: "config", title: "Config from the site", build: (main) => [{ path: ".hub/config.yaml", next: `${main.read(".hub/config.yaml")}# site ${stamp}\n` }] });
+        const refused = await until(bad, "refused");
+        expect(refused.state).toBe("refused");
+        expect(refused.findings?.[0]).toMatchObject({ path: ".hub/config.yaml", reason: expect.stringMatching(/No role of olena.k/) });
+        const id = await specsId();
+        expect((await root.mergeRequest(id, bad.mr!.iid)).state).toBe("closed");
+      } finally {
+        execFileSync("rm", ["-rf", clone]);
+      }
+    }, 720_000);
 
     it("does not merge a change whose pipeline was skipped with [skip ci]", async () => {
       const id = await specsId();
