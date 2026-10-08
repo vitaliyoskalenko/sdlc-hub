@@ -6,9 +6,24 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { loadProject, type FileSource, type Issue, type Project, type ProjectView, type Roles } from "@sdlc-hub/core";
 
-function git(cwd: string, args: string[]): string | undefined {
+const calls: Record<string, number> = {};
+/** How many times each git subcommand ran since the last reset; for tests that keep the number of calls bounded. */
+export const gitCalls = (): Record<string, number> => ({ ...calls });
+export const resetGitCalls = (): void => {
+  for (const k of Object.keys(calls)) delete calls[k];
+};
+
+function git(cwd: string, args: string[], input?: string): string | undefined {
+  const sub = args.find((a) => !a.startsWith("-") && !a.includes("=")) ?? "";
+  calls[sub] = (calls[sub] ?? 0) + 1;
   try {
-    return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024 });
+    return execFileSync("git", ["-c", "core.quotePath=false", ...args], {
+      cwd,
+      encoding: "utf8",
+      input,
+      stdio: [input === undefined ? "ignore" : "pipe", "pipe", "ignore"],
+      maxBuffer: 256 * 1024 * 1024,
+    });
   } catch {
     return undefined;
   }
@@ -25,11 +40,44 @@ function resolver(roles: Roles | undefined): Resolve {
   };
 }
 
-function lastAuthor(cwd: string, args: string[], who: Resolve): string | undefined {
-  const out = git(cwd, ["log", "-1", "--format=%an%x00%ae", ...args]);
-  if (!out?.trim()) return undefined;
-  const [name, email] = out.trim().split("\0");
-  return who(name ?? "", email ?? "");
+/**
+ * The author of the last commit that touched each path, from one `git log --name-only` over the history of `ref`.
+ * The log runs newest first, so the first time a path appears is its last change.
+ */
+function authorsOf(cwd: string, ref: string, who: Resolve): Map<string, string> {
+  const out = git(cwd, ["log", "--name-only", "--no-renames", "--format=%x01%an%x00%ae", ref, "--"]) ?? "";
+  const map = new Map<string, string>();
+  let current = "";
+  for (const line of out.split("\n")) {
+    if (line.startsWith("\x01")) {
+      const [name, email] = line.slice(1).split("\0");
+      current = who(name ?? "", email ?? "");
+    } else if (line && !map.has(line)) map.set(line, current);
+  }
+  return map;
+}
+
+/** The author of every line of one file at `ref`, from one `git blame --porcelain`. */
+function lineAuthorsOf(cwd: string, ref: string, path: string, who: Resolve): string[] {
+  const out = git(cwd, ["blame", "--porcelain", ref, "--", path]) ?? "";
+  const byCommit = new Map<string, { name: string; email: string }>();
+  const lines: string[] = [];
+  let sha = "";
+  let final = 0;
+  for (const line of out.split("\n")) {
+    const head = /^([0-9a-f]{40}) \d+ (\d+)/.exec(line);
+    if (head) {
+      sha = head[1]!;
+      final = Number(head[2]);
+      if (!byCommit.has(sha)) byCommit.set(sha, { name: "", email: "" });
+    } else if (line.startsWith("author ")) byCommit.get(sha)!.name = line.slice(7);
+    else if (line.startsWith("author-mail ")) byCommit.get(sha)!.email = line.slice(12);
+    else if (line.startsWith("\t")) {
+      const a = byCommit.get(sha)!;
+      lines[final] = who(a.name, a.email);
+    }
+  }
+  return lines;
 }
 
 const listUnder = (paths: string[], prefix: string) => (prefix === "" ? paths : paths.filter((p) => p.startsWith(`${prefix}/`)));
@@ -38,12 +86,14 @@ const listUnder = (paths: string[], prefix: string) => (prefix === "" ? paths : 
 export function workingTreeSource(root: string, who: Resolve = (n) => n): FileSource {
   const base = resolve(root);
   let paths: string[] | undefined;
+  let known: Set<string> | undefined;
   const all = () => (paths ??= (git(base, ["ls-files", "-co", "--exclude-standard", "-z"]) ?? "").split("\0").filter(Boolean).sort());
-  const authors = new Map<string, string | undefined>();
+  let authors: Map<string, string> | undefined;
   return {
     read(path) {
       const full = resolve(base, path);
-      if (!full.startsWith(base + sep) || !all().includes(path)) return undefined;
+      known ??= new Set(all());
+      if (!full.startsWith(base + sep) || !known.has(path)) return undefined;
       try {
         return readFileSync(full, "utf8");
       } catch {
@@ -52,7 +102,7 @@ export function workingTreeSource(root: string, who: Resolve = (n) => n): FileSo
     },
     list: (prefix) => listUnder(all(), prefix),
     author(path) {
-      if (!authors.has(path)) authors.set(path, lastAuthor(base, ["--", path], who));
+      authors ??= authorsOf(base, "HEAD", who);
       return authors.get(path);
     },
   };
@@ -62,27 +112,43 @@ export function workingTreeSource(root: string, who: Resolve = (n) => n): FileSo
 export function refSource(root: string, ref: string, who: Resolve = (n) => n): FileSource {
   let paths: string[] | undefined;
   const all = () => (paths ??= (git(root, ["ls-tree", "-r", "--name-only", "-z", ref]) ?? "").split("\0").filter(Boolean).sort());
-  const texts = new Map<string, string | undefined>();
-  const authors = new Map<string, string | undefined>();
+  let texts: Map<string, string> | undefined;
+  let authors: Map<string, string> | undefined;
+  const lineAuthors = new Map<string, string[]>();
+  /** Every file of the ref in one `git cat-file --batch`: hub-state holds small machine records. */
+  const load = (): Map<string, string> => {
+    if (texts) return texts;
+    texts = new Map();
+    const names = all();
+    if (!names.length) return texts;
+    const out = git(root, ["cat-file", "--batch"], names.map((p) => `${ref}:${p}`).join("\n") + "\n");
+    if (out === undefined) return texts;
+    const buf = Buffer.from(out, "utf8");
+    let at = 0;
+    for (const name of names) {
+      const nl = buf.indexOf(10, at);
+      if (nl < 0) break;
+      const header = buf.subarray(at, nl).toString("utf8");
+      at = nl + 1;
+      const m = /^[0-9a-f]+ blob (\d+)$/.exec(header);
+      if (!m) continue; // "missing"
+      const size = Number(m[1]);
+      texts.set(name, buf.subarray(at, at + size).toString("utf8"));
+      at += size + 1;
+    }
+    return texts;
+  };
   return {
-    read(path) {
-      if (!all().includes(path)) return undefined;
-      if (!texts.has(path)) texts.set(path, git(root, ["show", `${ref}:${path}`]));
-      return texts.get(path);
-    },
+    read: (path) => load().get(path),
     list: (prefix) => listUnder(all(), prefix),
     author(key) {
-      if (authors.has(key)) return authors.get(key);
       const m = /^(.*)#L(\d+)$/.exec(key);
-      let a: string | undefined;
       if (m) {
-        const out = git(root, ["blame", "--porcelain", "-L", `${m[2]},${m[2]}`, ref, "--", m[1]!]);
-        const name = /^author (.*)$/m.exec(out ?? "")?.[1];
-        const email = /^author-mail (.*)$/m.exec(out ?? "")?.[1];
-        a = name ? who(name, email ?? "") : undefined;
-      } else a = lastAuthor(root, [ref, "--", key], who);
-      authors.set(key, a);
-      return a;
+        if (!lineAuthors.has(m[1]!)) lineAuthors.set(m[1]!, lineAuthorsOf(root, ref, m[1]!, who));
+        return lineAuthors.get(m[1]!)![Number(m[2])];
+      }
+      authors ??= authorsOf(root, ref, who);
+      return authors.get(key);
     },
   };
 }

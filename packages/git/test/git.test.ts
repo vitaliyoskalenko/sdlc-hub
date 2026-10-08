@@ -92,3 +92,22 @@ describe("the demo on disk", () => {
     expect(review).toMatchObject({ status: "running", by: "petro.v" });
   });
 });
+
+describe("git calls", () => {
+  it("names the authors of every file with one git log per repository, and every event line with one blame per log", async () => {
+    const { gitCalls, resetGitCalls } = await import("../src/index.ts");
+    const f = fixtures["demo"]!;
+    const { root } = onDisk(f);
+    resetGitCalls();
+    const p = openProject(root, { now: f.now });
+    for (const slug of listFeatures(p.view.specs)) detectFeature(p.project!, p.view, slug);
+    const calls = gitCalls();
+    // main, hub-state and the one team clone with files: at most one `git log` each.
+    expect(calls.log ?? 0).toBeLessThanOrEqual(3);
+    // One events.jsonl in the demo.
+    expect(calls.blame ?? 0).toBeLessThanOrEqual(1);
+    // hub-state files are read in one batch.
+    expect(calls.show ?? 0).toBe(0);
+    expect(calls["cat-file"] ?? 0).toBeLessThanOrEqual(1);
+  });
+});

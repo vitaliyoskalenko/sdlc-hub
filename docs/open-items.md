@@ -40,7 +40,7 @@ The owner confirmed three of these on 7 October 2026: the contract team per feat
 - **The contract merge request in phase 1a.** Without the host API, a merged contract merge request is seen as `contracts/` files on main.
 - **Not in core yet (phase 2, with `hub-guard`):** who may append which `signoffs.yaml` entry, and `release.yaml` field by field.
 - **Node 22 ends on 30 April 2027.** Raise the minimum to Node 24 before then.
-- **Git authors per file.** The first load of the demo takes about 0.9 s, mostly one `git log` per file to name authors. That is fine now. On a large repository, read the authors of all paths in one git call, for example `git log --name-only --format=...` once per ref.
+- **Git calls.** Done on 8 October 2026: authors of every file come from one `git log --name-only` per repository, event-line authors from one `git blame` per event log, and the hub-state files from one `git cat-file --batch`. The demo's first load went from 0.9 s to 0.18 s. A very long history makes that one `git log` slower; limiting it by date is the next step if needed.
 
 ## Hub prototype
 
