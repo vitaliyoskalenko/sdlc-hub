@@ -2,12 +2,12 @@
 // Skipped in `npm test`. It also checks open-items claims 3, 11, 12 and 13 on GitLab Free, and that hub-guard
 // refuses at merge an edit outside a role while edits inside a role merge by themselves.
 
-import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseConfig, parseTeamSnapshot } from "@sdlc-hub/core";
+import { parseConfig, parsePersonState, parseRoles, parseTeamSnapshot, setupScript } from "@sdlc-hub/core";
 import { GitLab, type MergeRequest } from "@sdlc-hub/host";
 import { createSaver, type Save } from "@sdlc-hub/save";
 import { install, preflight, type SetupAnswers } from "../src/index.ts";
@@ -136,6 +136,32 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
       const mr = await owner.propose(id, { target: "main", branch: `people-${stamp}`, title: "Add Olena and Taras", description: "", actions: [{ action: "update", file_path: ".hub/roles.yaml", content: next }] });
       const m = await settle(owner, id, mr.iid);
       expect(m.state, await guardLog(id, m.head_pipeline?.id ?? 0)).toBe("merged");
+    }, 360_000);
+
+    it("sets a person up from their generated script, with only their own git credential (the phase 2 exit check)", async () => {
+      const id = await specsId();
+      const config = parseConfig((await root.file(id, ".hub/config.yaml", "main"))!, "c").value!;
+      const person = parseRoles((await root.file(id, ".hub/roles.yaml", "main"))!, "r").value!.people.find((p) => p.user === "taras.m")!;
+      const tmp = execFileSync("mktemp", ["-d"], { encoding: "utf8" }).trim();
+      try {
+        writeFileSync(join(tmp, "setup.sh"), setupScript({ config, person, shell: "bash", release: "x", date: "2026-10-08", by: "nazar.t" }));
+        mkdirSync(join(tmp, "bin"));
+        writeFileSync(join(tmp, "bin/claude"), `#!/bin/sh\necho "$@" >> "${join(tmp, "claude.log")}"\n`, { mode: 0o755 });
+        // His keychain, as git's environment: the script itself carries nothing secret.
+        const env = { ...process.env, PATH: `${join(tmp, "bin")}:${process.env["PATH"]}`, HUB_WORK: join(tmp, "work"), HUB_NO_START: "1", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_COUNT: "3", GIT_CONFIG_KEY_0: "http.extraHeader", GIT_CONFIG_VALUE_0: `Authorization: Basic ${Buffer.from(`oauth2:${secrets.people["taras.m"]}`).toString("base64")}`, GIT_CONFIG_KEY_1: "user.name", GIT_CONFIG_VALUE_1: "Taras M.", GIT_CONFIG_KEY_2: "user.email", GIT_CONFIG_VALUE_2: "taras.m@example.com" };
+        const started = Date.now();
+        const r = spawnSync("bash", [join(tmp, "setup.sh")], { encoding: "utf8", env, timeout: 300_000 });
+        expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
+        expect(Date.now() - started).toBeLessThan(15 * 60_000);
+        expect(r.stdout).toContain("✓ You are Taras M. (taras.m), dev");
+        expect(existsSync(join(tmp, "work/backend/.git"))).toBe(true);
+        expect(existsSync(join(tmp, "work/web-admin"))).toBe(false);
+        expect(readFileSync(join(tmp, "claude.log"), "utf8")).toContain("plugin install hub@product-specs --scope local");
+        const state = await root.file(id, "people/taras.m.json", "hub-state");
+        expect(parsePersonState(state!, "p").value).toMatchObject({ user: "taras.m", assistant: "claude" });
+      } finally {
+        execFileSync("rm", ["-rf", tmp]);
+      }
     }, 360_000);
 
     it("merges the PO's change to a spec by itself, in her name", async () => {
