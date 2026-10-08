@@ -51,7 +51,7 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
     expect(by["owner"]?.ok, by["owner"]?.text).toBe(true);
     expect(by["runner"]?.ok, by["runner"]?.text).toBe(true);
     expect(pre.ok, JSON.stringify(pre.checks)).toBe(true);
-  });
+  }, 60_000);
 
   it("installs: files, forking off, hub-state, HUB_STATE_TOKEN (claim 3) and one merge request per team", async () => {
     const r = await install(ANSWERS, owner, { hubBundle: bundle });
@@ -64,9 +64,12 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
     expect(await owner.branch(specs.id, "hub-state")).not.toBeNull();
     const group = (await owner.group("shop"))!;
     expect(await owner.groupVariable(group.id, "HUB_STATE_TOKEN")).toMatchObject({ masked: true, protected: false });
+    // Each team has the merge request open, or merged it already (in an earlier run of this test).
     for (const repo of ["backend", "web-admin", "android-app", "ios-app"]) {
       const p = (await owner.project(`shop/${repo}`))!;
-      expect((await owner.openMergeRequests(p.id, "sdlc-hub/hub-report")).length, repo).toBe(1);
+      const open = (await owner.openMergeRequests(p.id, "sdlc-hub/hub-report")).length;
+      const merged = (await owner.file(p.id, "ci/hub-report.gitlab-ci.yml", "main")) !== null;
+      expect(open === 1 || (open === 0 && merged), repo).toBe(true);
     }
     // The web team's own CI stays as it was, with the include above it.
     const web = (await owner.project("shop/web-admin"))!;

@@ -14,7 +14,7 @@ import { WEB_ASSETS } from "./web-assets.ts";
 
 const HELP = `SDLC Hub
 
-  hub init [--port <n>] [--no-open]
+  hub init [--port <n>] [--no-open] [--no-keychain]
       Open the first-install site at http://127.0.0.1:4173/setup. Five screens, then Install.
 
   hub report --team <id> --specs-url <url> [--push]
@@ -132,7 +132,9 @@ function openBrowser(url: string) {
 }
 
 async function init(f: Record<string, string>) {
-  const handler = setupHandler({ hubBundle: () => readFileSync(fileURLToPath(import.meta.url), "utf8"), credentials: gitCredentials });
+  // --no-keychain keeps a pasted token in memory only (tests, shared machines).
+  const credentials = f["no-keychain"] !== undefined ? { save: () => false } : gitCredentials;
+  const handler = setupHandler({ hubBundle: () => readFileSync(fileURLToPath(import.meta.url), "utf8"), credentials });
   const server = await listen(() => ({ root: "", view: null as never, issues: [] }), "", Number(f["port"] ?? 4173), false, { setup: handler });
   const url = `http://127.0.0.1:${server.port}/setup`;
   console.log(`SDLC Hub\n✓ Setup is open at ${url}\n  Leave this window open. Ctrl+C stops the setup.`);

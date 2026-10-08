@@ -177,7 +177,12 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
   // 4. HUB_STATE_TOKEN: a project access token that hub-report uses to write hub-state, as a masked group variable.
   let expires = "";
   await step("token", "stored a project access token for hub-report as the masked group variable HUB_STATE_TOKEN", async () => {
-    if (await gl.groupVariable(group.id, "HUB_STATE_TOKEN")) return { state: "skip" as const, text: "the group variable HUB_STATE_TOKEN already exists" };
+    if (await gl.groupVariable(group.id, "HUB_STATE_TOKEN")) {
+      // Remind of the expiry on every run: the token stops working on that day.
+      const t = (await gl.projectTokens(p.id).catch(() => [])).find((x) => x.name === "hub-report" && x.active && !x.revoked);
+      if (t) expires = t.expires_at;
+      return { state: "skip" as const, text: "the group variable HUB_STATE_TOKEN already exists" };
+    }
     const now = opts.now ?? new Date();
     const exp = new Date(now.getTime() + 364 * 86_400_000).toISOString().slice(0, 10);
     const t = await gl.createProjectToken(p.id, "hub-report", ["read_repository", "write_repository"], 30, exp);
@@ -196,15 +201,22 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
       if (!proj) throw new Error(`there is no repository ${path}`);
       const target = proj.default_branch ?? "main";
       const open = await gl.openMergeRequests(proj.id, REPORT_BRANCH);
+      const ci = await gl.file(proj.id, ".gitlab-ci.yml", target);
+      const current = await gl.file(proj.id, HUB_REPORT_FILE, target);
+      // A team that merged an earlier version of the job gets the new one; a team that has this one is done.
+      const job = hubReportJob({ specs: specsPath, team: id, stage: current ? (/^  stage: (.+)$/m.exec(current)?.[1] ?? reportStage(ci)) : reportStage(ci) });
+      if (current === job && ci !== null && withInclude(ci) === ci) return { state: "skip" as const, text: `${path} already has the hub-report job` };
       if (open[0]) {
         opened.push(`${t.repo.trim()} ${w.sign}${open[0].iid}`);
-        return { state: "skip" as const, text: `${path} already has the ${w.changeRequest} ${w.sign}${open[0].iid}`, link: open[0].web_url };
+        // The open merge request keeps its number; an older job on its branch is replaced.
+        const onBranch = await gl.file(proj.id, HUB_REPORT_FILE, REPORT_BRANCH);
+        if (onBranch === job) return { state: "skip" as const, text: `${path} already has the ${w.changeRequest} ${w.sign}${open[0].iid}`, link: open[0].web_url };
+        await gl.commit(proj.id, REPORT_BRANCH, "Update the hub-report job (SDLC Hub)", [{ action: onBranch === null ? "create" : "update", file_path: HUB_REPORT_FILE, content: job }]);
+        return { text: `updated the hub-report job in ${path} ${w.sign}${open[0].iid}`, link: open[0].web_url };
       }
-      const ci = await gl.file(proj.id, ".gitlab-ci.yml", target);
-      const job = hubReportJob({ specs: specsPath, team: id, stage: reportStage(ci) });
       const actions = [
-        { action: (await gl.file(proj.id, HUB_REPORT_FILE, target)) === null ? ("create" as const) : ("update" as const), file_path: HUB_REPORT_FILE, content: job },
-        { action: ci === null ? ("create" as const) : ("update" as const), file_path: ".gitlab-ci.yml", content: withInclude(ci) },
+        { action: current === null ? ("create" as const) : ("update" as const), file_path: HUB_REPORT_FILE, content: job },
+        ...(ci !== null && withInclude(ci) === ci ? [] : [{ action: ci === null ? ("create" as const) : ("update" as const), file_path: ".gitlab-ci.yml", content: withInclude(ci) }]),
       ];
       if (!(await gl.branch(proj.id, REPORT_BRANCH))) await gl.commit(proj.id, REPORT_BRANCH, "Add the hub-report job (SDLC Hub)", actions, target);
       const mr = await gl.createMergeRequest(

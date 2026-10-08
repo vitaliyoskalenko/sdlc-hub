@@ -83,6 +83,14 @@ describe("the hub-report job", () => {
     expect(reportStage(null)).toBe("test");
     expect(reportStage("build:\n  script: [x]\n")).toBe(".post");
   });
+  it("is valid GitLab CI: every script entry is a string", async () => {
+    const { parse } = await import("yaml");
+    const job = parse(hubReportJob({ specs: "shop/product-specs", team: "web", stage: ".post" }))["hub-report"];
+    expect(job.script.every((s: unknown) => typeof s === "string")).toBe(true);
+    expect(job.script[0]).toContain("Authorization: Basic");
+    expect(job.rules).toEqual([{ if: "$HUB_STATE_TOKEN", when: "always" }]);
+  });
+
   it("never puts the token on a command line", () => {
     const job = hubReportJob({ specs: "shop/product-specs", team: "web", stage: ".post" });
     expect(job).toContain("GIT_CONFIG_VALUE_0");

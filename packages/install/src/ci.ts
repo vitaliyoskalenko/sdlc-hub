@@ -22,12 +22,14 @@ hub-report:
   variables:
     HUB_SPECS: "${opts.specs}"
     HUB_TEAM: "${opts.team}"
+  # One literal block: a line such as "Authorization: Basic" would otherwise be read as a YAML key.
   script:
-    - apk add --no-cache git >/dev/null
-    - export HUB_GIT_BASE="\${HUB_GIT_URL:-$CI_SERVER_URL}"
-    - export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader GIT_CONFIG_VALUE_0="Authorization: Basic $(printf 'hub-report:%s' "$HUB_STATE_TOKEN" | base64 | tr -d '\\n')"
-    - git clone --quiet --depth 1 --branch main "$HUB_GIT_BASE/$HUB_SPECS.git" /tmp/hub-specs
-    - node /tmp/hub-specs/hub/cli.js report --team "$HUB_TEAM" --specs-url "$HUB_GIT_BASE/$HUB_SPECS.git" --push
+    - |
+      apk add --no-cache git >/dev/null
+      export HUB_GIT_BASE="\${HUB_GIT_URL:-$CI_SERVER_URL}"
+      export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader GIT_CONFIG_VALUE_0="Authorization: Basic $(printf 'hub-report:%s' "$HUB_STATE_TOKEN" | base64 | tr -d '\\n')"
+      git clone --quiet --depth 1 --branch main "$HUB_GIT_BASE/$HUB_SPECS.git" /tmp/hub-specs
+      node /tmp/hub-specs/hub/cli.js report --team "$HUB_TEAM" --specs-url "$HUB_GIT_BASE/$HUB_SPECS.git" --push
 `;
 }
 

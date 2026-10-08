@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 8, 2026 · @Vitaliy · revision 55
+Oct 8, 2026 · @Vitaliy · revision 56
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -561,7 +561,7 @@ This project runs on self-managed GitLab, so the rest of this document uses GitL
 | Credential for `hub-report` | Project access token in a masked group variable, created by init | Fine-grained token in an organization secret, created by hand |
 | Check at push time | Pre-receive hook, self-managed only | Pre-receive hook, Enterprise Server only |
 | Assistant access | GitLab MCP server | GitHub MCP server |
-| Plan needed | Free is enough | Private repositories need Team or higher |
+| Plan needed | Free is enough on a self-managed server. On gitlab.com, project access tokens (for `HUB_STATE_TOKEN`) need Premium | Private repositories need Team or higher |
 
 On GitHub Free, private repositories have no protected branches or rulesets. init stops there and asks whether to continue in advisory mode, in which the guard reports a violation and cannot block it.
 
@@ -578,7 +578,7 @@ Setup has two parts: the admin initialises the project once, then generates one 
 1. Run `npx sdlc-hub init` in a terminal. The command starts a local server and opens the setup page at `http://127.0.0.1:4173/setup`. The terminal asks nothing.
 2. Answer five screens on that page: git host, repositories, project and tracker, assistants and engine, then a review. The first choice is the git host, GitLab or GitHub.
 3. Press Install on the review screen. Nothing is written before this point.
-4. Setup vendors the hub into `hub/`, writes `.hub/*`, the assistant files and the `.gitignore` line for `.claude/sdd.local.md`, makes the first commit and creates the `hub-state` branch.
+4. Setup vendors the hub into `hub/` (`hub/cli.js`, one file with the web app inside, and `hub/package.json`, which makes Node load it as an ES module), writes `.hub/*`, the assistant files and the `.gitignore` line for `.claude/sdd.local.md` in one commit through the API, turns off forking of the repository, and creates the `hub-state` branch with no history.
 5. It stores `HUB_STATE_TOKEN`, applies the host settings through the API and opens one merge request in each team repository to add the `hub-report` job. Anything it may not change is listed as left for people.
 
 Install grows with the delivery phases and is run again to catch up. In phase 1b it writes the files, vendors the hub, creates `hub-state`, stores `HUB_STATE_TOKEN` and opens the `hub-report` merge requests; the assistant files are only the `CLAUDE.md` and `AGENTS.md` sections, because the plugin does not exist yet. In phase 2 a second run adds the plugin files, creates `hub-ci`, protects `main`, turns on "Pipelines must succeed" and points the CI/CD configuration file at `hub-ci`, together with `hub-guard`.
@@ -592,7 +592,7 @@ Setup is a web page with five screens, and every field except the sign-in has a 
 | --- | --- | --- | --- |
 | 1 Git host | GitLab or GitHub | GitLab | `git.provider` |
 | 1 Git host | Host address | `gitlab.example.com` | `git.host` |
-| 1 Git host | Sign-in through the browser, the host's command-line tool or an access token | Browser | System keychain, never the repository |
+| 1 Git host | A personal access token of a group Owner with the `api` scope, pasted on the page | `glpat-…` | System keychain through git's credential helper, never the repository; memory only when no helper is set up |
 | 2 Repositories | Group, or organization on GitHub | `shop` | `git.namespace` |
 | 2 Repositories | Repository for specifications and the hub, existing or new | `product-specs` | `git.repo` |
 | 2 Repositories | Team repositories: any number of rows with team name, repository and kind. Each team gets an `id` made from its name, used in references such as `backend:T2` | Backend `backend`, Web `web-admin`, Android `android-app`, iOS `ios-app` | `teams[]`: `id`, `name`, `repo`, `kind` |
@@ -613,7 +613,7 @@ With no tracker chosen, tasks and bugs live only in the repository and the site 
 
 Before the review screen, setup checks what the install needs: Owner rights, a CI runner that is online (without one no change could ever merge), the host version, and that forking of the specifications repository is off. On GitHub it stops before Install in version 1 (see "The same rules on GitHub"). When the GitHub install is built, GitHub Free will stop on the first screen and ask whether to continue in advisory mode.
 
-Install can be run again. Every step is written to `.hub/install.log`, and a second run continues from the first step that did not finish. The first commit is pushed before branch protection is turned on.
+Install can be run again. Each step first checks the host, so a second run skips what is done and continues from the first step that did not finish; the page shows each step as done, already done or failed. A team that merged an older hub-report job gets a merge request with the new one, and an open merge request with an older job is updated. The first commit is pushed before branch protection is turned on.
 
 After Install the page lists what it did and what is left for people:
 

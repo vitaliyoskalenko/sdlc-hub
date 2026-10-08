@@ -17,6 +17,24 @@ Other fixtures: `npm run demo -- --fixture <name>`, for example `quick-route`, `
 
 On a real `product-specs` checkout: `npm run build`, then from inside the checkout `node <this repo>/packages/cli/dist/cli.mjs serve`. You are the person in `.hub/roles.yaml` that matches your git identity, or `--as <user>`.
 
+## First install on GitLab (phase 1b)
+
+```
+npm run build
+node packages/cli/dist/cli.mjs init        # npx sdlc-hub init once the package is published
+```
+
+The setup site opens at `http://127.0.0.1:4173/setup`. Paste a personal access token of a group Owner with the `api` scope. Install writes the hub into the specifications repository, creates `hub-state`, stores `HUB_STATE_TOKEN` and opens one hub-report merge request per team repository. Then clone the repository and run `node hub/cli.js serve` in it.
+
+To try it on a local GitLab CE in Docker (about 4 GB of memory, 10 minutes for the first start):
+
+```
+docker run -d --name sdlc-hub-gitlab -p 8929:8929 -e GITLAB_OMNIBUS_CONFIG="external_url 'http://localhost:8929'" gitlab/gitlab-ce:latest
+node e2e/gitlab/bootstrap.mjs      # group shop, owner nazar.t, five repositories, a runner; secrets in ~/.sdlc-hub-test/
+npm run test:gitlab                # the install, twice, and a real hub-report pipeline
+HUB_GITLAB_IT=1 npx playwright test e2e/setup.spec.ts
+```
+
 ## Check it
 
 ```

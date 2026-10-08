@@ -2,6 +2,37 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-08: Revision 56, phase 1b on GitLab CE
+
+### Setup signs in with a pasted personal access token
+- **Decision:** The admin pastes a personal access token with the `api` scope. Setup keeps it in the system keychain through git's credential helper, or in memory when there is none, and says which. A link opens the host's token page with the name and scope filled in. `hub init --no-keychain` keeps it in memory only.
+- **Why:** It works on any self-managed instance without an instance admin registering an OAuth application (claim 9).
+- **By:** Owner.
+
+### Tested against GitLab CE in Docker, not gitlab.com
+- **Decision:** Phase 1b is tested against GitLab CE 19.4.1 in Docker, with the Owner as a non-admin. `e2e/gitlab/bootstrap.mjs` prepares it; `npm run test:gitlab` runs the install twice, merges a hub-report merge request and waits for its pipeline.
+- **Why:** gitlab.com Free has no project access tokens; they need Premium there, while self-managed Free has them. A gitlab.com test would fail for a reason the team's server does not have. The specification's plan row now says so.
+- **By:** Owner.
+
+### How the install writes and resumes
+- **Decision:**
+  - product-specs and the team repositories are written through the API, so no local clone is needed.
+  - Only the orphan `hub-state` branch is pushed with git, with the token in git's environment, never on its command line.
+  - Each step checks the host before it acts, which makes a second run safe; there is no `.hub/install.log`.
+  - The hub-report job goes into a team repository as `ci/hub-report.gitlab-ci.yml`, included from `.gitlab-ci.yml`. The include is added above the team's file, which otherwise stays byte-identical. The job runs in stage `.post` when the team has CI, `test` when it has none.
+  - `HUB_GIT_URL` overrides the server address for runners that reach GitLab under another name.
+- **Why:** A real GitLab showed two problems a unit test had not. A script line containing "Authorization: Basic" is read as a YAML key, so the script is one literal block. And a merged older job must be updated, not skipped.
+- **By:** Proposed; verified on GitLab CE.
+
+### Claims verified on GitLab CE 19.4.1 (Free)
+- **Decision:** These claims are verified:
+  - **3:** project access tokens and masked group variables work for a non-admin Owner.
+  - **11:** the checks work for a non-admin Owner.
+  - **12:** team CI publishes to `hub-state` with `HUB_STATE_TOKEN`.
+
+  **13** is confirmed: the token can push to any unprotected branch, an accepted risk until phase 2. **10** is verified on macOS. **9** is replaced by token sign-in.
+- **By:** Test run on 8 October 2026.
+
 ## 2026-10-08: Revision 55
 
 ### A wait marker with the count, and the Home tile "Blocked by another team"
