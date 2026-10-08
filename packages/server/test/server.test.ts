@@ -129,6 +129,10 @@ describe("the API", () => {
     expect(by["staff-permissions"]).toMatchObject({ current: "released", released: true, progress: 100 });
     expect(by["tasks-issues"]).toMatchObject({ current: "verify", status: "returned", cycle: 2, blockingBugs: ["BUG-0012"] });
     expect(by["bulk-order-export"].waits).toBe(3);
+    expect(by["bulk-order-export"].crossWaits).toEqual([
+      { on: "backend:T2", teams: ["web", "android", "ios"], tasks: [{ team: "web", task: "T3" }, { team: "android", task: "T3" }, { team: "ios", task: "T3" }] },
+    ]);
+    expect(by["returns-portal"].crossWaits).toEqual([]);
     expect(by["returns-portal"].statuses.slice(0, 3)).toEqual(["done", "ready", "todo"]);
   });
   it("returns one feature with its steps, teams and documents", async () => {

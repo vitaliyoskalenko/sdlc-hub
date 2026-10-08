@@ -143,3 +143,22 @@ export function LaterButton({ label, primary }: { label: string; primary?: boole
     </span>
   );
 }
+
+// --- waits between teams, worded the same on every screen
+
+export const teamName = (project: ProjectInfo, id: string): string => project.teams.find((t) => t.id === id)?.name ?? id;
+
+export function listOf(items: string[]): string {
+  return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+/** "backend:T2" → "Backend T2" */
+export function taskLabel(project: ProjectInfo, ref: string): string {
+  const [team, task] = ref.split(":");
+  return `${teamName(project, team!)} ${task}`;
+}
+
+/** "Web, Android and iOS wait for Backend T2" */
+export function waitText(project: ProjectInfo, w: Summary["crossWaits"][number]): string {
+  return `${listOf(w.teams.map((t) => teamName(project, t)))} wait${w.teams.length === 1 ? "s" : ""} for ${taskLabel(project, w.on)}`;
+}

@@ -67,6 +67,7 @@ export interface Summary {
   cycle: number;
   warnings: number;
   statuses: StepStatus[];
+  crossWaits: { on: string; teams: string[]; tasks: { team: string; task: string }[] }[];
 }
 
 export interface StepState {

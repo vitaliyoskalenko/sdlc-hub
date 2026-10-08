@@ -3,12 +3,13 @@
 import type { FlowStep, StepStatus, Summary } from "./api.ts";
 import { FeatureTable } from "./home.tsx";
 import { LEGEND, roleOf, STATUS } from "./text.ts";
-import { Cmd, useApp } from "./ui.tsx";
+import { Cmd, names, teamName, useApp } from "./ui.tsx";
 import { hubCmd } from "./text.ts";
 
 const FILTERS: [string, string, (f: Summary, myRoles: string[]) => boolean][] = [
   ["all", "All", () => true],
   ["mine", "Waiting on my role", (f, r) => !f.released && f.role !== null && r.includes(f.role)],
+  ["waiting", "A team waits for another", (f) => f.crossWaits.length > 0],
   ["progress", "In progress", (f) => !f.released],
   ["released", "Released", (f) => f.released],
 ];
@@ -30,7 +31,7 @@ function Graph({ list }: { list: Summary[] }) {
   const { project, go } = useApp();
   const steps = project.flow.steps;
   const lanes = project.flow.lanes;
-  const FW = 540, gap = 16, TW = 112, head = 56, rowH = 30, numW = 20;
+  const FW = 540, gap = 16, TW = 112, head = 86, rowH = 30, numW = 20;
   const laneW = (FW - numW - 6) / lanes.length;
   const W = FW + gap + list.length * TW + 4;
   const H = head + steps.length * rowH + 10;
@@ -84,29 +85,44 @@ function Graph({ list }: { list: Summary[] }) {
         const ci = f.released ? ids.length - 1 : Math.max(0, ids.indexOf(f.current));
         const cut = f.slug.length > 14 ? f.slug.lastIndexOf("-", 13) + 1 : 0;
         const parts = cut > 0 ? [f.slug.slice(0, cut), f.slug.slice(cut)] : [f.slug];
+        // Who holds the feature now: the people its step waits on, else who runs it, else the role.
+        const holder = f.released ? "released" : f.waitingOn.length ? names(project, f.waitingOn.slice(0, 1)) + (f.waitingOn.length > 1 ? ` +${f.waitingOn.length - 1}` : "") : f.by ? names(project, [f.by]) : roleOf(f.role ?? "").n;
+        const waitsFor = [...new Set(f.crossWaits.map((w) => teamName(project, w.on.split(":")[0]!)))];
         return (
           <g key={f.slug}>
-            <g class="fhd" tabIndex={0} role="button" aria-label={`Open ${f.title}, ${f.released ? "released" : `${f.progress} percent`}`} onClick={() => go(`/features/${f.slug}`)} onKeyDown={(e) => e.key === "Enter" && go(`/features/${f.slug}`)}>
+            <g class="fhd" data-slug={f.slug} tabIndex={0} role="button" aria-label={`Open ${f.title}, ${f.released ? "released" : `${f.progress} percent, with ${holder}`}${waitsFor.length ? `, waits for ${waitsFor.join(" and ")}` : ""}`} onClick={() => go(`/features/${f.slug}`)} onKeyDown={(e) => e.key === "Enter" && go(`/features/${f.slug}`)}>
               <rect class="hit" x={x - TW / 2 + 3} y="2" width={TW - 6} height={head - 12} rx="7" />
               {parts.map((t, j) => (
                 <text key={j} x={x} y={parts.length === 1 ? 21 : 15 + j * 12} text-anchor="middle">
                   {t}
                 </text>
               ))}
-              <text class="pc" x={x} y={head - 17} text-anchor="middle">
+              <text class="pc" x={x} y={41} text-anchor="middle">
                 {f.released ? "released" : `${f.progress}%`}
               </text>
+              {!f.released && (
+                <text class="holder" x={x} y={54} text-anchor="middle">
+                  {holder}
+                </text>
+              )}
+              {waitsFor.length > 0 && (
+                <text class="waits" x={x} y={67} text-anchor="middle">
+                  waits for {waitsFor.join(", ")}
+                </text>
+              )}
             </g>
             <line class="trk" x1={x} y1={y(0)} x2={x} y2={y(ids.length - 1)} />
             <line class="trk done" x1={x} y1={y(0)} x2={x} y2={y(ci)} />
             {ids.map((id, i) => {
               const m = f.statuses[i] ?? "todo";
               const big = ACTIVE.includes(m);
-              const tip = `${f.slug} · ${i + 1} ${id} · ${STATUS[m][1]}`;
+              const waits = id === f.current && waitsFor.length > 0;
+              const tip = `${f.slug} · ${i + 1} ${id} · ${STATUS[m][1]}${waits ? ` · waits for ${waitsFor.join(", ")}` : ""}`;
               return (
-                <g key={id} class={`fm m-${m}`} tabIndex={big ? 0 : -1} role="button" aria-label={tip} onClick={() => go(`/features/${f.slug}`, { step: id })} onKeyDown={(e) => e.key === "Enter" && go(`/features/${f.slug}`, { step: id })}>
+                <g key={id} class={`fm m-${m}${waits ? " waits" : ""}`} data-slug={f.slug} tabIndex={big ? 0 : -1} role="button" aria-label={tip} onClick={() => go(`/features/${f.slug}`, { step: id })} onKeyDown={(e) => e.key === "Enter" && go(`/features/${f.slug}`, { step: id })}>
                   <title>{tip}</title>
                   <rect class="hit" x={x - TW / 2 + 3} y={y(i) - rowH / 2 + 2} width={TW - 6} height={rowH - 4} rx="6" />
+                  {waits && <circle class="ring" cx={x} cy={y(i)} r="12" />}
                   {m === "skipped" ? <line x1={x - 4} y1={y(i)} x2={x + 4} y2={y(i)} /> : <circle cx={x} cy={y(i)} r={big ? 7.5 : m === "done" ? 4.5 : 3.5} />}
                 </g>
               );
@@ -176,7 +192,10 @@ export function Features({ params }: { params: URLSearchParams }) {
                 {l}
               </span>
             ))}
-            <span class="muted">Each column on the right is one feature. Select a mark to open that feature at that step.</span>
+            <span>
+              <i class="ld waitring" />a team waits for another
+            </span>
+            <span class="muted">Each column on the right is one feature, with who holds it now. Select a mark to open that feature at that step.</span>
           </div>
         </div>
       ) : (

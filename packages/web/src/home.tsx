@@ -2,7 +2,7 @@
 
 import type { Person, ProjectInfo, Summary } from "./api.ts";
 import { STEP } from "./text.ts";
-import { Kpi, Link, names, Pill, Progress, RoleChip, roleLabel, StatusPill, useApp } from "./ui.tsx";
+import { Kpi, Link, listOf, names, Pill, Progress, RoleChip, roleLabel, StatusPill, taskLabel, teamName, useApp, waitText } from "./ui.tsx";
 
 interface Action {
   slug: string;
@@ -18,6 +18,18 @@ export function actionsFor(me: Person, project: ProjectInfo, features: Summary[]
   const out: Action[] = [];
   for (const f of features) {
     if (f.released) continue;
+    // Waits between teams come first: they are the cost the hub exists to make visible.
+    for (const w of f.crossWaits) {
+      const [onTeam, onTask] = w.on.split(":") as [string, string];
+      const text = `In ${f.slug}: ${waitText(project, w)}. The tasks before it run on the mock.`;
+      if (me.roles.includes("dev") && me.team === onTeam)
+        out.push({ slug: f.slug, step: f.current, tag: "Others wait for you", bad: true, title: `${listOf(w.teams.map((t) => teamName(project, t)))} wait for your ${onTask}`, text });
+      else if (me.roles.includes("dev") && me.team && w.teams.includes(me.team))
+        for (const t of w.tasks.filter((x) => x.team === me.team))
+          out.push({ slug: f.slug, step: f.current, tag: "Waiting", bad: true, title: `Your ${t.task} waits for ${taskLabel(project, w.on)}`, text: `In ${f.slug}. Keep building the tasks before it on the mock.` });
+      else if (me.roles.includes("pm"))
+        out.push({ slug: f.slug, step: f.current, tag: "Teams waiting", bad: true, title: `${waitText(project, w)} in ${f.slug}`, text: "You confirm the order between teams at the sprint step. The waits come from the trackers." });
+    }
     const step = STEP[f.current];
     const mine = f.waitingOn.includes(me.user);
     const roleHasIt = f.role !== null && me.roles.includes(f.role);
@@ -30,9 +42,9 @@ export function actionsFor(me: Person, project: ProjectInfo, features: Summary[]
     else if (roleHasIt && (f.status === "blocked" || f.status === "missed"))
       out.push({ slug: f.slug, step: f.current, tag: f.status === "blocked" ? "Blocked" : "Missed", bad: true, title: `${f.current} is ${f.status} in ${f.slug}`, text: f.reason ?? "" });
     else if (roleHasIt && f.status === "running")
-      out.push({ slug: f.slug, step: f.current, tag: "In progress", title: `${f.current} is running in ${f.slug}`, text: f.by ? `Started by ${names(project, [f.by])}.` : "Work is in progress." });
+      out.push({ slug: f.slug, step: f.current, tag: "In progress", title: `${f.current} is running in ${f.slug}`, text: f.by ? `Started by ${names(project, [f.by]).replace(/\.$/, "")}.` : "Work is in progress." });
   }
-  return out;
+  return [...out.filter((a) => a.bad), ...out.filter((a) => !a.bad)];
 }
 
 function reposOf(me: Person, project: ProjectInfo): string[] {
@@ -128,7 +140,14 @@ export function FeatureTable({ list }: { list: Summary[] }) {
                 <td>
                   <Progress value={f.progress} />
                 </td>
-                <td>{f.released ? "" : f.waitingOn.length ? names(project, f.waitingOn) : (f.reason ?? (f.by ? `with ${names(project, [f.by])}` : ""))}</td>
+                <td>
+                  {f.released ? "" : f.waitingOn.length ? names(project, f.waitingOn) : (f.reason ?? (f.by ? `with ${names(project, [f.by])}` : ""))}
+                  {f.crossWaits.map((w) => (
+                    <div key={w.on} class="waitline">
+                      {waitText(project, w)}
+                    </div>
+                  ))}
+                </td>
               </tr>
             );
           })}
@@ -146,6 +165,7 @@ export function Home() {
   const sign = open.filter((f) => f.status === "signoff").length;
   const stuck = open.filter((f) => f.status === "blocked" || f.status === "missed").length;
   const bugs = open.reduce((n, f) => n + f.blockingBugs.length, 0);
+  const waiting = open.filter((f) => f.crossWaits.length > 0).length;
   const urgent = acts.filter((a) => a.bad).length;
   return (
     <>
@@ -166,7 +186,7 @@ export function Home() {
           <Kpi value={String(sign)} label="Waiting for a sign-off" tone={sign ? "warn" : ""} />
           <Kpi value={String(stuck)} label="Blocked or missed" tone={stuck ? "bad" : "ok"} />
           <Kpi value={String(bugs)} label="Blocking bugs" tone={bugs ? "bad" : "ok"} />
-          <Kpi value={String(open.reduce((n, f) => n + f.waits, 0))} label="Tasks waiting for another team" />
+          <Kpi value={String(waiting)} label="Features where a team waits for another" tone={waiting ? "bad" : "ok"} onClick={() => go("/features", { filter: "waiting" })} />
           <Kpi value={String(features.length - open.length)} label="Released" onClick={() => go("/features", { filter: "released" })} />
           <Kpi value={String(features.length)} label="Features" onClick={() => go("/features")} />
         </div>

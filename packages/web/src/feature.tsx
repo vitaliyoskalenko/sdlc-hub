@@ -5,7 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import { api, type FeatureDetail, type FlowStep, type StepState, type Summary } from "./api.ts";
 import { layout, Loop } from "./features.tsx";
 import { engineCmd, hubCmd, LEGEND, roleOf, STATUS, STEP } from "./text.ts";
-import { Cmd, CopyButton, LaterButton, Link, names, Pill, personName, RoleChip, StatusPill, useApp } from "./ui.tsx";
+import { Cmd, CopyButton, LaterButton, Link, names, Pill, personName, RoleChip, StatusPill, useApp, waitText } from "./ui.tsx";
 
 const md = new MarkdownIt({ html: false, linkify: false, typographer: false });
 
@@ -90,7 +90,7 @@ export function Feature({ slug, tab, params }: { slug: string; tab: string; para
         </div>
         <NowStrip f={f} detail={d} tab={tab} />
         {notes.length > 0 && (
-          <details class="more">
+          <details class="more notes">
             <summary>
               {notes.length} note{notes.length === 1 ? "" : "s"} from detection
             </summary>
@@ -165,6 +165,11 @@ function NowStrip({ f, detail, tab }: { f: Summary; detail: FeatureDetail; tab: 
           {f.reason ? ` · ${f.reason}` : ""}
           {next ? ` · then step ${steps.indexOf(next) + 1}, ${next.id}` : ""}
         </span>
+        {f.crossWaits.map((w) => (
+          <span key={w.on} class="waitline">
+            {waitText(project, w)}
+          </span>
+        ))}
       </div>
       <div class="row">
         {mine ? (

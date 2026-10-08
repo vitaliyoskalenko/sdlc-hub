@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 7, 2026 · @Vitaliy · revision 53
+Oct 8, 2026 · @Vitaliy · revision 54
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -437,6 +437,10 @@ There is one site for everyone; the role decides the home page and which buttons
 | People and roles | Users, roles, teams, setup state | Add or change a person, generate a setup script, download or copy it (admin) |
 | Settings | Engine, assistants, integrations, headless switch, prices, GitLab checklist | Admin only |
 | Your guide | What your role does in the assistant and on the site, and how to start next time | None |
+
+A wait on another team (a `<team-id>:<task-id>` reference to a task that is not done) is the cost the hub exists to show, so it is never only on the Tasks screen. It appears on Home, as an action for the lead whose task is waited for, for the leads who wait and for the PM, and as a count in the project statistics. It also appears in the Features list, on the Features graph beside the feature's column, and in the Now strip. The step itself stays running while the waiting teams still have work, for example on the mock, and turns blocked only when a team has nothing else it can do.
+
+The actions on Home are derived from the detected state of every feature: what waits for the person, what is returned to them, what their role runs and what blocks it. Nobody writes them by hand.
 
 Every feature header carries buttons to its Jira epic, Confluence page, Figma file, merge requests and staging address. A button appears only when its address is configured.
 

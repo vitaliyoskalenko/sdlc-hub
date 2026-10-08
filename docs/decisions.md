@@ -2,6 +2,28 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-08: Revision 54, owner review of the phase 1a site
+
+### Waits between teams are shown everywhere, not only on the Tasks screen
+- **Decision:** A wait on another team is shown:
+  - on Home: as an action for the lead whose task is waited for ("Web, Android and iOS wait for your T2"), for each waiting lead ("Your T3 waits for Backend T2") and for the PM, and in the statistics as "Features where a team waits for another";
+  - in the Features list;
+  - on the Features graph, as a ring on the current mark and a line under the feature's name;
+  - in the Now strip.
+
+  The step stays running while the waiting teams still have work, and turns blocked only when a team has nothing else it can do.
+- **Why:** The rule for blocked is sound, but clients waiting for the backend is the pain the hub was started for. Showing it only on the Tasks screen hid it.
+- **By:** Owner.
+
+### Home actions come from the detected state
+- **Decision:** The actions on Home are derived from detection, not written as sample text like the prototype's.
+- **By:** Owner (accepted).
+
+### The graph names who holds each feature
+- **Decision:** Under each feature's name the graph shows who holds it now: the people its step waits on, else who runs it, else the role.
+- **Why:** The review found the graph showed where each feature was but not who had it.
+- **By:** Review.
+
 ## 2026-10-07: Revision 53
 
 ### A feature with no user interface: ui: false in feature.yaml

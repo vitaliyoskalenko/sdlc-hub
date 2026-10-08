@@ -253,7 +253,15 @@ function summary(slug: string, s: FeatureState, opened: OpenedProject) {
     warnings: s.warnings.length,
     /** The status of every step, in flow order, for the Features graph. */
     statuses: s.steps.map((x) => x.status),
+    /** Unfinished waits between teams, grouped by the task waited for, so every screen can show them. */
+    crossWaits: crossWaits(s),
   };
+}
+
+function crossWaits(s: FeatureState): { on: string; teams: string[]; tasks: { team: string; task: string }[] }[] {
+  const by = new Map<string, { team: string; task: string }[]>();
+  for (const w of s.waits.filter((x) => !x.done)) by.set(w.on, [...(by.get(w.on) ?? []), { team: w.team, task: w.task }]);
+  return [...by].map(([on, tasks]) => ({ on, teams: [...new Set(tasks.map((t) => t.team))], tasks }));
 }
 
 function send(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) {
