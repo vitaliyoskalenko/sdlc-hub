@@ -2,6 +2,39 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-08: Revision 61, QA and release
+
+### CI results come from two jobs at the end of each team pipeline
+- **Decision:** The hub-report template adds `hub-tests-passed` (`when: on_success`) and `hub-tests-failed` (`when: on_failure`) in `.post`. Each records the pipeline's result for every feature the branch reports, as `tests/ci-<team>-<pipeline>.json` on `hub-state`. Every hub job has `allow_failure: true`, so the hub never turns a team's pipeline red and a failure of its own never counts as a failed test. A run records passed or failed; counts are optional.
+- **Why:** It needs no token and no setup per team. The alternatives were reading JUnit reports at a known path, or asking GitLab at decision time with a token on QA's machine.
+- **By:** Owner.
+
+### QA's verdicts live in hub/verification.yaml
+- **Decision:** One record per criterion and platform, appended; the newest per cell counts, so earlier cycles stay as history. The platforms are the kinds of the feature's client teams, or of all its teams when it has none. A fail names its bugs. The site and the plugin refuse the verify sign-off until every cell passes or does not apply. The criteria are read from `spec.md` (`@assumed-sdd-format`).
+- **Why:** A hub-owned file is simple for the guard and the site, and works for small features whose test plan lives inside `spec.md`. The specification had said "a verdict per criterion in test-plan.md", which would have mixed hub data into SDD's file.
+- **By:** Owner.
+
+### Local test runs use a command per team
+- **Decision:** `teams[].test` in `.hub/config.yaml` names the command. `hub test <slug>` (and `/hub:test`) runs it in the person's clone of the team repository and records the run with the label local, who ran it and the commit.
+- **By:** Owner.
+
+### Bugs, the QA decision and the release on the site
+- **Decision:**
+  - A bug edit changes only the lines of the fields asked for, so the owning team's status change passes the guard's region rule.
+  - The QA decision at `qa-final` is a sign-off entry: pass, or return with the reason and the bugs.
+  - `release.yaml` is edited field by field: the smoke check, the checklist and the rollout by Ops, the go by the PM. Rollout at 100% starts the watch period. The default checklist is `release.checklist` in `flow.yaml`.
+  - Accept waits for the PO's sign-off once the final check passed: its evidence is people's records only.
+- **By:** Proposed.
+
+### One change per file at a time
+- **Decision:** While a person's save of a file waits to merge, a second save of the same file is refused with the reason, and the site's controls wait.
+- **Why:** The release walk showed it. Two quick ticks of the checklist made two merge requests from the same main, and the second could not merge. Rebasing once is still not built.
+- **By:** Proposed.
+
+### The phase 3 exit check
+- **Decision:** A browser test takes a feature from staging to released on the demo, each person doing their part on the site. Every save goes through the demo's stand-in for GitLab, which runs hub-guard and merges. The demo's clock now moves with real time, so saves and what the site reads agree.
+- **By:** Test run on 8 October 2026.
+
 ## 2026-10-08: Revision 60, People and roles and the setup scripts
 
 ### hub setup records who the checkout belongs to

@@ -37,7 +37,13 @@ export function writeHubState(o: HubStateWrite): boolean {
       git("add", "-A");
       git("commit", "-q", "-m", o.message);
       try {
-        git("push", "-q", o.url, "HEAD:refs/heads/hub-state");
+        // ci.skip: machine data needs no pipeline. A remote that takes no push options gets the plain push.
+        try {
+          git("push", "-q", "-o", "ci.skip", o.url, "HEAD:refs/heads/hub-state");
+        } catch (e) {
+          if (!/push options/i.test(String((e as { stderr?: unknown }).stderr ?? ""))) throw e;
+          git("push", "-q", o.url, "HEAD:refs/heads/hub-state");
+        }
         return true;
       } catch (e) {
         if (attempt === 3) throw new Error(`Could not push to hub-state after 3 attempts: ${(e as Error).message}`);

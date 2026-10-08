@@ -90,6 +90,8 @@ if (!state.runnerReady) {
   execFileSync("docker", ["exec", "sdlc-hub-runner", "gitlab-runner", "register", "--non-interactive", "--url", "http://host.docker.internal:8929", "--token", r.token, "--executor", "docker", "--docker-image", "alpine:latest", "--clone-url", "http://host.docker.internal:8929"], { stdio: "inherit" });
   // Jobs reach GitLab under the same name: the hub-report template reads HUB_GIT_URL.
   if (!(await call(root, "GET", `/groups/${group.id}/variables/HUB_GIT_URL`))) await call(root, "POST", `/groups/${group.id}/variables`, { key: "HUB_GIT_URL", value: "http://host.docker.internal:8929", raw: true });
+  // Several jobs at a time: every team pipeline runs a hub job, and product-specs runs hub-guard.
+  execFileSync("docker", ["exec", "sdlc-hub-runner", "sh", "-c", 'sed -i "s/^concurrent = .*/concurrent = 4/" /etc/gitlab-runner/config.toml'], { stdio: "inherit" });
   state.runnerReady = true;
   save();
   console.log("runner registered");

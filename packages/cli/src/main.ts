@@ -196,15 +196,15 @@ async function init(f: Record<string, string>) {
 
 async function reportCommand(f: Record<string, string>) {
   if (!f["team"] || !f["specs-url"]) throw new Error("Give --team <id> and --specs-url <url>");
-  if (f["tests"]) {
-    if (f["tests"] !== "passed" && f["tests"] !== "failed") throw new Error("--tests is passed or failed");
-    const t = reportTests({ team: f["team"], cwd: process.cwd(), specsUrl: f["specs-url"], result: f["tests"], env: process.env, now: new Date().toISOString().replace(/\.\d+Z$/, "Z") });
-    console.log(`hub-report: pipeline ${f["tests"]} · ${t.slugs.length ? t.slugs.join(", ") : "no features in docs/features"}`);
-    return;
-  }
+  if (f["tests"] !== undefined && f["tests"] !== "passed" && f["tests"] !== "failed") throw new Error("--tests is passed or failed");
   const r = report({ team: f["team"], cwd: process.cwd(), specsUrl: f["specs-url"], push: f["push"] !== undefined, env: process.env, now: new Date().toISOString().replace(/\.\d+Z$/, "Z") });
   console.log(`hub-report: ${r.slugs.length ? r.slugs.join(", ") : "no features in docs/features"}${r.pushed ? " · published to hub-state" : f["push"] !== undefined ? " · nothing changed" : ""}`);
   if (f["push"] === undefined) console.log(JSON.stringify(r.snapshots, null, 2));
+  // The pipeline's result too, for the autotests gate: the hub job at the end of the pipeline passes --tests.
+  if (f["tests"] === "passed" || f["tests"] === "failed") {
+    const t = reportTests({ team: f["team"], cwd: process.cwd(), specsUrl: f["specs-url"], result: f["tests"], env: process.env, now: new Date().toISOString().replace(/\.\d+Z$/, "Z") });
+    console.log(`hub-report: pipeline ${f["tests"]} · ${t.slugs.length ? t.slugs.join(", ") : "no features in docs/features"}`);
+  }
 }
 
 async function guardCommand(f: Record<string, string>) {

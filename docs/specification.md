@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 8, 2026 · @Vitaliy · revision 60
+Oct 8, 2026 · @Vitaliy · revision 61
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -90,6 +90,7 @@ product-specs/                             branch: main (human edits, through me
 │        ├─ signoffs.yaml                   gates passed or returned: who, when, content hash
 │        ├─ bugs/BUG-0012.md                one file per bug
 │        ├─ release.yaml                    staging, checklist, go or no-go, versions, rollout
+│        ├─ verification.yaml               QA's verdict per criterion and platform, newest per cell counts
 │        └─ validation/<timestamp>.md       reports from /hub:validate, written by the local server
 ├─ .hub/
 │  ├─ config.yaml                           project, repositories, assistants, integrations, prices
@@ -146,10 +147,11 @@ State is kept in small text files: one per bug, per test run and per person-mont
 | `docs/features/<slug>/hub/feature.yaml` | main | PO, PM | Title, owner, teams involved and the lead of each, Jira, Confluence and Figma links, estimates |
 | `.../hub/signoffs.yaml` | main | The role named in the gate | One entry per gate passed or returned: step, person, time, content hash of the approved file; for a return also the reason, the bugs and the cycle |
 | `.../hub/bugs/BUG-NNNN.md` | main | QA; the owning team changes the status | Front matter (AC, platforms, team, severity, status) and the steps as text |
-| `.../hub/release.yaml` | main | Ops; the PM for the go or no-go | Staging state, ordered checklist, the go or no-go, versions, rollout stage |
+| `.../hub/release.yaml` | main | Ops; the PM for the go or no-go | Staging state, ordered checklist (the default list is `release.checklist` in `flow.yaml`), the go or no-go, versions, rollout stage, watch period |
+| `.../hub/verification.yaml` | main | QA | One record per criterion and platform: pass, fail with its bugs, or na, with who and when. Records are appended; the newest per cell counts |
 | `.../hub/validation/<timestamp>.md` | main | The local server, for the PO or a team lead | Validation report from a read-only run |
 | `features/<slug>/teams/<team>.json` | hub-state | `hub-report` CI job in the team repository | The team's `tasks.json`, statuses and cross-team references from `tasks/tracker.md`, the latest review verdict, the SDD artifacts present, merge request and latest pipeline |
-| `features/<slug>/tests/<run>.json` | hub-state | CI job, `/hub:verify` or `/hub:test` | Source (ci or local), team, platform, passed, failed, link |
+| `features/<slug>/tests/<run>.json` | hub-state | The `hub-tests-passed` or `hub-tests-failed` job at the end of a team pipeline, or `/hub:test` | Source (ci or local), team, result (passed or failed), counts when known, the pipeline's address, the branch and commit, and for a local run who ran it |
 | `features/<slug>/events.jsonl` | hub-state | Plugin hooks | Stage started, finished or returned, with role and assistant. No username and no token counts: the site names the person from the git author of the commit that added the event |
 | `metrics/<yyyy-mm>/usage.jsonl` | hub-state | The admin's or PM's machine at sync | Open totals by feature, step, role, team, model and assistant |
 | `metrics/<yyyy-mm>/<user>.jsonl.age` | hub-state | `hub usage`, at sync | One person's usage for the month, encrypted |
@@ -348,7 +350,7 @@ Each step belongs to one role, except `accept`, where the PO accepts and then th
 | 13 | `review` | Engineering | engine `review` | `_review/review-<date>.md`, in each team repository | Engineering: each team lead signs off the review of their team's merge request |
 | 14 | `ship` | Engineering | engine `ship` | changelog and merge request, in each team repository | Engineering: each team lead, for the part run for real against its criteria |
 | 15 | `staging` | Ops | hub | `hub/release.yaml` | Ops: the smoke check passed on every client |
-| 16 | `verify` | QA | hub | `hub/bugs/`, `test-plan.md` (a verdict per criterion), `tests/<run>.json` on `hub-state` | QA: every criterion passes or is not applicable on every platform |
+| 16 | `verify` | QA | hub | `hub/bugs/`, `hub/verification.yaml` (a verdict per criterion and platform) | QA: every criterion passes or is not applicable on every platform |
 | 17 | `autotests` | QA | hub, no LLM | `tests/<run>.json` | Automatic: the latest CI run is green in every team repository |
 | 18 | `qa-final` | QA | hub, no LLM | `hub/signoffs.yaml` | QA: pass to release, or return to development with a reason |
 | 19 | `accept` | PO / Analyst, then PM | hub, no LLM | `hub/signoffs.yaml` (PO acceptance), `hub/release.yaml` (PM go or no-go) | PO accepts, then the PM gives the go or the no-go |
@@ -411,9 +413,9 @@ Bugs found during verification and a "return" at the final check both go to the 
 | Stage | Who | Recorded in | Moves on when |
 | --- | --- | --- | --- |
 | Staging ready | Ops | `release.yaml`, staging section | The smoke check passed on every client |
-| AI-assisted verification | QA | One test run per platform on `hub-state`, a verdict per criterion in `test-plan.md` | Every criterion has a verdict |
+| AI-assisted verification | QA | A verdict per criterion and platform in `hub/verification.yaml`. The platforms are the kinds of the feature's client teams, or of all its teams when it has none | Every cell passes or does not apply; the site refuses the verify sign-off until then |
 | Bugs | QA files, the owning team fixes | `bugs/BUG-NNNN.md` | No bug of severity high or above that is not `closed` or `rejected` |
-| Autotests | CI in each repository, plus local runs | `tests/<run>.json` | The latest CI run is green in every team repository of the feature, read from the host when the decision is made |
+| Autotests | CI in each repository, plus local runs | `tests/<run>.json` on `hub-state`. The hub-report template adds two jobs at the end of every team pipeline: `hub-tests-passed` runs only when every earlier job passed, `hub-tests-failed` only when one failed. No token and no setup per team; the hub's own jobs may fail without turning the pipeline red. A local run (`/hub:test`) runs the team's `test` command from `config.yaml` | The latest CI run is green in every team repository of the feature |
 | Final check | QA | `signoffs.yaml`, entry `qa-final` | QA records pass or return |
 | Return to development | QA | The decision, the bugs and the target step | The owning team runs the fix stage and QA retests |
 | Acceptance and go or no-go | PO, then PM | PO acceptance in `signoffs.yaml`, the go or no-go in `release.yaml` | Both are recorded |
@@ -504,7 +506,7 @@ The admin assigns roles in `roles.yaml`, and a CI job on protected `main` is wha
 | Designer | `docs/design-system.md`, `ux-flows.md`, `screens.md`; confirmations on their own steps |
 | Developer | The status of bugs on their team; confirmations on their team's steps |
 | Team lead (a developer with `lead: true`) | Also `hub/validation/**`. The lead of the contract team also `docs/features/*/sad.md`, `docs/features/*/data-model.md` and `docs/features/*/contracts/**`, the only files of steps 5 to 7 that live in product-specs (the PO also keeps `feature_size:` in `sad.md`). With no contract team, no one but the admin may write them. Leads sign off and return at the Engineering gates of the steps of their feature (see "The twenty steps") |
-| QA | `test-plan.md`, the `## Test plan` section of `spec.md`, `hub/bugs/**`; sign-offs and returns at plan-tests and verify, and the decision at `qa-final` |
+| QA | `test-plan.md`, the `## Test plan` section of `spec.md`, `hub/bugs/**`, `hub/verification.yaml`; sign-offs and returns at plan-tests and verify, and the decision at `qa-final` |
 | Ops | `hub/release.yaml` except the go or no-go and, by merge request to the admin, the `hub-ci` project |
 
 Everyone can read everything in the repository. The rules restrict writing only. A person may hold several roles; `roles.yaml` takes `role` for one and `roles` for a list.
@@ -790,7 +792,8 @@ This section closes gaps found in a review of the design: what the guard checks 
 - Before it pushes, the server runs the same guard on the change against `main` of the remote. A change the guard would refuse is not pushed, and the site shows the path and the rule at once.
 - A save is pending until its merge request merges: until `main` has its commit, or the same contents after a squash. The site shows it as pending with a link.
 - If `hub-guard` refuses the change at merge, the job writes the reason to `hub-state` at `saves/<user>/<label>-<time>.json` and deletes the branch with `HUB_STATE_TOKEN`, which closes the merge request. The person's site reads the record and shows the path and the rule. Only `hub/<user>/…` branches are closed this way; a refused merge request opened by hand just fails its pipeline.
-- In version 1 the site saves a sign-off or a return of a gate that waits for the person. Bugs, `release.yaml` and People and roles follow.
+- The site saves sign-offs and returns, People and roles, QA's verdicts, bugs (QA files and edits them, the owning team changes the status), the QA decision, and the release fields of each role. The plugin saves the same through its tools.
+- One change per file at a time: while a person's save of a file waits to merge, a second save of that file is refused with the reason, because it would conflict with the first. The site's controls wait and say so.
 - If the change conflicts, the server rebases once. If that fails, the person chooses between their version and the newer one.
 - Without a connection, saves queue locally and are sent at the next sync.
 - Sync fast-forwards `main` only when the tree is clean, and says so otherwise.

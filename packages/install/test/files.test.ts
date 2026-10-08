@@ -83,29 +83,38 @@ describe("the hub-report job", () => {
     expect(reportStage(null)).toBe("test");
     expect(reportStage("build:\n  script: [x]\n")).toBe(".post");
   });
-  it("is valid GitLab CI: every script entry is a string", async () => {
+  it("is valid GitLab CI: every script entry is a string, and the hub never turns a pipeline red", async () => {
     const { parse } = await import("yaml");
-    const ci = parse(hubReportJob({ specs: "shop/product-specs", team: "web", stage: ".post" }));
-    const base = ci[".sdlc-hub"];
-    expect(base.before_script.every((s: unknown) => typeof s === "string")).toBe(true);
-    expect(base.before_script[0]).toContain("Authorization: Basic");
-    // The hub never turns a team's pipeline red: every job inherits allow_failure and none takes it back.
-    expect(base.allow_failure).toBe(true);
-    for (const job of ["hub-report", "hub-tests-passed", "hub-tests-failed"]) {
-      expect(ci[job].extends).toBe(".sdlc-hub");
-      expect(ci[job].script.every((s: unknown) => typeof s === "string")).toBe(true);
-      expect(ci[job].allow_failure).toBeUndefined();
+    for (const stage of [".post", "test"]) {
+      const ci = parse(hubReportJob({ specs: "shop/product-specs", team: "web", stage }));
+      const base = ci[".sdlc-hub"];
+      expect(base.before_script.every((s: unknown) => typeof s === "string")).toBe(true);
+      expect(base.before_script[0]).toContain("Authorization: Basic");
+      expect(base.allow_failure).toBe(true);
+      for (const job of Object.keys(ci).filter((k) => !k.startsWith("."))) {
+        expect(ci[job].extends).toBe(".sdlc-hub");
+        expect(ci[job].script.every((s: unknown) => typeof s === "string")).toBe(true);
+        expect(ci[job].allow_failure).toBeUndefined();
+      }
     }
-    expect(ci["hub-report"].rules).toEqual([{ if: "$HUB_STATE_TOKEN", when: "always" }]);
   });
 
-  it("records the pipeline's result at its end: one job when every job before passed, one when any failed", async () => {
+  it("runs one hub job per pipeline: at the end, the one that matches the result of the team's jobs", async () => {
+    const { parse } = await import("yaml");
+    const ci = parse(hubReportJob({ specs: "shop/product-specs", team: "web", stage: ".post" }));
+    expect(Object.keys(ci).filter((k) => !k.startsWith(".")).sort()).toEqual(["hub-tests-failed", "hub-tests-passed"]);
+    expect(ci["hub-tests-passed"]).toMatchObject({ stage: ".post", rules: [{ if: "$HUB_STATE_TOKEN", when: "on_success" }] });
+    expect(ci["hub-tests-passed"].script[0]).toMatch(/--push --tests passed$/);
+    expect(ci["hub-tests-failed"]).toMatchObject({ stage: ".post", rules: [{ if: "$HUB_STATE_TOKEN", when: "on_failure" }] });
+    expect(ci["hub-tests-failed"].script[0]).toMatch(/--push --tests failed$/);
+  });
+
+  it("is the whole pipeline of a repository with no CI of its own, which then counts as passed", async () => {
     const { parse } = await import("yaml");
     const ci = parse(hubReportJob({ specs: "shop/product-specs", team: "web", stage: "test" }));
-    expect(ci["hub-tests-passed"]).toMatchObject({ stage: ".post", rules: [{ if: "$HUB_STATE_TOKEN", when: "on_success" }] });
-    expect(ci["hub-tests-passed"].script[0]).toMatch(/--tests passed$/);
-    expect(ci["hub-tests-failed"]).toMatchObject({ stage: ".post", rules: [{ if: "$HUB_STATE_TOKEN", when: "on_failure" }] });
-    expect(ci["hub-tests-failed"].script[0]).toMatch(/--tests failed$/);
+    expect(Object.keys(ci).filter((k) => !k.startsWith("."))).toEqual(["hub-report"]);
+    expect(ci["hub-report"]).toMatchObject({ stage: "test", rules: [{ if: "$HUB_STATE_TOKEN", when: "always" }] });
+    expect(ci["hub-report"].script[0]).toMatch(/--push --tests passed$/);
   });
 
   it("never puts the token on a command line", () => {

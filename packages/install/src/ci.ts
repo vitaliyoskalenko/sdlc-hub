@@ -5,14 +5,34 @@ import { isMap, isScalar, isSeq, parseDocument, YAMLSeq } from "yaml";
 export const HUB_REPORT_FILE = "ci/hub-report.gitlab-ci.yml";
 
 /**
- * The jobs publish the team's snapshot of each feature, and the pipeline's result, to hub-state of product-specs.
+ * The hub job publishes the team's snapshot of each feature, and the pipeline's result, to hub-state of
+ * product-specs. One hub job runs per pipeline:
+ * - When the team has CI of its own (stage .post), hub-tests-passed or hub-tests-failed runs at the end, the one that
+ *   matches the result of the team's jobs.
+ * - When it has none (stage test), hub-report is the whole pipeline: GitLab needs a job outside .post, and a pipeline
+ *   with no tests counts as passed.
  * The hub code comes from product-specs itself, at main. HUB_STATE_TOKEN (a masked group variable) is the only
  * credential; it goes to git through its environment, never on a command line. HUB_GIT_URL overrides the server
- * address for runners that reach GitLab under another name. Every job may fail without turning the pipeline red,
- * and a failure of hub-report never counts as a failed test: allowed failures do not stop on_success jobs.
+ * address for runners that reach GitLab under another name. The hub's job may fail without turning the pipeline red.
  */
 export function hubReportJob(opts: { specs: string; team: string; stage: string }): string {
   const run = 'node /tmp/hub-specs/hub/cli.js report --team "$HUB_TEAM" --specs-url "$HUB_GIT_BASE/$HUB_SPECS.git" --push';
+  const job = (name: string, stage: string, when: string, result: string) => `${name}:
+  extends: .sdlc-hub
+  stage: ${stage}
+  rules:
+    - if: $HUB_STATE_TOKEN
+      when: ${when}
+  script:
+    - ${run} --tests ${result}
+`;
+  const jobs =
+    opts.stage === ".post"
+      ? `# One of these runs at the end of every pipeline; the autotests gate reads the latest of every team repository.
+${job("hub-tests-passed", ".post", "on_success", "passed")}
+${job("hub-tests-failed", ".post", "on_failure", "failed")}`
+      : `# This repository has no CI of its own: this job is its pipeline, and a pipeline with no tests counts as passed.
+${job("hub-report", opts.stage, "always", "passed")}`;
   return `# Added by SDLC Hub. Publishes this team's tasks, tracker, review verdict, merge request and the result of each
 # pipeline for each feature to the hub-state branch of ${opts.specs}. It changes nothing in this repository.
 .sdlc-hub:
@@ -29,34 +49,7 @@ export function hubReportJob(opts: { specs: string; team: string; stage: string 
       export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader GIT_CONFIG_VALUE_0="Authorization: Basic $(printf 'hub-report:%s' "$HUB_STATE_TOKEN" | base64 | tr -d '\\n')"
       git clone --quiet --depth 1 --branch main "$HUB_GIT_BASE/$HUB_SPECS.git" /tmp/hub-specs
 
-hub-report:
-  extends: .sdlc-hub
-  stage: ${opts.stage}
-  rules:
-    - if: $HUB_STATE_TOKEN
-      when: always
-  script:
-    - ${run}
-
-# The autotests gate reads these: the latest pipeline of every team repository must be green.
-hub-tests-passed:
-  extends: .sdlc-hub
-  stage: .post
-  rules:
-    - if: $HUB_STATE_TOKEN
-      when: on_success
-  script:
-    - ${run} --tests passed
-
-hub-tests-failed:
-  extends: .sdlc-hub
-  stage: .post
-  rules:
-    - if: $HUB_STATE_TOKEN
-      when: on_failure
-  script:
-    - ${run} --tests failed
-`;
+${jobs}`;
 }
 
 /** The stage for the job: .post when the repository already has CI jobs, test when the include is its only CI. */

@@ -15,6 +15,8 @@ Open the address it prints, `http://127.0.0.1:4173/?as=iryna.s`. The dashed "Dem
 
 To try saving: open `returns-portal` as `olena.k`, step clarify, and press Sign off; or `order-webhooks` as `taras.m`, step tech-design, and Return with a reason. The save waits to merge for a moment while the demo's stand-in for GitLab runs hub-guard, then the step moves on.
 
+QA and release: as `iryna.s`, a feature's QA tab records verdicts, bugs and the final decision; as `bohdan.r` and `maksym.d`, its Release tab records the smoke check, the checklist, the rollout and the go. `npm run demo -- --fixture release-walk --as bohdan.r` has one feature at staging to take all the way to released.
+
 Other fixtures: `npm run demo -- --fixture <name>`, for example `quick-route`, `implement-blocked`, `qa-return-cycle-2` or `no-user-interface` (all in `packages/fixtures/src/cases.ts`).
 
 On a real `product-specs` checkout: `npm run build`, then from inside the checkout `node <this repo>/packages/cli/dist/cli.mjs serve`. You are the person in `.hub/roles.yaml` that matches your git identity, or `--as <user>`.
@@ -27,7 +29,7 @@ In the demo, try it as `nazar.t`: People and roles, Add a person, then Setup scr
 
 ## The Claude Code plugin
 
-Install writes the `hub` plugin into `hub/plugin/` and enables it in `.claude/settings.json`; the setup script registers it on each machine. Then `/hub:status`, `/hub:next <slug>`, `/hub:signoff <step> <slug>`, `/hub:return <step> <slug> <reason>`, `/hub:bug <slug>` and `/hub:start` work in Claude Code. To try the plugin without installing it: `claude --plugin-dir hub/plugin`.
+Install writes the `hub` plugin into `hub/plugin/` and enables it in `.claude/settings.json`; the setup script registers it on each machine. Then `/hub:status`, `/hub:next <slug>`, `/hub:signoff <step> <slug>`, `/hub:return <step> <slug> <reason>`, `/hub:bug <slug>`, `/hub:verify <slug>`, `/hub:test <slug>`, `/hub:decide <slug>`, `/hub:release <slug>` and `/hub:start` work in Claude Code. For `/hub:test`, the admin sets each team's test command as `test:` under `teams` in `.hub/config.yaml`. To try the plugin without installing it: `claude --plugin-dir hub/plugin`.
 
 ## First install on GitLab
 
