@@ -1,8 +1,10 @@
 // Who may change which paths: "Roles and the paths they may change" and "Guard rules" in the specification.
-// In phase 1 the site uses this to disable controls; in phase 2 hub-guard runs the same code at merge.
-// Not here yet (phase 2): who may append which signoffs.yaml entry, and release.yaml field by field.
+// The site uses this to disable controls, and hub-guard runs the same code at merge (guard.ts adds the rules for the
+// entries of signoffs.yaml).
 
 import picomatch from "picomatch";
+import { isDeepStrictEqual } from "node:util";
+import { parse as parseYamlText } from "yaml";
 import { checkRegionEdit, type Region } from "./content/structure.ts";
 import { splitFrontMatter } from "./parse.ts";
 import type { BuiltinRole } from "./schema/common.ts";
@@ -40,11 +42,11 @@ export const DEFAULT_ROLE_RULES: Record<BuiltinRole, string[]> = {
     `${F}/sad.md#front:feature_size`,
     `${F}/hub/signoffs.yaml`,
   ],
-  pm: ["docs/roadmap.md", `${F}/hub/feature.yaml`, `${F}/hub/release.yaml`, `${F}/hub/signoffs.yaml`],
+  pm: ["docs/roadmap.md", `${F}/hub/feature.yaml`, `${F}/hub/release.yaml#keys:go`, `${F}/hub/signoffs.yaml`],
   designer: ["docs/design-system.md", `${F}/ux-flows.md`, `${F}/screens.md`, `${F}/hub/signoffs.yaml`],
   dev: [`${F}/hub/bugs/*.md#front:status`, `${F}/hub/signoffs.yaml`],
   qa: [`${F}/test-plan.md`, `${F}/spec.md#Test plan`, `${F}/hub/bugs/**`, `${F}/hub/signoffs.yaml`],
-  ops: [`${F}/hub/release.yaml`, `${F}/hub/signoffs.yaml`],
+  ops: [`${F}/hub/release.yaml#keys:!go`, `${F}/hub/signoffs.yaml`],
 };
 
 /** Every lead: validation reports. */
@@ -56,6 +58,8 @@ interface Rule {
   source: string;
   match: (path: string) => boolean;
   region?: Region;
+  /** For a YAML data file: the top-level keys the rule allows (`#keys:go`), or all but these (`#keys:!go`). */
+  keys?: { only: string[] } | { except: string[] };
 }
 
 function parseRule(source: string): Rule {
@@ -63,10 +67,14 @@ function parseRule(source: string): Rule {
   const glob = hash < 0 ? source : source.slice(0, hash);
   const fragment = hash < 0 ? undefined : source.slice(hash + 1);
   let region: Region | undefined;
-  if (fragment?.startsWith("front:")) region = { kind: "front", key: fragment.slice("front:".length) };
+  let keys: Rule["keys"];
+  if (fragment?.startsWith("keys:")) {
+    const list = fragment.slice("keys:".length);
+    keys = list.startsWith("!") ? { except: list.slice(1).split(",") } : { only: list.split(",") };
+  } else if (fragment?.startsWith("front:")) region = { kind: "front", key: fragment.slice("front:".length) };
   // `#Test plan` names a level-2 section, where SDD writes; `#### Title` gives the level explicitly.
   else if (fragment) region = { kind: "section", heading: fragment.startsWith("#") ? fragment : `## ${fragment}` };
-  return { source, match: picomatch(glob, { dot: true }), region };
+  return { source, match: picomatch(glob, { dot: true }), region, ...(keys ? { keys } : {}) };
 }
 
 function rulesFor(person: Person, ctx: AccessContext): Rule[] {
@@ -103,6 +111,12 @@ function checkPath(person: Person, ctx: AccessContext, path: string, base: strin
   let refusal: AccessResult | undefined;
   for (const rule of rulesFor(person, ctx)) {
     if (!rule.match(path)) continue;
+    if (rule.keys) {
+      const r = checkKeys(base, next, rule.keys);
+      if (r === true) return { ok: true, rule: rule.source };
+      refusal ??= { ok: false, reason: r };
+      continue;
+    }
     if (!rule.region) {
       if (SIGNOFFS(path) && !person.roles.includes("admin")) {
         // Append-only: the file on main must stay as it is at the start of the new version.
@@ -126,6 +140,23 @@ function checkPath(person: Person, ctx: AccessContext, path: string, base: strin
     refusal ??= { ok: false, reason: r.reason, ...(r.line !== undefined ? { line: r.line } : {}) };
   }
   return refusal ?? { ok: false, reason: `No role of ${person.user} (${person.roles.join(", ")}) may change ${path}` };
+}
+
+/** Compares two YAML data files key by key: only the allowed top-level keys may differ. */
+function checkKeys(base: string | undefined, next: string | undefined, keys: NonNullable<Rule["keys"]>): true | string {
+  if (next === undefined) return "This rule allows some fields of the file, not deleting it";
+  let a: Record<string, unknown>;
+  let b: Record<string, unknown>;
+  try {
+    a = (base === undefined ? {} : (parseYamlText(base) ?? {})) as Record<string, unknown>;
+    b = (parseYamlText(next) ?? {}) as Record<string, unknown>;
+  } catch {
+    return "The file is not valid YAML";
+  }
+  const changed = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => !isDeepStrictEqual(a[k], b[k]));
+  const allowed = (k: string) => ("only" in keys ? keys.only.includes(k) : !keys.except.includes(k));
+  const bad = changed.filter((k) => !allowed(k));
+  return bad.length ? `Your role may not change ${bad.join(", ")} in this file` : true;
 }
 
 function ownKeyFile(person: Person, path: string): boolean {
