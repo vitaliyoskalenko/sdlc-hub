@@ -160,7 +160,7 @@ function excludeLocally(root: string, path: string) {
 }
 
 /** The remote of product-specs as git reaches it from anywhere: a relative path becomes absolute. */
-function remoteUrl(root: string, run: Run): string {
+export function remoteUrl(root: string, run: Run = runCommand): string {
   const r = run("git", ["remote", "get-url", "origin"], root);
   if (r.status !== 0) throw new Error("this checkout has no remote origin");
   const url = r.out.trim();

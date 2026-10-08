@@ -25,6 +25,10 @@ describe("the Claude Code plugin files", () => {
   it("tell a new session who the person is", () => {
     const hooks = JSON.parse(files["hub/plugin/hooks/hooks.json"]!).hooks;
     expect(hooks.SessionStart[0].hooks[0].command).toBe('node "${CLAUDE_PROJECT_DIR}/hub/cli.js" hook session-start');
+    // Usage: the session's feature and step from a typed command or a hub tool, then its tokens at every stop.
+    expect(hooks.UserPromptSubmit[0].hooks[0].command).toMatch(/hook prompt$/);
+    expect(hooks.PostToolUse[0]).toMatchObject({ matcher: "mcp__plugin_hub_hub__.*" });
+    expect(hooks.Stop[0].hooks[0].command).toMatch(/hook stop$/);
   });
 });
 

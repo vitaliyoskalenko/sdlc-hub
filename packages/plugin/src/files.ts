@@ -166,7 +166,13 @@ export function pluginFiles(base = "0.2.0"): Record<string, string> {
   const files: Record<string, string> = {
     "hub/plugin/.mcp.json": json({ mcpServers: { hub: { command: "node", args: ["${CLAUDE_PROJECT_DIR}/hub/cli.js", "mcp", "--assistant", "claude"] } } }),
     "hub/plugin/hooks/hooks.json": json({
-      hooks: { SessionStart: [{ matcher: "startup|resume|clear", hooks: [{ type: "command", command: 'node "${CLAUDE_PROJECT_DIR}/hub/cli.js" hook session-start', timeout: 20 }] }] },
+      hooks: {
+        SessionStart: [{ matcher: "startup|resume|clear", hooks: [{ type: "command", command: 'node "${CLAUDE_PROJECT_DIR}/hub/cli.js" hook session-start', timeout: 20 }] }],
+        // The feature and step of the session, from a typed /hub:x or a hub tool; then its usage at every stop.
+        UserPromptSubmit: [{ hooks: [{ type: "command", command: 'node "${CLAUDE_PROJECT_DIR}/hub/cli.js" hook prompt', timeout: 10 }] }],
+        PostToolUse: [{ matcher: "mcp__plugin_hub_hub__.*", hooks: [{ type: "command", command: 'node "${CLAUDE_PROJECT_DIR}/hub/cli.js" hook tool', timeout: 10 }] }],
+        Stop: [{ hooks: [{ type: "command", command: 'node "${CLAUDE_PROJECT_DIR}/hub/cli.js" hook stop', timeout: 30 }] }],
+      },
     }),
   };
   for (const s of SKILLS) files[`hub/plugin/skills/${s.name}/SKILL.md`] = skillFile(s);

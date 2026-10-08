@@ -14,6 +14,8 @@ import { baseTime, formatFindings, guardRepo, mergeRequestPeople, recordRefusal 
 import { actionHandler } from "./actions.ts";
 import { addDemoRemote, demoHost } from "./demo-host.ts";
 import { localTests } from "@sdlc-hub/save";
+import { collectUsage, noteContext } from "@sdlc-hub/usage";
+import { sync } from "./sync.ts";
 import { doctor, personSetup, print } from "./person.ts";
 import { report, reportTests } from "./report.ts";
 import { createHubMcp, sessionContext, type ToolContext } from "@sdlc-hub/plugin";
@@ -34,8 +36,9 @@ const HELP = `SDLC Hub
       In the hub-guard job of a product-specs merge request: refuse changes outside the roles of the author
       and of everyone who pushed. The rules are read from --rules (main as fetched), never from the merge request.
 
-  hub hook session-start
-      Run by the assistant when a session starts: tells it who you are and what waits for you.
+  hub hook session-start|prompt|tool|stop
+      Run by the assistant: session-start tells it who you are and what waits for you; prompt and tool note the
+      feature and step a session works on; stop records the session's token usage on this machine.
 
   hub mcp [--assistant claude|codex|cursor]
       The MCP server the hub skills call, over stdio. The assistant starts it; you do not.
@@ -45,6 +48,10 @@ const HELP = `SDLC Hub
 
   hub test <slug> [--team <id>]
       Runs your team's autotests (teams[].test in .hub/config.yaml) in your clone and records a local run.
+
+  hub sync
+      Pulls main and hub-state, publishes your usage encrypted, and on the admin's or the PM's machine the
+      open totals. It also refreshes Claude Code's copy of the hub plugin.
 
   hub doctor
       Checks Node.js, .hub/, who you are, the git host and your assistant's hub plugin.
@@ -255,13 +262,48 @@ async function mcp(f: Record<string, string>) {
 }
 
 /** A hook of the assistant. session-start prints what the new session should know; it never fails the session. */
+/** The assistant's hooks. They never fail the session: a problem is swallowed. */
 async function hook(_f: Record<string, string>, event: string | undefined) {
-  if (event !== "session-start") return;
-  try {
-    console.log(sessionContext(pluginContext({})));
-  } catch (e) {
-    console.log(`SDLC Hub: ${(e as Error).message}`);
+  if (event === "session-start") {
+    try {
+      console.log(sessionContext(pluginContext({})));
+    } catch (e) {
+      console.log(`SDLC Hub: ${(e as Error).message}`);
+    }
+    return;
   }
+  try {
+    const payload = JSON.parse(await stdinText()) as Record<string, unknown>;
+    const root = topLevel(process.env["CLAUDE_PROJECT_DIR"] ?? String(payload["cwd"] ?? process.cwd()));
+    if (!root) return;
+    const common = execFileSync("git", ["rev-parse", "--git-common-dir"], { cwd: root, encoding: "utf8" }).trim();
+    const store = { dir: join(resolve(root, common), "sdlc-hub", "usage") };
+    const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+    // What the session works on: a typed /hub:x, or a hub tool.
+    if (event === "prompt" || event === "tool") noteContext(store, payload, now);
+    // What it used: the transcript since the last stop, one record per model, kept on this machine until hub sync.
+    if (event === "stop") {
+      const opened = openProject(root);
+      const person = opened.project?.roles.people.find((p) => p.user === personOf(root, opened.project?.roles));
+      if (person) await collectUsage({ store, payload, person: { role: person.roles[0] ?? "unknown", ...(person.team ? { team: person.team } : {}) }, assistant: "claude", now });
+    }
+  } catch {
+    /* a hook never stops the assistant */
+  }
+}
+
+async function stdinText(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const c of process.stdin) chunks.push(c as Buffer);
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+async function syncCommand() {
+  const root = topLevel(process.cwd());
+  if (!root) throw new Error("Run hub sync in your clone of product-specs.");
+  const r = await sync({ root });
+  console.log(print(r.lines));
+  if (!r.ok) process.exit(1);
 }
 
 async function setupCommand(f: Record<string, string>) {
@@ -291,7 +333,7 @@ async function testCommand(f: Record<string, string>, slug: string | undefined) 
 }
 
 const [command, ...rest] = process.argv.slice(2);
-const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(f, rest[0]) : undefined;
+const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(f, rest[0]) : undefined;
 if (!run) {
   console.log(HELP);
   process.exit(command && command !== "help" && command !== "--help" ? 1 : 0);
