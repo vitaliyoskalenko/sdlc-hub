@@ -1,10 +1,10 @@
 // Collecting usage on a person's machine. The assistant's hooks call these: UserPromptSubmit and PostToolUse note
 // which feature and step the session works on (from a typed /hub:x or a hub tool's input), and Stop reads the
-// session's transcript since its last mark and adds one record per model to this month's local file. The local files
+// session's transcript, and its subagents', since their last marks and adds one record per model to this month's local file. The local files
 // live in the git directory, never in the repository; hub sync encrypts and publishes them.
 
-import { createReadStream, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { z } from "zod";
 import { addTokens, ZERO, type Tokens } from "./prices.ts";
@@ -130,8 +130,16 @@ export async function collectUsage(i: CollectInput): Promise<UsageRecord[]> {
   mkdirSync(i.store.dir, { recursive: true });
   const marksFile = join(i.store.dir, "marks.json");
   const marks = readJson<Record<string, number>>(marksFile, {});
-  const { messages, lines } = await readClaudeTranscript(transcript, marks[session] ?? 0);
-  marks[session] = lines;
+  // The session's own transcript, and its subagents' beside it (<session>/subagents/agent-*.jsonl), each with its mark.
+  const subDir = join(dirname(transcript), basename(transcript, ".jsonl"), "subagents");
+  const files = [transcript, ...(existsSync(subDir) ? readdirSync(subDir).filter((f) => f.endsWith(".jsonl")).sort().map((f) => join(subDir, f)) : [])];
+  const messages: Message[] = [];
+  for (const file of files) {
+    const key = file === transcript ? session : `${session}:${basename(file)}`;
+    const r = await readClaudeTranscript(file, marks[key] ?? 0);
+    marks[key] = r.lines;
+    messages.push(...r.messages);
+  }
   writeJson(marksFile, marks);
   const ctx = readJson<Record<string, Context>>(join(i.store.dir, "sessions.json"), {})[session];
   const byModel = new Map<string, { tokens: Tokens; messages: number }>();

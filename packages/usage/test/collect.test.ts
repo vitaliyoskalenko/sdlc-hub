@@ -1,4 +1,4 @@
-import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -65,5 +65,19 @@ describe("usage from a Claude Code transcript", () => {
     expect(localMonth(store, "2026-10")).toHaveLength(2);
     // Nothing new: no record.
     expect(await collectUsage({ store, payload: { session_id: "s1", transcript_path: t }, person: { role: "po" }, assistant: "claude", now: "2026-10-08T10:10:00Z" })).toEqual([]);
+  });
+
+  it("counts the session's subagents too: their transcripts sit beside it, each with its own mark", async () => {
+    const dir = tmp();
+    const store = { dir: join(dir, "usage") };
+    const t = join(dir, "s1.jsonl");
+    writeFileSync(t, line("m1", "claude-opus-5-5", usage(1, 0, 0, 100)));
+    mkdirSync(join(dir, "s1", "subagents"), { recursive: true });
+    writeFileSync(join(dir, "s1", "subagents", "agent-a.jsonl"), line("x1", "claude-haiku-4-5-20251001", usage(5, 0, 0, 7)));
+    const r = await collectUsage({ store, payload: { session_id: "s1", transcript_path: t }, person: { role: "dev" }, assistant: "claude", now: "2026-10-08T10:00:00Z" });
+    expect(Object.fromEntries(r.map((x) => [x.model, x.tokens.output]))).toEqual({ "claude-opus-5-5": 100, "claude-haiku-4-5-20251001": 7 });
+    appendFileSync(join(dir, "s1", "subagents", "agent-a.jsonl"), line("x2", "claude-haiku-4-5-20251001", usage(5, 0, 0, 3)));
+    const again = await collectUsage({ store, payload: { session_id: "s1", transcript_path: t }, person: { role: "dev" }, assistant: "claude", now: "2026-10-08T10:01:00Z" });
+    expect(again.map((x) => [x.model, x.tokens.output])).toEqual([["claude-haiku-4-5-20251001", 3]]);
   });
 });
