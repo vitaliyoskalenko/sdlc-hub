@@ -13,6 +13,7 @@ import { isSaveBranch } from "@sdlc-hub/core";
 import { baseTime, formatFindings, guardRepo, mergeRequestPeople, recordRefusal } from "./guard.ts";
 import { actionHandler } from "./actions.ts";
 import { addDemoRemote, demoHost } from "./demo-host.ts";
+import { localTests } from "./local-tests.ts";
 import { doctor, personSetup, print } from "./person.ts";
 import { report, reportTests } from "./report.ts";
 import { createHubMcp, sessionContext, type ToolContext } from "@sdlc-hub/plugin";
@@ -41,6 +42,9 @@ const HELP = `SDLC Hub
 
   hub setup --user <username> --roles <role ...> [--assistant claude|codex|cursor] [--release <hash>]
       Run by your setup script: confirms your roles on main and sets up this checkout and your assistant.
+
+  hub test <slug> [--team <id>]
+      Runs your team's autotests (teams[].test in .hub/config.yaml) in your clone and records a local run.
 
   hub doctor
       Checks Node.js, .hub/, who you are, the git host and your assistant's hub plugin.
@@ -275,8 +279,17 @@ async function doctorCommand() {
   if (!r.ok) process.exit(1);
 }
 
+async function testCommand(f: Record<string, string>, slug: string | undefined) {
+  const root = topLevel(process.cwd());
+  if (!root) throw new Error("Run hub test in your clone of product-specs.");
+  if (!slug || slug.startsWith("--")) throw new Error("Name the feature: hub test <slug> [--team <id>]");
+  const r = localTests({ root, slug, ...(f["team"] ? { team: f["team"] } : {}) });
+  console.log(print(r.lines));
+  if (!r.ok) process.exit(1);
+}
+
 const [command, ...rest] = process.argv.slice(2);
-const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(f, rest[0]) : undefined;
+const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(f, rest[0]) : undefined;
 if (!run) {
   console.log(HELP);
   process.exit(command && command !== "help" && command !== "--help" ? 1 : 0);
