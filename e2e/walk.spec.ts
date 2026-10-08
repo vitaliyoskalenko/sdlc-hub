@@ -29,6 +29,7 @@ for (const vp of VIEWPORTS) {
       if (o > 0) bad.push(`${where}: ${o}px sideways`);
     };
     let dialogs = 0;
+    let tasks = 0;
     const openHelp = async (where: string) => {
       const n = await page.locator("#main [data-info]").count();
       for (let k = 0; k < n; k++) {
@@ -51,6 +52,32 @@ for (const vp of VIEWPORTS) {
       await ready(page);
       await expect(page.locator("h1")).toHaveText("Home");
       await check(`${person} home`);
+
+      // Every action opens as a task page over Home; its commands open help over it; Escape closes help, then the page.
+      const actions = await page.locator("[data-task]").count();
+      for (let k = 0; k < actions; k++) {
+        await page.locator("[data-task]").nth(k).click();
+        await expect(page.locator("#sheet .sheet")).toBeVisible();
+        await page.waitForFunction(() => !document.querySelector("#sheet")!.textContent!.includes("Loading"));
+        tasks++;
+        const sw = await page.evaluate(() => {
+          const s = document.querySelector(".sheet")!;
+          return s.scrollWidth - s.clientWidth;
+        });
+        if (sw > 1) bad.push(`${person} task ${k}: the task page scrolls sideways (${sw}px)`);
+        await check(`${person} task ${k}`);
+        const infos = await page.locator("#sheet [data-info]").count();
+        for (let j = 0; j < infos; j++) {
+          await page.locator("#sheet [data-info]").nth(j).click();
+          await expect(page.locator("#dlg .dlg")).toBeVisible();
+          dialogs++;
+          await page.keyboard.press("Escape");
+          await expect(page.locator("#dlg")).toHaveCount(0);
+          await expect(page.locator("#sheet .sheet")).toBeVisible();
+        }
+        await page.keyboard.press("Escape");
+        await expect(page.locator("#sheet")).toHaveCount(0);
+      }
 
       await page.click("#guidebtn");
       await expect(page.locator("h1")).toHaveText("Your guide");
@@ -99,7 +126,8 @@ for (const vp of VIEWPORTS) {
         }
       }
     }
-    console.log(`${vp.name}: ${PEOPLE.length} people, ${dialogs} help dialogs, ${errors.length} errors, ${bad.length} overflows`);
+    console.log(`${vp.name}: ${PEOPLE.length} people, ${tasks} task pages, ${dialogs} help dialogs, ${errors.length} errors, ${bad.length} overflows`);
+    expect(tasks).toBeGreaterThan(8);
     expect(errors, errors.slice(0, 5).join("\n")).toEqual([]);
     expect(bad, bad.slice(0, 12).join("\n")).toEqual([]);
     await page.close();

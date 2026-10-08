@@ -142,6 +142,9 @@ describe("the API", () => {
     expect(f.feature.links.jira).toMatch(/jira/);
     expect(f.documents.map((d: { path: string }) => d.path)).toContain("spec.md");
     expect((await get("/api/features/no-such-feature")).status).toBe(404);
+    const ti = await json("/api/features/tasks-issues");
+    expect(ti.state.bugs.map((b: { id: string; status: string }) => [b.id, b.status])).toEqual([["BUG-0012", "retest"], ["BUG-0013", "closed"], ["BUG-0014", "fixing"]]);
+    expect(ti.state.testRuns.find((r: { ref?: string }) => r.ref === "pipeline #4127")).toMatchObject({ team: "android", failed: 1 });
   });
   it("returns a document of the feature and nothing outside the feature folder", async () => {
     const r = await get("/api/features/tasks-issues/file?path=spec.md");

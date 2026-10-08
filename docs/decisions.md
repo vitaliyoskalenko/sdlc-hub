@@ -2,6 +2,30 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-08: Revision 55
+
+### A wait marker with the count, and the Home tile "Blocked by another team"
+- **Decision:** The step stays running. A red marker with the number of waiting teams ("⧗ 3 teams wait") stands beside it in the Features list, on the graph track and in the Now strip. The Home tile is named "Blocked by another team", as in the prototype, and counts the waiting teams; it opens the Features list filtered to these features.
+- **By:** Owner.
+
+### The task page is in phase 1a
+- **Decision:** An action on Home opens as a task page over the current screen, read only. It shows:
+  - the feature and its step;
+  - the detail the action needs: the waiting tasks for a wait, the open bugs and test runs at a QA step, otherwise the step with its gate and prompt;
+  - the command to copy;
+  - the button to the place on the site.
+
+  It follows the prototype. Revision 51 had put it in phase 2.
+- **By:** Owner.
+
+### The demo carries the prototype's sample data
+- **Decision:** The demo uses the prototype's task titles, criteria, stories, bugs and pipeline numbers, so it can be shown to the team. It stays synthetic and is replaced when a real SDD run arrives.
+- **By:** Owner.
+
+### Git authors in one call per repository
+- **Decision:** One `git log --name-only` per repository names the last author of every file. One whole-file `git blame` per event log names its lines, and one `git cat-file --batch` reads hub-state. The first load of the demo went from 0.9 s to 0.18 s.
+- **By:** Owner.
+
 ## 2026-10-08: Revision 54, owner review of the phase 1a site
 
 ### Waits between teams are shown everywhere, not only on the Tasks screen

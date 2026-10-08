@@ -3,6 +3,7 @@
 import { createContext, type ComponentChildren } from "preact";
 import { useContext } from "preact/hooks";
 import type { Assistant, Person, ProjectInfo, Session, StepStatus, Summary } from "./api.ts";
+import type { Action } from "./home.tsx";
 import { roleOf, STATUS } from "./text.ts";
 
 export interface AppState {
@@ -15,6 +16,8 @@ export interface AppState {
   version: number;
   go: (path: string, params?: Record<string, string | undefined>) => void;
   help: (command: string) => void;
+  /** Opens an action from Home as a task page over the current screen. */
+  openTask: (action: Action) => void;
 }
 
 export const App = createContext<AppState | null>(null);

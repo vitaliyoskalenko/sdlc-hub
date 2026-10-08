@@ -4,9 +4,11 @@ import type { Person, ProjectInfo, Summary } from "./api.ts";
 import { STEP } from "./text.ts";
 import { Kpi, Link, listOf, names, Pill, Progress, RoleChip, roleLabel, StatusPill, taskLabel, teamName, useApp, WaitMark, waitingTeams, waitText } from "./ui.tsx";
 
-interface Action {
+export interface Action {
   slug: string;
   step: string;
+  /** What the task page shows: the step, the tasks that wait, or the bugs and test runs. */
+  kind: "step" | "waits" | "qa";
   tag: string;
   bad?: boolean;
   title: string;
@@ -23,26 +25,27 @@ export function actionsFor(me: Person, project: ProjectInfo, features: Summary[]
       const [onTeam, onTask] = w.on.split(":") as [string, string];
       const text = `In ${f.slug}: ${waitText(project, w)}. The tasks before it run on the mock.`;
       if (me.roles.includes("dev") && me.team === onTeam)
-        out.push({ slug: f.slug, step: f.current, tag: "Others wait for you", bad: true, title: `${listOf(w.teams.map((t) => teamName(project, t)))} wait for your ${onTask}`, text });
+        out.push({ slug: f.slug, step: f.current, kind: "waits", tag: "Others wait for you", bad: true, title: `${listOf(w.teams.map((t) => teamName(project, t)))} wait for your ${onTask}`, text });
       else if (me.roles.includes("dev") && me.team && w.teams.includes(me.team))
         for (const t of w.tasks.filter((x) => x.team === me.team))
-          out.push({ slug: f.slug, step: f.current, tag: "Waiting", bad: true, title: `Your ${t.task} waits for ${taskLabel(project, w.on)}`, text: `In ${f.slug}. Keep building the tasks before it on the mock.` });
+          out.push({ slug: f.slug, step: f.current, kind: "waits", tag: "Waiting", bad: true, title: `Your ${t.task} waits for ${taskLabel(project, w.on)}`, text: `In ${f.slug}. Keep building the tasks before it on the mock.` });
       else if (me.roles.includes("pm"))
-        out.push({ slug: f.slug, step: f.current, tag: "Teams waiting", bad: true, title: `${waitText(project, w)} in ${f.slug}`, text: "You confirm the order between teams at the sprint step. The waits come from the trackers." });
+        out.push({ slug: f.slug, step: f.current, kind: "waits", tag: "Teams waiting", bad: true, title: `${waitText(project, w)} in ${f.slug}`, text: "You confirm the order between teams at the sprint step. The waits come from the trackers." });
     }
     const step = STEP[f.current];
+    const kind: Action["kind"] = ["verify", "autotests", "qa-final"].includes(f.current) ? "qa" : "step";
     const mine = f.waitingOn.includes(me.user);
     const roleHasIt = f.role !== null && me.roles.includes(f.role);
     if (mine && f.status === "signoff")
-      out.push({ slug: f.slug, step: f.current, tag: "Sign-off", title: `Sign off ${f.current} for ${f.slug}`, text: `${step?.title ?? f.current}: the evidence is there and the gate waits for you.` });
+      out.push({ slug: f.slug, step: f.current, kind, tag: "Sign-off", title: `Sign off ${f.current} for ${f.slug}`, text: `${step?.title ?? f.current}: the evidence is there and the gate waits for you.` });
     else if (mine && f.status === "ready")
-      out.push({ slug: f.slug, step: f.current, tag: "Your step", title: `${f.current} is ready for you`, text: `${step?.title ?? f.current}. The steps before it are done.` });
+      out.push({ slug: f.slug, step: f.current, kind, tag: "Your step", title: `${f.current} is ready for you`, text: `${step?.title ?? f.current}. The steps before it are done.` });
     else if (mine && f.status === "returned")
-      out.push({ slug: f.slug, step: f.current, tag: "Returned", bad: true, title: `${f.current} came back to you`, text: f.reason ?? "The gate owner sent the step back." });
+      out.push({ slug: f.slug, step: f.current, kind, tag: "Returned", bad: true, title: `${f.current} came back to you`, text: f.reason ?? "The gate owner sent the step back." });
     else if (roleHasIt && (f.status === "blocked" || f.status === "missed"))
-      out.push({ slug: f.slug, step: f.current, tag: f.status === "blocked" ? "Blocked" : "Missed", bad: true, title: `${f.current} is ${f.status} in ${f.slug}`, text: f.reason ?? "" });
+      out.push({ slug: f.slug, step: f.current, kind, tag: f.status === "blocked" ? "Blocked" : "Missed", bad: true, title: `${f.current} is ${f.status} in ${f.slug}`, text: f.reason ?? "" });
     else if (roleHasIt && f.status === "running")
-      out.push({ slug: f.slug, step: f.current, tag: "In progress", title: `${f.current} is running in ${f.slug}`, text: f.by ? `Started by ${names(project, [f.by]).replace(/\.$/, "")}.` : "Work is in progress." });
+      out.push({ slug: f.slug, step: f.current, kind, tag: "In progress", title: `${f.current} is running in ${f.slug}`, text: f.by ? `Started by ${names(project, [f.by]).replace(/\.$/, "")}.` : "Work is in progress." });
   }
   return [...out.filter((a) => a.bad), ...out.filter((a) => !a.bad)];
 }
@@ -158,7 +161,7 @@ export function FeatureTable({ list }: { list: Summary[] }) {
 }
 
 export function Home() {
-  const { me, project, features, go } = useApp();
+  const { me, project, features, go, openTask } = useApp();
   const acts = actionsFor(me, project, features);
   const open = features.filter((f) => !f.released);
   const avg = open.length ? Math.round(open.reduce((n, f) => n + f.progress, 0) / open.length) : 100;
@@ -198,7 +201,7 @@ export function Home() {
           {acts.length ? (
             <div class="alist">
               {acts.map((a, i) => (
-                <button type="button" class={`arow${a.bad ? " bad" : ""}`} data-task={i} key={i} onClick={() => go(`/features/${a.slug}`, { step: a.step })}>
+                <button type="button" class={`arow${a.bad ? " bad" : ""}`} data-task={i} key={i} onClick={() => openTask(a)}>
                   <span class="a-top">
                     <span class={`pill plain ${a.bad ? "bad" : "info"}`}>{a.tag}</span>
                     <code>{a.slug}</code>

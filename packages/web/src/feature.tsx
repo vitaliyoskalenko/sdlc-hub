@@ -267,7 +267,7 @@ function FlowMap({ detail, selected, pick }: { detail: FeatureDetail; selected: 
 }
 
 /** The command for a step, by its kind and state (revision 52: decide is the QA final check; return sends a step back). */
-function stepCommand(a: Parameters<typeof hubCmd>[0], s: FlowStep, st: StepState, current: string, slug: string): string {
+export function stepCommand(a: Parameters<typeof hubCmd>[0], s: FlowStep, st: StepState, current: string, slug: string): string {
   if (s.id === "qa-final") return hubCmd(a, "decide", slug);
   if (st.status === "signoff" || (s.kind === "hub" && !s.llm && s.id !== "autotests")) return hubCmd(a, "signoff", `${s.id} ${slug}`);
   if (s.id === "autotests") return hubCmd(a, "test", slug);
@@ -277,7 +277,7 @@ function stepCommand(a: Parameters<typeof hubCmd>[0], s: FlowStep, st: StepState
   return hubCmd(a, "run", `${s.id} ${slug}`);
 }
 
-function StepPanel({ detail, id }: { detail: FeatureDetail; id: string }) {
+export function StepPanel({ detail, id }: { detail: FeatureDetail; id: string }) {
   const { project, me, assistant, go } = useApp();
   const steps = project.flow.steps;
   const s = steps.find((x) => x.id === id)!;
@@ -487,7 +487,7 @@ function Documents({ slug, detail, params }: { slug: string; detail: FeatureDeta
 
 // --- Tasks
 
-interface TaskNode {
+export interface TaskNode {
   team: string;
   id: string;
   key: string;
@@ -500,7 +500,7 @@ interface TaskNode {
   row: number;
 }
 
-const TASK_LABEL: Record<string, [string, string]> = {
+export const TASK_LABEL: Record<string, [string, string]> = {
   done: ["ok", "done"],
   in_progress: ["info", "in progress"],
   review: ["info", "in review"],
@@ -508,10 +508,8 @@ const TASK_LABEL: Record<string, [string, string]> = {
   todo: ["mute", "to do"],
 };
 
-function Tasks({ detail, params }: { detail: FeatureDetail; params: URLSearchParams }) {
-  const { project, go } = useApp();
-  const st = detail.state;
-  const teamName = (id: string) => project.teams.find((t) => t.id === id)?.name ?? id;
+/** Every task of every team of a feature, joined from tasks.json and the tracker, with team-qualified dependencies. */
+export function collectTasks(st: FeatureDetail["state"]): TaskNode[] {
   const all: TaskNode[] = [];
   for (const t of st.teams) {
     const snap = t.snapshot;
@@ -525,6 +523,19 @@ function Tasks({ detail, params }: { detail: FeatureDetail; params: URLSearchPar
       all.push({ team: t.id, id, key: `${t.id}:${id}`, title: task?.title ?? row?.title ?? id, layer: task?.layer ?? "", acs: task?.acs ?? [], status: row?.status ?? "todo", deps, d: 0, row: 0 });
     }
   }
+  return all;
+}
+
+/** The tasks of other teams a task waits for and that are not done. */
+export function waitsOf(x: TaskNode, all: TaskNode[]): string[] {
+  return x.deps.filter((k) => k.split(":")[0] !== x.team && all.find((y) => y.key === k)?.status !== "done");
+}
+
+function Tasks({ detail, params }: { detail: FeatureDetail; params: URLSearchParams }) {
+  const { project, go } = useApp();
+  const st = detail.state;
+  const teamName = (id: string) => project.teams.find((t) => t.id === id)?.name ?? id;
+  const all = collectTasks(st);
   if (!all.length)
     return (
       <div class="lockbox">

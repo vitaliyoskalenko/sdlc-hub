@@ -7,7 +7,8 @@ import { Feature } from "./feature.tsx";
 import { Features } from "./features.tsx";
 import { Guide } from "./guide.tsx";
 import { CommandHelp } from "./help.tsx";
-import { actionsFor, Home } from "./home.tsx";
+import { actionsFor, Home, type Action } from "./home.tsx";
+import { TaskPage } from "./task.tsx";
 import "./styles.css";
 import { ASSISTANTS } from "./text.ts";
 import { App, href, roleLabel, type AppState } from "./ui.tsx";
@@ -34,6 +35,22 @@ function Root() {
   const [features, setFeatures] = useState<Summary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [help, setHelp] = useState<string | null>(null);
+  const [task, setTask] = useState<Action | null>(null);
+  // The latest open layers, for the Escape handler registered once.
+  const layers = useRef({ help: false, task: false });
+  layers.current = { help: help !== null, task: task !== null };
+  const taskOpener = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (task === null && taskOpener.current) {
+      taskOpener.current.focus();
+      taskOpener.current = null;
+    }
+    document.documentElement.style.overflow = task ? "hidden" : "";
+  }, [task]);
+  const openTask = (a: Action) => {
+    taskOpener.current = document.activeElement as HTMLElement | null;
+    setTask(a);
+  };
   // The control that opened the command help gets the focus back when it closes.
   const opener = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -53,8 +70,11 @@ function Root() {
   useEffect(() => {
     const onPop = () => setLoc(location.pathname + location.search);
     // Escape closes the command help wherever the focus is, so it is handled here, in the capture phase.
+    // Escape closes the top layer: the command help first, then the task page.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setHelp(null);
+      if (e.key !== "Escape") return;
+      if (layers.current.help) setHelp(null);
+      else if (layers.current.task) setTask(null);
     };
     addEventListener("popstate", onPop);
     addEventListener("keydown", onKey, true);
@@ -111,7 +131,7 @@ function Root() {
   const me = session.me;
   const asst = params.get("asst");
   const assistant: Assistant = session.demo && (asst === "claude" || asst === "codex" || asst === "cursor") ? asst : me.assistant;
-  const state: AppState = { session, me, project, features, assistant, version, go, help: openHelp };
+  const state: AppState = { session, me, project, features, assistant, version, go, help: openHelp, openTask };
   const actions = actionsFor(me, project, features).length;
   const nav: [string, string, number | null][] = [
     ["/", "Home", actions],
@@ -122,7 +142,7 @@ function Root() {
 
   return (
     <App.Provider value={state}>
-      <div class="app" inert={help !== null}>
+      <div class="app" inert={help !== null || task !== null}>
         <header class="top">
           <div class="brand">
             <b>SDLC Hub</b>
@@ -192,6 +212,11 @@ function Root() {
           Signed in as {me.name} · {roleLabel(me)}. Read only in this version.
         </p>
       </div>
+      {task !== null && (
+        <div inert={help !== null}>
+          <TaskPage action={task} close={() => setTask(null)} />
+        </div>
+      )}
       {help !== null && <CommandHelp text={help} close={() => setHelp(null)} />}
     </App.Provider>
   );

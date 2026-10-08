@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 8, 2026 · @Vitaliy · revision 54
+Oct 8, 2026 · @Vitaliy · revision 55
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -438,7 +438,7 @@ There is one site for everyone; the role decides the home page and which buttons
 | Settings | Engine, assistants, integrations, headless switch, prices, GitLab checklist | Admin only |
 | Your guide | What your role does in the assistant and on the site, and how to start next time | None |
 
-A wait on another team (a `<team-id>:<task-id>` reference to a task that is not done) is the cost the hub exists to show, so it is never only on the Tasks screen. It appears on Home, as an action for the lead whose task is waited for, for the leads who wait and for the PM, and as a count in the project statistics. It also appears in the Features list, on the Features graph beside the feature's column, and in the Now strip. The step itself stays running while the waiting teams still have work, for example on the mock, and turns blocked only when a team has nothing else it can do.
+A wait on another team (a `<team-id>:<task-id>` reference to a task that is not done) is the cost the hub exists to show, so it is never only on the Tasks screen. A red marker with the number of waiting teams ("3 teams wait") stands beside the current step in the Features list, on the feature's track in the Features graph and in the Now strip. On Home, the waits are actions for the lead whose task is waited for, for the leads who wait and for the PM, and the tile "Blocked by another team" counts the waiting teams. The step itself stays running while the waiting teams still have work, for example on the mock, and turns blocked only when a team has nothing else it can do.
 
 The actions on Home are derived from the detected state of every feature: what waits for the person, what is returned to them, what their role runs and what blocks it. Nobody writes them by hand.
 
@@ -751,7 +751,7 @@ Seven phases, each usable on its own; the first needs no hub at all. Phase 1 is 
 | 4. Metrics | Usage hooks, the Costs screen, estimates against actuals, encrypted per-person records | Cost per feature is within 10% of the provider's report for the same period |
 | 5. Other assistants, GitHub and headless | Codex and Cursor skills, the GitHub install, headless validation, a second engine adapter as proof | The same step of one feature runs from all three assistants |
 
-`hub-report` is in phase 1 because steps 5 to 7 and steps 9 to 14 are read from team snapshots: tech-design, data-model and api happen in the contract team's repository, and tasks, implement, review and ship happen in every team repository. Phase 1a builds the snapshot and reads it, and phase 1b puts the job into the team repositories. Phase 2 also has the task page, sign-off and light edits. Until phase 2 lands, branch protection stays off and the site is read only. The phase 4 check is against the admin console's monthly export for the team, since seats are not billed per feature.
+`hub-report` is in phase 1 because steps 5 to 7 and steps 9 to 14 are read from team snapshots: tech-design, data-model and api happen in the contract team's repository, and tasks, implement, review and ship happen in every team repository. Phase 1a builds the snapshot and reads it, and phase 1b puts the job into the team repositories. Phase 1a also has the task page, read only. Phase 2 has sign-off and light edits. Until phase 2 lands, branch protection stays off and the site is read only. The phase 4 check is against the admin console's monthly export for the team, since seats are not billed per feature.
 
 ## Hardening and lifecycle
 

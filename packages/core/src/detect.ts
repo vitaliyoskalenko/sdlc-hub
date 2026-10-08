@@ -11,7 +11,7 @@ import { checkEngineAgainstFlow } from "./project-check.ts";
 import { buildTeamSnapshot, readRoute, readSize, readTargetSurfaces, UI_SURFACES } from "./sdd.ts";
 import type { Route, Size } from "./schema/common.ts";
 import type { BugFile, HubEventLine } from "./files.ts";
-import type { Feature, Release, Signoff, TeamSnapshot, TestRun } from "./schema/feature.ts";
+import type { BugFront, Feature, Release, Signoff, TeamSnapshot, TestRun } from "./schema/feature.ts";
 import { contractTeam, type Config, type Engine, type Flow, type FlowStep, type Roles } from "./schema/project.ts";
 import type { FileSource } from "./source.ts";
 
@@ -80,6 +80,8 @@ export interface FeatureState {
   teams: TeamState[];
   waits: CrossTeamWait[];
   testRuns: TestRun[];
+  /** Every bug of the feature, by id. */
+  bugs: BugFront[];
   blockingBugs: string[];
   warnings: string[];
   issues: Issue[];
@@ -515,6 +517,7 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
     teams,
     waits,
     testRuns,
+    bugs: bugs.map((b) => b.front).sort((a, b) => a.id.localeCompare(b.id)),
     blockingBugs,
     warnings,
     issues,

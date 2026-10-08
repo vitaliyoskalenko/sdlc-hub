@@ -136,3 +136,52 @@ test.describe("skipped, not missed", () => {
     await expect(notes).toContainText("set ui: false in feature.yaml");
   });
 });
+
+test.describe("the task page opens over Home", () => {
+  test("for the backend lead: the tasks that wait for his T2, and the way to the Tasks screen", async ({ page }) => {
+    await open(page, `${DEMO}/?as=taras.m`);
+    await page.locator("[data-task]").first().click();
+    const sheet = page.locator("#sheet .sheet");
+    await expect(sheet.locator("h1")).toHaveText("Web, Android and iOS wait for your T2");
+    await expect(sheet).toContainText("Tasks of other teams that wait for yours");
+    await expect(sheet).toContainText("switch to the staging API");
+    await expect(sheet.locator(".waitmark")).toHaveText("⧗ 3 teams wait");
+    await expect(sheet.locator(".cmd code").first()).toHaveText("/hub:next bulk-order-export");
+    // The page behind is inert while the task page is open.
+    await expect(page.locator(".app")).toHaveAttribute("inert", "");
+    await sheet.locator('[data-go="/features/bulk-order-export/tasks"]').click();
+    await expect(page.locator("#sheet")).toHaveCount(0);
+    await expect(page.locator('.tab[data-ftab="tasks"]')).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("for QA: the open bugs and the latest test runs, local runs labelled", async ({ page }) => {
+    await open(page, `${DEMO}/?as=iryna.s`);
+    await page.locator("[data-task]").first().click();
+    const sheet = page.locator("#sheet .sheet");
+    await expect(sheet).toContainText("Task visible after access to the order was revoked");
+    await expect(sheet).toContainText("Task form has no state for a 403 response");
+    await expect(sheet).not.toContainText("Due date picker opens one day early");
+    await expect(sheet).toContainText("pipeline #8841");
+    await expect(sheet).toContainText("local run by andrii.p");
+    await expect(sheet.locator(".cmd code").first()).toHaveText("/hub:verify tasks-issues");
+  });
+
+  test("for the PO: the step, its gate and the prompt", async ({ page }) => {
+    await open(page, `${DEMO}/?as=olena.k`);
+    await page.locator("[data-task]").first().click();
+    const sheet = page.locator("#sheet .sheet");
+    await expect(sheet.locator("#steph")).toHaveText("Closing ambiguities");
+    await expect(sheet).toContainText("Waiting on");
+    await sheet.locator('[data-go="/features/returns-portal"]').click();
+    await expect(page.locator("#steppanel h3")).toHaveText("Closing ambiguities");
+  });
+
+  test("Escape gives the focus back to the action", async ({ page }) => {
+    await open(page, `${DEMO}/?as=taras.m`);
+    const first = page.locator("[data-task]").first();
+    await first.click();
+    await expect(page.locator("#sheet-x")).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(first).toBeFocused();
+  });
+});

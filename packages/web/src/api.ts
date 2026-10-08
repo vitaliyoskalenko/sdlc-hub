@@ -114,7 +114,8 @@ export interface FeatureState {
   contractTeam: string | null;
   teams: TeamState[];
   waits: { team: string; task: string; on: string; known: boolean; done: boolean }[];
-  testRuns: { source: "ci" | "local"; team: string; passed: number; failed: number; at: string }[];
+  testRuns: { source: "ci" | "local"; team: string; platform?: string; passed: number; failed: number; at: string; ref?: string }[];
+  bugs: { id: string; title: string; ac?: string; platforms?: string[]; team: string; severity: string; status: string }[];
   blockingBugs: string[];
   warnings: string[];
   issues: { level: string; file: string; line?: number; message: string }[];
