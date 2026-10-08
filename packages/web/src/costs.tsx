@@ -29,7 +29,9 @@ export function Costs({ detail }: { detail: FeatureDetail }) {
   const people = data.people.filter((p) => p.month === month);
   const est = data.estimate.feature;
   const stepIds = project.flow.steps.map((s) => s.id);
-  const steps = [...(t?.steps ?? [])].sort((a, b) => stepIds.indexOf(a.step) - stepIds.indexOf(b.step));
+  // Flow order; fix and other return paths, which are not steps, come last.
+  const order = (id: string) => (stepIds.includes(id) ? stepIds.indexOf(id) : stepIds.length);
+  const steps = [...(t?.steps ?? [])].sort((a, b) => order(a.step) - order(b.step));
 
   return (
     <div class="stack" id="costs">
