@@ -72,6 +72,16 @@ if (!state.ownerToken || !(await fetch(`${API}/user`, { headers: { "PRIVATE-TOKE
   console.log("owner token created for nazar.t");
 }
 
+// 4b. Tokens of two team members, for the guard tests: what each person's git credential holds.
+state.people ??= {};
+for (const u of ["olena.k", "taras.m"]) {
+  if (state.people[u] && (await fetch(`${API}/user`, { headers: { "PRIVATE-TOKEN": state.people[u] } })).ok) continue;
+  const t = await call(root, "POST", `/users/${people[u].id}/personal_access_tokens`, { name: "SDLC Hub test", scopes: ["api"], expires_at: new Date(Date.now() + 200 * 86400000).toISOString().slice(0, 10) });
+  state.people[u] = t.token;
+  save();
+  console.log(`token created for ${u}`);
+}
+
 // 5. An instance runner in Docker that reaches GitLab as host.docker.internal.
 if (!state.runnerReady) {
   const r = await call(root, "POST", "/user/runners", { runner_type: "instance_type", description: "sdlc-hub-test", run_untagged: true });

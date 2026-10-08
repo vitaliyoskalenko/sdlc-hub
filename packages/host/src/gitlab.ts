@@ -74,6 +74,17 @@ export interface PushEvent {
 }
 
 const enc = encodeURIComponent;
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+/** detailed_merge_status while GitLab is still checking a merge request. */
+const CHECKING = ["unchecked", "checking", "preparing", "approvals_syncing"];
+
+export interface Proposal {
+  target: string;
+  branch: string;
+  title: string;
+  description: string;
+  actions: CommitAction[];
+}
 
 export class GitLab {
   readonly api: string;
@@ -140,9 +151,39 @@ export class GitLab {
   createMergeRequest = (projectId: number, source: string, target: string, title: string, description: string) =>
     this.call<MergeRequest>("POST", `/projects/${projectId}/merge_requests`, { source_branch: source, target_branch: target, title, description, remove_source_branch: true });
   mergeRequest = (projectId: number | string, iid: number) => this.call<MergeRequest>("GET", `/projects/${enc(String(projectId))}/merge_requests/${iid}`);
+  updateMergeRequest = (projectId: number, iid: number, fields: Record<string, unknown>) => this.call<MergeRequest>("PUT", `/projects/${projectId}/merge_requests/${iid}`, fields);
   /** Sets a merge request to merge by itself when its pipeline succeeds. GitLab answers 405 or 422 until it has checked it. */
   mergeWhenPipelineSucceeds = (projectId: number, iid: number) =>
     this.call<MergeRequest>("PUT", `/projects/${projectId}/merge_requests/${iid}/merge`, { merge_when_pipeline_succeeds: true, should_remove_source_branch: true });
+  /**
+   * Sets a new merge request to merge by itself when its pipeline succeeds. GitLab first checks the merge request
+   * and answers 405 or 422 until then, so this waits and retries for about a minute.
+   */
+  async autoMerge(projectId: number, iid: number, wait: (ms: number) => Promise<void> = sleep): Promise<MergeRequest> {
+    for (let i = 0; i < 30; i++) {
+      if (!CHECKING.includes((await this.mergeRequest(projectId, iid)).detailed_merge_status ?? "")) break;
+      await wait(2000);
+    }
+    let last: unknown;
+    for (let i = 0; i < 20; i++) {
+      try {
+        return await this.mergeWhenPipelineSucceeds(projectId, iid);
+      } catch (e) {
+        if (!(e instanceof HostError) || ![405, 406, 409, 422].includes(e.status)) throw e;
+        last = e;
+        await wait(3000);
+      }
+    }
+    throw last;
+  }
+  /** A change to a protected branch: commit to a branch, open (or reuse) its merge request and set it to merge itself. */
+  async propose(projectId: number, p: Proposal): Promise<MergeRequest> {
+    const exists = await this.branch(projectId, p.branch);
+    await this.commit(projectId, p.branch, p.title, p.actions, exists ? undefined : p.target);
+    const mr = (await this.openMergeRequests(projectId, p.branch))[0] ?? (await this.createMergeRequest(projectId, p.branch, p.target, p.title, p.description));
+    await this.autoMerge(projectId, mr.iid);
+    return mr;
+  }
   /** Everyone who pushed to a branch since a day (YYYY-MM-DD), from the project's push events, all pages. */
   async pushers(projectId: number | string, branch: string, since: string): Promise<string[]> {
     const users = new Set<string>();

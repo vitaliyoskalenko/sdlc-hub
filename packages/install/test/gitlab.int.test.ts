@@ -1,5 +1,6 @@
 // The install against a real GitLab CE: run e2e/gitlab/bootstrap.mjs first, then `npm run test:gitlab`.
-// Skipped in `npm test`. It also checks open-items claims 3, 11, 12 and 13 on GitLab Free.
+// Skipped in `npm test`. It also checks open-items claims 3, 11, 12 and 13 on GitLab Free, and that hub-guard
+// refuses at merge an edit outside a role while edits inside a role merge by themselves.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -7,13 +8,14 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseConfig, parseTeamSnapshot } from "@sdlc-hub/core";
-import { GitLab } from "@sdlc-hub/host";
+import { GitLab, type MergeRequest } from "@sdlc-hub/host";
 import { install, preflight, type SetupAnswers } from "../src/index.ts";
 
 const URL_ = "http://localhost:8929";
 const FILE = join(homedir(), ".sdlc-hub-test", "gitlab.json");
 const enabled = process.env.HUB_GITLAB_IT === "1" && existsSync(FILE);
-const secrets = enabled ? (JSON.parse(readFileSync(FILE, "utf8")) as { ownerToken: string; rootToken: string }) : { ownerToken: "", rootToken: "" };
+type Secrets = { ownerToken: string; rootToken: string; people: Record<string, string> };
+const secrets: Secrets = enabled ? (JSON.parse(readFileSync(FILE, "utf8")) as Secrets) : { ownerToken: "", rootToken: "", people: {} };
 
 const ANSWERS: SetupAnswers = {
   host: "gitlab",
@@ -37,7 +39,25 @@ const ANSWERS: SetupAnswers = {
 };
 
 const bundle = existsSync("packages/cli/dist/cli.mjs") ? readFileSync("packages/cli/dist/cli.mjs", "utf8") : "// hub bundle\n";
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** Polls a merge request until it merged or its pipeline failed. */
+async function settle(gl: GitLab, projectId: number, iid: number): Promise<MergeRequest> {
+  let m = await gl.mergeRequest(projectId, iid);
+  for (let i = 0; i < 60 && m.state !== "merged" && m.head_pipeline?.status !== "failed"; i++) {
+    await wait(5000);
+    m = await gl.mergeRequest(projectId, iid);
+  }
+  return m;
+}
+
+/** The log of the hub-guard job of a merge request's pipeline. */
+async function guardLog(projectId: number, pipeline: number): Promise<string> {
+  const h = { "PRIVATE-TOKEN": secrets.rootToken };
+  const jobs = (await fetch(`${URL_}/api/v4/projects/${projectId}/pipelines/${pipeline}/jobs`, { headers: h }).then((r) => r.json())) as { id: number; name: string }[];
+  const job = jobs.find((j) => j.name === "hub-guard");
+  return job ? fetch(`${URL_}/api/v4/projects/${projectId}/jobs/${job.id}/trace`, { headers: h }).then((r) => r.text()) : "";
+}
 
 describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
   const owner = new GitLab(URL_, secrets.ownerToken);
@@ -75,12 +95,92 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
     const web = (await owner.project("shop/web-admin"))!;
     expect(await owner.file(web.id, ".gitlab-ci.yml", "sdlc-hub/hub-report")).toBe("include:\n  - local: ci/hub-report.gitlab-ci.yml\nstages: [build, test]\nbuild:\n  stage: build\n  script: [echo build]\n");
     expect(r.left.join("\n")).toMatch(/Renew HUB_STATE_TOKEN before \d{4}-\d{2}-\d{2}/);
-  }, 120_000);
+    expect(r.left.join("\n")).toMatch(/Renew HUB_GUARD_TOKEN before \d{4}-\d{2}-\d{2}/);
+    // Phase 2: hub-ci, the CI configuration, "Pipelines must succeed" and main protected.
+    const now = (await owner.project("shop/product-specs"))!;
+    expect(now).toMatchObject({ ci_config_path: "ci/product-specs.yml@shop/hub-ci", only_allow_merge_if_pipeline_succeeds: true, allow_merge_on_skipped_pipeline: false });
+    const pb = (await owner.protectedBranch(specs.id, "main"))!;
+    expect([pb.push_access_levels.map((l) => l.access_level), pb.merge_access_levels.map((l) => l.access_level)]).toEqual([[0], [30]]);
+    const ci = (await owner.project("shop/hub-ci"))!;
+    expect(await owner.file(ci.id, "ci/product-specs.yml", "main")).toContain("guard --rules FETCH_HEAD");
+    expect(await owner.projectVariable(specs.id, "HUB_GUARD_TOKEN")).toMatchObject({ masked: true, protected: false });
+  }, 180_000);
 
   it("changes nothing on a second run", async () => {
     const r = await install(ANSWERS, owner, { hubBundle: bundle });
     expect(r.steps.map((s) => [s.id, s.state])).toEqual(r.steps.map((s) => [s.id, "skip"]));
   }, 120_000);
+
+  describe("hub-guard at merge", () => {
+    const specsId = async () => (await root.project("shop/product-specs"))!.id;
+    const as = (user: string) => new GitLab(URL_, secrets.people[user]!);
+    const stamp = Date.now();
+
+    it("merges the admin's merge request that adds people to roles.yaml", async () => {
+      const id = await specsId();
+      // An install merge request left from an earlier run merges first: the admin passes the guard.
+      const pending = (await owner.openMergeRequests(id, "sdlc-hub/install"))[0];
+      if (pending) expect((await settle(owner, id, pending.iid)).state).toBe("merged");
+      const roles = (await owner.file(id, ".hub/roles.yaml", "main"))!;
+      if (roles.includes("olena.k")) return;
+      const next = `${roles}  - { user: olena.k, name: Olena K., role: po }\n  - { user: taras.m, name: Taras M., role: dev, team: backend, lead: true }\n`;
+      const mr = await owner.propose(id, { target: "main", branch: `people-${stamp}`, title: "Add Olena and Taras", description: "", actions: [{ action: "update", file_path: ".hub/roles.yaml", content: next }] });
+      const m = await settle(owner, id, mr.iid);
+      expect(m.state, await guardLog(id, m.head_pipeline?.id ?? 0)).toBe("merged");
+    }, 360_000);
+
+    it("merges the PO's change to a spec by itself, in her name", async () => {
+      const id = await specsId();
+      const mr = await as("olena.k").propose(id, {
+        target: "main",
+        branch: `spec-${stamp}`,
+        title: "Spec for bulk order export",
+        description: "",
+        actions: [{ action: (await root.file(id, "docs/features/bulk-order-export/spec.md", "main")) === null ? "create" : "update", file_path: "docs/features/bulk-order-export/spec.md", content: `# Bulk order export\n\nRevision ${stamp}.\n` }],
+      });
+      const m = await settle(root, id, mr.iid);
+      expect(m.state, await guardLog(id, m.head_pipeline?.id ?? 0)).toBe("merged");
+      expect(m.author?.username).toBe("olena.k");
+      expect(await guardLog(id, m.head_pipeline!.id)).toContain("hub-guard: passed (author olena.k)");
+    }, 360_000);
+
+    it("refuses the PO's change to .hub/config.yaml at merge, with the reason in the job log", async () => {
+      const id = await specsId();
+      const config = (await root.file(id, ".hub/config.yaml", "main"))!;
+      const mr = await as("olena.k").propose(id, { target: "main", branch: `config-${stamp}`, title: "Change the config", description: "", actions: [{ action: "update", file_path: ".hub/config.yaml", content: `${config}# ${stamp}\n` }] });
+      const m = await settle(root, id, mr.iid);
+      expect(m.state).toBe("opened");
+      expect(m.head_pipeline?.status).toBe("failed");
+      const log = await guardLog(id, m.head_pipeline!.id);
+      expect(log).toContain("hub-guard: refused (author olena.k)");
+      expect(log).toContain("✗ .hub/config.yaml — No role of olena.k (po) may change .hub/config.yaml");
+      await root.updateMergeRequest(id, mr.iid, { state_event: "close" });
+    }, 360_000);
+
+    it("does not merge a change whose pipeline was skipped with [skip ci]", async () => {
+      const id = await specsId();
+      const gl = as("olena.k");
+      const config = (await root.file(id, ".hub/config.yaml", "main"))!;
+      const branch = `skip-${stamp}`;
+      await gl.commit(id, branch, "Change the config [skip ci]", [{ action: "update", file_path: ".hub/config.yaml", content: `${config}# skip ${stamp}\n` }], "main");
+      const mr = await gl.createMergeRequest(id, branch, "main", "Change the config [skip ci]", "");
+      let merged = false;
+      try {
+        await gl.autoMerge(id, mr.iid, () => wait(1000));
+        await wait(10_000);
+        merged = (await root.mergeRequest(id, mr.iid)).state === "merged";
+      } catch {
+        merged = false;
+      }
+      await root.updateMergeRequest(id, mr.iid, { state_event: "close" }).catch(() => undefined);
+      expect(merged).toBe(false);
+    }, 180_000);
+
+    it("refuses a direct push to main, even by the admin", async () => {
+      const id = await specsId();
+      await expect(owner.commit(id, "main", "direct", [{ action: "create", file_path: `direct-${stamp}.txt`, content: "x" }])).rejects.toThrow(/403|protected|not allowed/i);
+    }, 60_000);
+  });
 
   it("runs hub-report in a team pipeline and publishes the snapshot to hub-state (claim 12)", async () => {
     const be = (await root.project("shop/backend"))!;

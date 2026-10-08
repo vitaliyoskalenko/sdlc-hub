@@ -1,6 +1,8 @@
 // The checks before install and the install steps on GitLab. Each step first looks at the host, so a second run
 // continues from the first step that did not finish and repeats nothing. Phase 1b writes files, creates hub-state,
-// stores HUB_STATE_TOKEN and opens the hub-report merge requests; protecting main comes with phase 2.
+// stores HUB_STATE_TOKEN and opens the hub-report merge requests. Phase 2 adds hub-guard: the hub-ci project,
+// HUB_GUARD_TOKEN, the CI configuration of product-specs, "Pipelines must succeed" and a protected main. Once main is
+// protected, the files reach it through a merge request that merges itself, like every other change.
 
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -8,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { GitLab, HostError, WORDS, type GitLabGroup, type GitLabProject, type GitLabUser } from "@sdlc-hub/host";
 import { CLAUDE_BLOCK, hostUrl, hubFiles, teamId, withBlock, withIgnore, type SetupAnswers } from "./answers.ts";
-import { HUB_REPORT_FILE, hubReportJob, reportStage, withInclude } from "./ci.ts";
+import { HUB_CI_FILE, HUB_CI_PROJECT, HUB_REPORT_FILE, hubGuardCi, hubReportJob, reportStage, withInclude } from "./ci.ts";
 
 export interface Check {
   id: string;
@@ -103,6 +105,36 @@ export interface InstallResult {
 
 const HUB_STATE = "hub-state";
 const REPORT_BRANCH = "sdlc-hub/hub-report";
+const INSTALL_BRANCH = "sdlc-hub/install";
+/** GitLab access levels. */
+const NO_ONE = 0;
+const DEVELOPER = 30;
+const MAINTAINER = 40;
+
+type Protection = Awaited<ReturnType<GitLab["protectedBranch"]>>;
+const isProtected = (b: Protection, push: number, merge: number) =>
+  !!b && b.push_access_levels.length > 0 && b.push_access_levels.every((l) => l.access_level === push) && b.merge_access_levels.length > 0 && b.merge_access_levels.every((l) => l.access_level === merge);
+
+/** Protects a branch with exactly these levels. The API has no update on Free, so a different protection is replaced. */
+async function protect(gl: GitLab, projectId: number, branch: string, push: number, merge: number): Promise<boolean> {
+  const now = await gl.protectedBranch(projectId, branch);
+  if (isProtected(now, push, merge)) return false;
+  if (now) await gl.unprotectBranch(projectId, branch);
+  await gl.protectBranch(projectId, branch, push, merge);
+  return true;
+}
+
+/** A project access token stored in a masked CI variable, created once; returns its expiry for the reminder. */
+async function tokenVariable(gl: GitLab, o: { projectId: number; name: string; scopes: string[]; level: number; now: Date; has: () => Promise<unknown>; store: (token: string) => Promise<unknown> }) {
+  if (await o.has()) {
+    const t = (await gl.projectTokens(o.projectId).catch(() => [])).find((x) => x.name === o.name && x.active && !x.revoked);
+    return { created: false, expires: t?.expires_at ?? "" };
+  }
+  const exp = new Date(o.now.getTime() + 364 * 86_400_000).toISOString().slice(0, 10);
+  const t = await gl.createProjectToken(o.projectId, o.name, o.scopes, o.level, exp);
+  await o.store(t.token);
+  return { created: true, expires: t.expires_at };
+}
 
 export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions): Promise<InstallResult> {
   const steps: StepEvent[] = [];
@@ -138,7 +170,8 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
   const p = specs;
   const main = p.default_branch ?? "main";
 
-  // 1. The hub and its settings, in one commit on main.
+  // 1. The hub and its settings, in one commit on main; through a merge request once main is protected.
+  const locked = isProtected(await gl.protectedBranch(p.id, main), NO_ONE, DEVELOPER);
   const ok1 = await step("files", `wrote .hub/, hub/cli.js, CLAUDE.md${a.assistants.codex || a.assistants.cursor ? ", AGENTS.md" : ""} and .gitignore to ${specsPath}`, async () => {
     const existingRoles = await gl.file(p.id, ".hub/roles.yaml", main);
     const { files, issues } = hubFiles(a, { user: user.username, name: user.name });
@@ -150,15 +183,29 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
     files["CLAUDE.md"] = withBlock(await gl.file(p.id, "CLAUDE.md", main), CLAUDE_BLOCK);
     if (a.assistants.codex || a.assistants.cursor) files["AGENTS.md"] = withBlock(await gl.file(p.id, "AGENTS.md", main), CLAUDE_BLOCK);
     files[".gitignore"] = withIgnore(await gl.file(p.id, ".gitignore", main), ".claude/sdd.local.md");
+    // An install merge request still waiting for its pipeline already carries some of the files.
+    const pending = locked ? (await gl.openMergeRequests(p.id, INSTALL_BRANCH))[0] : undefined;
     const actions = [];
+    let behindMain = false;
     for (const [path, content] of Object.entries(files)) {
       const now = await gl.file(p.id, path, main);
       if (now === content) continue;
-      actions.push({ action: now === null ? ("create" as const) : ("update" as const), file_path: path, content });
+      behindMain = true;
+      const there = pending ? await gl.file(p.id, path, INSTALL_BRANCH) : now;
+      if (there === content) continue;
+      actions.push({ action: there === null ? ("create" as const) : ("update" as const), file_path: path, content });
     }
-    if (!actions.length) return { state: "skip" as const, text: `${specsPath} already has the hub files` };
-    const c = await gl.commit(p.id, main, "Install SDLC Hub", actions);
-    return { link: c.web_url };
+    if (!behindMain) return { state: "skip" as const, text: `${specsPath} already has the hub files` };
+    if (!locked) {
+      const c = await gl.commit(p.id, main, "Install SDLC Hub", actions);
+      return { link: c.web_url };
+    }
+    if (!actions.length && pending) {
+      await gl.autoMerge(p.id, pending.iid);
+      return { state: "skip" as const, text: `the hub files wait in ${w.changeRequest} ${w.sign}${pending.iid}, which merges itself when hub-guard passes`, link: pending.web_url };
+    }
+    const mr = await gl.propose(p.id, { target: main, branch: INSTALL_BRANCH, title: "Update SDLC Hub", description: "Written by setup. It merges itself when hub-guard passes.", actions });
+    return { text: `opened ${w.changeRequest} ${w.sign}${mr.iid} with the hub files; it merges itself when hub-guard passes`, link: mr.web_url };
   });
   if (!ok1) return { ok: false, steps, left };
 
@@ -175,23 +222,71 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
   });
 
   // 4. HUB_STATE_TOKEN: a project access token that hub-report uses to write hub-state, as a masked group variable.
-  let expires = "";
+  const now = opts.now ?? new Date();
   await step("token", "stored a project access token for hub-report as the masked group variable HUB_STATE_TOKEN", async () => {
-    if (await gl.groupVariable(group.id, "HUB_STATE_TOKEN")) {
-      // Remind of the expiry on every run: the token stops working on that day.
-      const t = (await gl.projectTokens(p.id).catch(() => [])).find((x) => x.name === "hub-report" && x.active && !x.revoked);
-      if (t) expires = t.expires_at;
-      return { state: "skip" as const, text: "the group variable HUB_STATE_TOKEN already exists" };
-    }
-    const now = opts.now ?? new Date();
-    const exp = new Date(now.getTime() + 364 * 86_400_000).toISOString().slice(0, 10);
-    const t = await gl.createProjectToken(p.id, "hub-report", ["read_repository", "write_repository"], 30, exp);
-    await gl.setGroupVariable(group.id, "HUB_STATE_TOKEN", t.token, { masked: true, protected: false });
-    expires = t.expires_at;
+    const t = await tokenVariable(gl, {
+      projectId: p.id,
+      name: "hub-report",
+      scopes: ["read_repository", "write_repository"],
+      level: DEVELOPER,
+      now,
+      has: () => gl.groupVariable(group.id, "HUB_STATE_TOKEN"),
+      store: (token) => gl.setGroupVariable(group.id, "HUB_STATE_TOKEN", token, { masked: true, protected: false }),
+    });
+    // Remind of the expiry on every run: the token stops working on that day.
+    if (t.expires) left.push(`Renew HUB_STATE_TOKEN before ${t.expires}: it is a project access token of ${specsPath} and GitLab expires it then`);
+    if (!t.created) return { state: "skip" as const, text: "the group variable HUB_STATE_TOKEN already exists" };
   });
-  if (expires) left.push(`Renew HUB_STATE_TOKEN before ${expires}: it is a project access token of ${specsPath} and GitLab expires it then`);
 
-  // 5. One merge request per team repository that adds the hub-report job.
+  // 5. hub-guard. hub-ci holds the CI configuration of product-specs; its main only Maintainers change.
+  const ciPath = `${group.full_path}/${HUB_CI_PROJECT}`;
+  await step("hub-ci", `created ${ciPath} with the hub-guard job, its main protected`, async () => {
+    let ci = await gl.project(ciPath);
+    let changed = false;
+    if (!ci) {
+      ci = await gl.createProject(group.id, HUB_CI_PROJECT);
+      changed = true;
+    }
+    const branch = ci.default_branch ?? "main";
+    const now = await gl.file(ci.id, HUB_CI_FILE, branch);
+    if (now !== hubGuardCi()) {
+      await gl.commit(ci.id, branch, "The hub-guard job (SDLC Hub)", [{ action: now === null ? "create" : "update", file_path: HUB_CI_FILE, content: hubGuardCi() }]);
+      changed = true;
+    }
+    if (await protect(gl, ci.id, branch, MAINTAINER, MAINTAINER)) changed = true;
+    if (!changed) return { state: "skip" as const, text: `${ciPath} already has the current hub-guard job` };
+  });
+
+  // HUB_GUARD_TOKEN: read_api, so the guard can ask who opened a merge request and who pushed to it.
+  await step("guard-token", "stored a read-only project access token for hub-guard as the masked variable HUB_GUARD_TOKEN", async () => {
+    const t = await tokenVariable(gl, {
+      projectId: p.id,
+      name: "hub-guard",
+      scopes: ["read_api"],
+      level: 20,
+      now,
+      has: () => gl.projectVariable(p.id, "HUB_GUARD_TOKEN"),
+      store: (token) => gl.setProjectVariable(p.id, "HUB_GUARD_TOKEN", token, { masked: true, protected: false }),
+    });
+    if (t.expires) left.push(`Renew HUB_GUARD_TOKEN before ${t.expires}: after that day hub-guard fails and no merge request into ${specsPath} can merge`);
+    if (!t.created) return { state: "skip" as const, text: "the variable HUB_GUARD_TOKEN already exists" };
+  });
+
+  // The CI configuration file of product-specs points at hub-ci, and a merge request merges only when it passes.
+  const ciConfig = `${HUB_CI_FILE}@${ciPath}`;
+  await step("ci-config", `pointed the CI configuration of ${specsPath} at ${ciConfig} and turned on "Pipelines must succeed"`, async () => {
+    const now = await gl.project(specsPath);
+    if (now?.ci_config_path === ciConfig && now.only_allow_merge_if_pipeline_succeeds && !now.allow_merge_on_skipped_pipeline)
+      return { state: "skip" as const, text: `${specsPath} already runs ${ciConfig} and needs it to pass` };
+    await gl.updateProject(p.id, { ci_config_path: ciConfig, only_allow_merge_if_pipeline_succeeds: true, allow_merge_on_skipped_pipeline: false });
+  });
+
+  // Last: main takes no pushes, and Developers merge, which is what "merges itself" does in their name.
+  await step("protect", `protected main of ${specsPath}: no one pushes, Developers merge`, async () => {
+    if (!(await protect(gl, p.id, main, NO_ONE, DEVELOPER))) return { state: "skip" as const, text: `main of ${specsPath} is already protected` };
+  });
+
+  // 6. One merge request per team repository that adds the hub-report job.
   const opened: string[] = [];
   for (const t of a.teams) {
     const id = teamId(t.name);
@@ -233,7 +328,7 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
   if (opened.length) left.push(`${a.teams.length === 1 ? "The team lead merges" : "Each team lead merges"} the ${w.changeRequest} that adds the hub-report job: ${opened.join(", ")}`);
   if (!/gitlab\.com$/.test(new URL(hostUrl(a.address)).hostname)) left.push("Optional: install the pre-receive server hook. It needs access to the GitLab server");
   if (a.engine === "custom") left.push("Fill in .hub/engines/custom.yaml: one command per stage");
-  left.push("Protecting main and the hub-guard job come with phase 2: run setup again then");
+  left.push(`Keep the people of the hub at the Developer role in ${group.full_path}: a Maintainer can change ${ciPath} and the protection of main`);
   return { ok: steps.every((s) => s.state !== "fail"), steps, left };
 }
 

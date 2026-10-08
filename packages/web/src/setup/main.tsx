@@ -255,7 +255,7 @@ function Setup() {
                   {signed.version && <span class="pill ok">GitLab {signed.version}</span>}
                   <span class={`pill ${signed.stored ? "ok" : "warn"}`}>{signed.stored ? "token kept in your system keychain" : "token kept in memory only"}</span>
                 </div>
-                <p class="muted">The Free tier has no Code Owners or approval rules; the hub-guard job does that work instead, from phase 2.</p>
+                <p class="muted">The Free tier has no Code Owners or approval rules; the hub-guard job does that work instead.</p>
               </div>
             ) : (
               <div class="signin">
@@ -550,7 +550,12 @@ function Setup() {
           <li>
             Opens {a.teams.length === 1 ? `one ${h.cr} in the team repository` : `${a.teams.length} ${h.crs}, one in each team repository`} that adds the hub-report job. Nothing else changes there.
           </li>
-          <li>Protecting main and the hub-guard job come with phase 2: run setup again then.</li>
+          <li>
+            Creates the project <code>{`${a.namespace}/hub-ci`}</code> with the hub-guard job and points the CI configuration of <code>{a.repo}</code> at it, so a {h.cr} cannot remove the guard. Stores a read-only token for it as <code>HUB_GUARD_TOKEN</code>.
+          </li>
+          <li>
+            Turns on "Pipelines must succeed" and protects <code>main</code>: no one pushes to it, and every change arrives through a {h.cr} that merges itself when hub-guard passes. Run setup again later the same way.
+          </li>
         </ul>
         {files && (
           <details class="more">
