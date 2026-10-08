@@ -1,0 +1,14 @@
+{
+  "name": "@sdlc-hub/save",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Saves from the site: a commit in the hub's own worktree, pushed as a branch whose merge request merges itself.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@sdlc-hub/core": "*",
+    "@sdlc-hub/git": "*"
+  }
+}

@@ -1,0 +1,168 @@
+// Saves from the site. The server commits in its own git worktree, never in the checkout the assistant works in,
+// and pushes a branch `hub/<user>/<label>-<time>`. On GitLab, push options open the merge request and set it to merge
+// itself when hub-guard passes, so git alone is enough, over HTTPS or SSH. A save stays pending until main has it;
+// when hub-guard refuses it, the reason is in hub-state. Records live in the git directory, not in the repository.
+
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, isAbsolute, join, resolve } from "node:path";
+import { parseSaveRefusal, refusalPath, saveBranch, type Change, type FileSource, type Finding } from "@sdlc-hub/core";
+import { refSource } from "@sdlc-hub/git";
+
+export interface Save {
+  branch: string;
+  title: string;
+  user: string;
+  paths: string[];
+  at: string;
+  sha: string;
+  /** The blob of each saved path (null for a deletion), to see a squashed merge on main. */
+  blobs: Record<string, string | null>;
+  state: "pending" | "merged" | "refused";
+  mr?: { iid: number; url: string };
+  findings?: Finding[];
+}
+
+export interface SaveRequest {
+  user: string;
+  /** A few words for the branch name. */
+  label: string;
+  /** The commit message and the merge request title. */
+  title: string;
+  /** The changes, built from main as it is on the remote right now. */
+  build: (main: FileSource) => Change[];
+}
+
+export interface SaverOptions {
+  /** The product-specs checkout. */
+  root: string;
+  identity: { name: string; email: string };
+  remote?: string;
+  target?: string;
+  /** Push options that open the merge request; GitLab's by default. */
+  pushOptions?: (title: string, target: string) => string[];
+  now?: () => Date;
+  env?: NodeJS.ProcessEnv;
+}
+
+export function gitlabPushOptions(title: string, target: string): string[] {
+  return ["merge_request.create", `merge_request.target=${target}`, "merge_request.merge_when_pipeline_succeeds", "merge_request.remove_source_branch", `merge_request.title=${title}`].flatMap((o) => ["-o", o]);
+}
+
+export function createSaver(o: SaverOptions) {
+  const remote = o.remote ?? "origin";
+  const target = o.target ?? "main";
+  const now = o.now ?? (() => new Date());
+  const baseEnv = { ...(o.env ?? process.env), GIT_TERMINAL_PROMPT: "0" };
+  const run = (cwd: string, args: string[], env: NodeJS.ProcessEnv = baseEnv) =>
+    execFileSync("git", ["-c", "core.quotePath=false", ...args], { cwd, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
+  const tryRun = (cwd: string, args: string[]) => {
+    try {
+      return run(cwd, args);
+    } catch {
+      return undefined;
+    }
+  };
+
+  const common = (() => {
+    const d = run(o.root, ["rev-parse", "--git-common-dir"]).trim();
+    return isAbsolute(d) ? d : resolve(o.root, d);
+  })();
+  const home = join(common, "sdlc-hub");
+  const recordsFile = join(home, "saves.json");
+  const worktree = join(home, "worktree");
+  const mainRef = `refs/remotes/${remote}/${target}`;
+  const stateRef = `refs/remotes/${remote}/hub-state`;
+
+  const read = (): Save[] => {
+    try {
+      return JSON.parse(readFileSync(recordsFile, "utf8")) as Save[];
+    } catch {
+      return [];
+    }
+  };
+  const write = (list: Save[]) => {
+    mkdirSync(home, { recursive: true });
+    writeFileSync(`${recordsFile}.tmp`, JSON.stringify(list, null, 2) + "\n");
+    renameSync(`${recordsFile}.tmp`, recordsFile);
+  };
+
+  const fetch = (...branches: string[]) => run(o.root, ["fetch", "-q", remote, ...branches.map((b) => `+refs/heads/${b}:refs/remotes/${remote}/${b}`)]);
+
+  /** The hub's own worktree, detached at main of the remote and clean. */
+  function checkout(): string {
+    if (!existsSync(join(worktree, ".git"))) {
+      tryRun(o.root, ["worktree", "prune"]);
+      rmSync(worktree, { recursive: true, force: true });
+      mkdirSync(dirname(worktree), { recursive: true });
+      run(o.root, ["worktree", "add", "-q", "--detach", "-f", worktree, mainRef]);
+    }
+    run(worktree, ["checkout", "-q", "-f", "--detach", mainRef]);
+    run(worktree, ["clean", "-fdq"]);
+    return worktree;
+  }
+
+  return {
+    list: read,
+
+    save(req: SaveRequest): Save {
+      fetch(target);
+      const changes = req.build(refSource(o.root, mainRef));
+      const wt = checkout();
+      for (const c of changes) {
+        if (c.from && c.from !== c.path) rmSync(join(wt, c.from), { force: true });
+        const file = join(wt, c.path);
+        if (c.next === undefined) rmSync(file, { force: true });
+        else {
+          mkdirSync(dirname(file), { recursive: true });
+          writeFileSync(file, c.next);
+        }
+      }
+      run(wt, ["add", "-A"]);
+      if (tryRun(wt, ["diff", "--cached", "--quiet"]) !== undefined) throw new Error("Nothing to save: main already has this");
+      const at = now();
+      const id = { GIT_AUTHOR_NAME: o.identity.name, GIT_AUTHOR_EMAIL: o.identity.email, GIT_COMMITTER_NAME: o.identity.name, GIT_COMMITTER_EMAIL: o.identity.email, GIT_AUTHOR_DATE: at.toISOString(), GIT_COMMITTER_DATE: at.toISOString() };
+      run(wt, ["commit", "-q", "-m", req.title], { ...baseEnv, ...id });
+      const sha = run(wt, ["rev-parse", "HEAD"]).trim();
+      const paths = [...new Set(changes.flatMap((c) => (c.from && c.from !== c.path ? [c.from, c.path] : [c.path])))].sort();
+      const blobs = Object.fromEntries(paths.map((p) => [p, tryRun(wt, ["rev-parse", `HEAD:${p}`])?.trim() ?? null]));
+      const branch = saveBranch(req.user, req.label, at);
+      const options = (o.pushOptions ?? gitlabPushOptions)(req.title, target);
+      const push = spawnSync("git", ["push", ...options, remote, `HEAD:refs/heads/${branch}`], { cwd: wt, env: baseEnv, encoding: "utf8" });
+      if (push.status !== 0) throw new Error(`The push failed: ${(push.stderr || push.error?.message || "").trim()}`);
+      // GitLab answers with the merge request's address.
+      const link = /(https?:\/\/\S+\/-\/merge_requests\/(\d+))/.exec(push.stderr ?? "");
+      const s: Save = { branch, title: req.title, user: req.user, paths, at: at.toISOString().replace(/\.\d+Z$/, "Z"), sha, blobs, state: "pending", ...(link ? { mr: { iid: Number(link[2]), url: link[1]! } } : {}) };
+      write([s, ...read()]);
+      return s;
+    },
+
+    /** Looks at main and hub-state on the remote; offline it keeps what it knew. */
+    refresh(): Save[] {
+      const list = read();
+      if (!list.some((s) => s.state === "pending")) return list;
+      if (tryRun(o.root, ["fetch", "-q", remote, `+refs/heads/${target}:${mainRef}`, `+refs/heads/hub-state:${stateRef}`]) === undefined) return list;
+      const state = refSource(o.root, stateRef);
+      for (const s of list) {
+        if (s.state !== "pending") continue;
+        const ancestor = tryRun(o.root, ["merge-base", "--is-ancestor", s.sha, mainRef]) !== undefined;
+        const same = Object.entries(s.blobs).every(([p, b]) => (tryRun(o.root, ["rev-parse", `${mainRef}:${p}`])?.trim() ?? null) === b);
+        if (ancestor || same) {
+          s.state = "merged";
+          continue;
+        }
+        const text = state.read(refusalPath(s.branch));
+        const r = text ? parseSaveRefusal(text, refusalPath(s.branch)).value : undefined;
+        if (r && r.sha === s.sha) {
+          s.state = "refused";
+          s.findings = r.findings;
+          if (r.mr) s.mr ??= { iid: r.mr, url: "" };
+        }
+      }
+      write(list);
+      return list;
+    },
+  };
+}
+
+export type Saver = ReturnType<typeof createSaver>;
