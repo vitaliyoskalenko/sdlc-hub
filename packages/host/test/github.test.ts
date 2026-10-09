@@ -16,9 +16,10 @@ function fake(answers: Record<string, unknown | ((body: unknown) => unknown)>) {
 }
 
 describe("the GitHub client", () => {
-  it("names everyone who pushed to a branch, force pushes included, and an unknown actor as such", async () => {
+  it("names everyone who pushed to a branch, its creation and force pushes included, and an unknown actor as such", async () => {
     const { gh } = fake({
-      "GET /repos/shop/product-specs/activity?ref=refs%2Fheads%2Fhub%2Folena.k%2Fx&activity_type=push&per_page=100&page=1": [{ actor: { login: "olena.k" } }, { actor: { login: "taras.m" } }],
+      "GET /repos/shop/product-specs/activity?ref=refs%2Fheads%2Fhub%2Folena.k%2Fx&activity_type=branch_creation&per_page=100&page=1": [{ actor: { login: "olena.k" } }],
+      "GET /repos/shop/product-specs/activity?ref=refs%2Fheads%2Fhub%2Folena.k%2Fx&activity_type=push&per_page=100&page=1": [{ actor: { login: "taras.m" } }],
       "GET /repos/shop/product-specs/activity?ref=refs%2Fheads%2Fhub%2Folena.k%2Fx&activity_type=force_push&per_page=100&page=1": [{ actor: null }],
     });
     expect(await gh.pushers("shop", "product-specs", "hub/olena.k/x")).toEqual(["(unknown)", "olena.k", "taras.m"]);

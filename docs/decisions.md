@@ -16,7 +16,7 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
 - **Why:**
   - A fine-grained token cannot be created through the API. A deploy key can, so nothing is left to do by hand.
   - `pull_request_target` keeps the workflow and the hub out of the author's reach.
-- **By:** Owner chose a throwaway test organization for verification; the rest proposed.
+- **By:** Owner chose a throwaway test organization for verification; the rest proposed. Verified on github.com on 9 October 2026. The run found that a new organization may have deploy keys turned off. Setup now checks that and tells the owner where to turn them on, rather than changing an organization-wide policy itself.
 
 ### Saves on GitHub open their own pull request
 - **Decision:** GitHub has no push options. After pushing the branch, the person's server opens the pull request and sets auto-merge through the API. It uses the person's own token from git's credential helper. If that fails, the branch is deleted and the save fails with the reason.

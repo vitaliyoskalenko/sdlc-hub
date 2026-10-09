@@ -38,6 +38,12 @@ const me = await call("GET", "/user");
 const membership = await call("GET", `/user/memberships/orgs/${org}`);
 if (membership?.role !== "admin") throw new Error(`${me.login} is not an owner of ${org}`);
 
+// A new organization can have deploy keys off (this one did); setup checks it, and the test organization turns it on.
+if ((await call("GET", `/orgs/${org}`)).deploy_keys_enabled_for_repositories === false) {
+  await call("PATCH", `/orgs/${org}`, { deploy_keys_enabled_for_repositories: true });
+  console.log(`turned on deploy keys in ${org}`);
+}
+
 for (const repo of ["product-specs", "backend", "web-admin"]) {
   if (!(await call("GET", `/repos/${org}/${repo}`))) {
     await call("POST", `/orgs/${org}/repos`, { name: repo, private: false, auto_init: true, description: "SDLC Hub test repository" });

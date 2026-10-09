@@ -19,6 +19,8 @@ export interface GitHubOrg {
   id: number;
   plan?: { name: string };
   members_can_fork_private_repositories?: boolean;
+  /** When false, no repository of the organization may take a deploy key (it was false in a new organization). */
+  deploy_keys_enabled_for_repositories?: boolean;
 }
 
 export interface GitHubRepo {
@@ -158,7 +160,8 @@ export class GitHub {
   /** Who pushed to a branch: the repository's push and force-push activity, each with the authenticated actor. */
   async pushers(owner: string, name: string, branch: string): Promise<string[]> {
     const users = new Set<string>();
-    for (const type of ["push", "force_push"]) {
+    // The first push to a new branch is recorded as its creation, not as a push.
+    for (const type of ["branch_creation", "push", "force_push"]) {
       for (let page = 1; page <= 20; page++) {
         const list = await this.call<{ actor: { login: string } | null }[]>("GET", `/repos/${enc(owner)}/${enc(name)}/activity?ref=${enc(`refs/heads/${branch}`)}&activity_type=${type}&per_page=100&page=${page}`);
         for (const a of list) users.add(a.actor?.login ?? "(unknown)");

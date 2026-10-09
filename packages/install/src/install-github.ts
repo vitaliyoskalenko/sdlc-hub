@@ -4,7 +4,7 @@
 // GitHub Free gives private repositories no rulesets, branch protection, auto-merge or organization secrets, so a
 // private product-specs needs GitHub Team; the checks say so before anything is written.
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -52,16 +52,16 @@ export async function preflightGitHub(a: SetupAnswers, gh: GitHub): Promise<Pref
   const isPrivate = specs ? specs.private : true;
   const paid = plan !== "free";
   add("plan", !isPrivate || paid, !isPrivate ? `${org.login} is on ${plan}; ${a.repo.trim()} is public, so rulesets and auto-merge are available` : paid ? `${org.login} is on GitHub ${plan}: rulesets and auto-merge are available for private repositories` : `${org.login} is on GitHub Free, which gives private repositories no rulesets and no auto-merge. Upgrade it to GitHub Team, or make ${a.repo.trim()} public`);
+  // Team CI writes hub-state with a deploy key of the specifications repository.
+  const keys = org.deploy_keys_enabled_for_repositories !== false;
+  add("deploy-keys", keys, keys ? `${org.login} allows deploy keys, which team CI writes hub-state with` : `${org.login} has deploy keys turned off, and team CI writes hub-state with one. Turn them on in the organization's settings: Repository, Deploy keys`);
   for (const t of a.teams) {
     const r = await gh.repo(org.login, t.repo.trim());
     add(`team-${teamId(t.name)}`, !!r, r ? `Found ${r.full_name} for ${t.name.trim()}` : `There is no repository ${org.login}/${t.repo.trim()} for ${t.name.trim()}`);
   }
-  try {
-    execFileSync("ssh-keygen", ["-?"], { stdio: "ignore" });
-  } catch (e) {
-    const missing = (e as NodeJS.ErrnoException).code === "ENOENT";
-    add("ssh-keygen", !missing, missing ? "ssh-keygen is missing: install OpenSSH, which makes the key team CI writes hub-state with" : "ssh-keygen is available", true);
-  }
+  // ssh-keygen -? prints its usage and exits with an error; only a missing program matters.
+  const missing = spawnSync("ssh-keygen", ["-?"], { stdio: "ignore" }).error !== undefined;
+  add("ssh-keygen", !missing, missing ? "ssh-keygen is missing: install OpenSSH, which makes the key team CI writes hub-state with" : "ssh-keygen is available");
   return { user: { id: me.id, username: me.login, name: me.name ?? me.login }, checks, ok: checks.every((c) => c.ok || !c.blocking) };
 }
 
@@ -138,6 +138,11 @@ export async function installGitHub(a: SetupAnswers, gh: GitHub, opts: InstallOp
       return sha ? { link: `${web}/${org}/${name}/commit/${sha}` } : { state: "skip" as const };
     }
     const pending = (await gh.openPulls(org, name, INSTALL_BRANCH))[0];
+    if (pending) {
+      let same = true;
+      for (const [path, content] of Object.entries(changed)) if ((await gh.file(org, name, path, INSTALL_BRANCH)) !== content) same = false;
+      if (same) return { state: "skip" as const, text: `${w.changeRequest} ${w.sign}${pending.number} with these hub files is open already; it merges itself when hub-guard passes`, link: pending.html_url };
+    }
     const sha = push(pending ? INSTALL_BRANCH : main, INSTALL_BRANCH, !pending);
     for (let i = 0; i < 30 && sha && (await gh.branch(org, name, INSTALL_BRANCH))?.commit.sha !== sha; i++) await new Promise((r) => setTimeout(r, 1000));
     const pr = pending ?? (await gh.createPull(org, name, INSTALL_BRANCH, main, "Update SDLC Hub", "Written by setup. It merges itself when hub-guard passes."));

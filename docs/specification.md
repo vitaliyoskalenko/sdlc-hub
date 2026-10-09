@@ -551,7 +551,7 @@ The `hub-state` branch accepts pushes from Developers and Maintainers. It holds 
 
 ### The same rules on GitHub
 
-This project runs on self-managed GitLab, so the rest of this document uses GitLab words. The hub asks for the host at init and keeps every difference in one host adapter. The GitLab install is built and verified. The GitHub install is built in phase 5 from the column below. It is checked against GitHub's documentation and is to be verified in a test organization (claim 5).
+This project runs on self-managed GitLab, so the rest of this document uses GitLab words. The hub asks for the host at init and keeps every difference in one host adapter. The GitLab install is built and verified. The GitHub install is built in phase 5 from the column below. It was verified on github.com in a test organization with public repositories (claim 5).
 
 | Concern | GitLab | GitHub |
 | --- | --- | --- |
@@ -620,7 +620,7 @@ The list of team repositories is free: one row for a single-repository product, 
 
 With no tracker chosen, tasks and bugs live only in the repository and the site shows no tracker links. Jira can be added later in Settings.
 
-Before the review screen, setup checks what the install needs: Owner rights, a CI runner that is online (without one no change could ever merge), the host version, and that forking of the specifications repository is off. On GitHub it checks that the person is an owner of the organization, the plan (Free with private repositories cannot install), the team repositories, and `ssh-keygen` for the deploy key. Setup on GitHub takes a fine-grained token of an owner, with the resource owner set to the organization and all repositories. Its repository permissions are Administration, Contents, Pull requests, Workflows and Secrets, read and write, and Actions, read. Its organization permissions are Members read, and Administration read and write.
+Before the review screen, setup checks what the install needs: Owner rights, a CI runner that is online (without one no change could ever merge), the host version, and that forking of the specifications repository is off. On GitHub it checks that the person is an owner of the organization, the plan (Free with private repositories cannot install), that the organization allows deploy keys (a new one may not), the team repositories, and `ssh-keygen` for the deploy key. Setup on GitHub takes a fine-grained token of an owner, with the resource owner set to the organization and all repositories. Its repository permissions are Administration, Contents, Pull requests, Workflows and Secrets, read and write, and Actions, read. Its organization permissions are Members read, and Administration read and write.
 
 Install can be run again. Each step first checks the host, so a second run skips what is done and continues from the first step that did not finish; the page shows each step as done, already done or failed. A team that merged an older hub-report job gets a merge request with the new one, and an open merge request with an older job is updated. The first commit is pushed before branch protection is turned on.
 

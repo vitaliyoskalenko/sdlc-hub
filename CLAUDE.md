@@ -19,7 +19,7 @@ Write everything (code, comments, docs, UI text) in English. Talk to the owner i
 - Stages are proxied to an engine through one adapter file. Default engine: `genkovich/sdd` 2.3.x. The engine must stay replaceable.
 - A feature moves through 20 steps in six role lanes (PO/analyst, PM, designer, engineering, QA, Ops). The current step is derived from files, never typed. The table is in the specification, "The twenty steps".
 - Roles decide which paths a person may change. Enforcement is the CI guard, because GitLab Free has no Code Owners.
-- The team runs self-managed GitLab, Free tier. GitHub must work too; the host is chosen at the first install. The GitLab install is built and verified; the GitHub install is built in phase 5 and waits for its run against a test organization.
+- The team runs self-managed GitLab, Free tier. GitHub must work too; the host is chosen at the first install. The GitLab install is built and verified; the GitHub install is built in phase 5 and verified on github.com with public repositories.
 - First install: `npx sdlc-hub init` opens a local setup page with five screens. After it the admin adds people and generates one setup script per person (no secrets in it).
 - The hub is vendored into `product-specs/hub/` as one bundled file. Nothing is fetched from a registry on a person's machine after the first install.
 - Per-person spend is visible to the admin and the PM only (records encrypted with `age`).
