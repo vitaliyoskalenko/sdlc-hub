@@ -80,4 +80,28 @@ describe("usage from a Claude Code transcript", () => {
     const again = await collectUsage({ store, payload: { session_id: "s1", transcript_path: t }, person: { role: "dev" }, assistant: "claude", now: "2026-10-08T10:01:00Z" });
     expect(again.map((x) => [x.model, x.tokens.output])).toEqual([["claude-haiku-4-5-20251001", 3]]);
   });
+
+});
+
+describe("Codex and Cursor sessions", () => {
+  it("take the feature from a Codex or Cursor hub tool call", () => {
+    const store = { dir: tmp() };
+    noteContext(store, { session_id: "c1", tool_name: "mcp__hub__hub_verdicts", tool_input: { slug: "tasks-issues" } }, "2026-10-09T10:00:00Z");
+    noteContext(store, { conversation_id: "k1", tool_name: "hub_decide", mcp_server_name: "hub", tool_input: '{"slug":"bulk-order-export"}' }, "2026-10-09T10:00:00Z");
+    noteContext(store, { conversation_id: "k2", tool_name: "read_file", mcp_server_name: "fs", tool_input: '{"slug":"x"}' }, "2026-10-09T10:00:00Z");
+    const s = JSON.parse(readFileSync(join(store.dir, "sessions.json"), "utf8"));
+    expect([s.c1?.slug, s.k1?.slug, s.k2]).toEqual(["tasks-issues", "bulk-order-export", undefined]);
+  });
+  it("count a Codex session's usage since the last stop from its running total (@unverified-codex-format)", async () => {
+    const dir = tmp();
+    const store = { dir: join(dir, "usage") };
+    const t = join(dir, "rollout.jsonl");
+    const total = (input: number, cached: number, output: number) => JSON.stringify({ type: "event_msg", payload: { type: "token_count", info: { total_token_usage: { input_tokens: input, cached_input_tokens: cached, output_tokens: output, reasoning_output_tokens: 0, total_tokens: input + output } } } }) + "\n";
+    writeFileSync(t, JSON.stringify({ type: "turn_context", payload: { model: "gpt-5-codex" } }) + "\n" + total(1000, 800, 50));
+    const one = await collectUsage({ store, payload: { session_id: "x1", transcript_path: t }, person: { role: "dev" }, assistant: "codex", now: "2026-10-09T10:00:00Z" });
+    expect(one.map((r) => [r.model, r.tokens])).toEqual([["gpt-5-codex", { input: 200, cache_write_5m: 0, cache_write_1h: 0, cache_read: 800, output: 50 }]]);
+    appendFileSync(t, total(1500, 1200, 80));
+    const two = await collectUsage({ store, payload: { session_id: "x1", transcript_path: t }, person: { role: "dev" }, assistant: "codex", now: "2026-10-09T10:05:00Z" });
+    expect(two.map((r) => r.tokens)).toEqual([{ input: 100, cache_write_5m: 0, cache_write_1h: 0, cache_read: 400, output: 30 }]);
+  });
 });

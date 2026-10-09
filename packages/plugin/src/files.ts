@@ -237,3 +237,57 @@ export function claudeSetupCommands(specsDir: string): string[][] {
     ["claude", "plugin", "install", `${PLUGIN}@${MARKETPLACE}`, "--scope", "local"],
   ];
 }
+
+// --- Codex and Cursor, from their documentation of 2026-10-09 (not yet run against either; see claim 7).
+// Both read project skills from .agents/skills/<name>/SKILL.md, so one set serves both. Codex is invoked as
+// $hub-<name>, Cursor as /hub-<name>. Neither documents a placeholder for the words after the command.
+
+const ROOT_SH = 'node "$(git rev-parse --show-toplevel)/hub/cli.js"';
+
+/** A skill's text for Codex and Cursor: their command syntax, and the words after the command instead of $ARGUMENTS. */
+function agentBody(body: string): string {
+  return body
+    .replaceAll('"$ARGUMENTS"', "the words after the command")
+    .replace(/`\/hub:([a-z]+)([^`]*)`/g, (_m, cmd: string, rest: string) => `\`$hub-${cmd}${rest}\` in Codex or \`/hub-${cmd}${rest}\` in Cursor`);
+}
+
+/** .agents/skills/hub-<name>/: the hub commands for Codex and Cursor. */
+export function agentSkillFiles(): Record<string, string> {
+  const files: Record<string, string> = {};
+  for (const s of SKILLS) {
+    const name = `hub-${s.name}`;
+    const front = ["---", `name: ${name}`, `description: ${JSON.stringify(s.description)}`];
+    // Cursor reads this flag; Codex reads its policy from agents/openai.yaml.
+    if (s.personOnly) front.push("disable-model-invocation: true");
+    front.push("---", "");
+    files[`.agents/skills/${name}/SKILL.md`] = `${front.join("\n")}${agentBody(s.body)}\n`;
+    if (s.personOnly) files[`.agents/skills/${name}/agents/openai.yaml`] = "policy:\n  allow_implicit_invocation: false\n";
+  }
+  return files;
+}
+
+/** .codex/: the MCP server and the hooks. Codex loads them once the person trusts the project, and asks again for a changed hook. */
+export function codexFiles(): Record<string, string> {
+  const hook = (event: string, timeout: number) => ({ type: "command", command: `${ROOT_SH} hook ${event} --assistant codex`, timeout });
+  return {
+    // Codex may start in a subfolder, and the docs do not say where a server starts: find the repository root.
+    ".codex/config.toml": `# Written by SDLC Hub: the hub's MCP server for Codex.\n[mcp_servers.hub]\ncommand = "sh"\nargs = ["-c", ${JSON.stringify(`${ROOT_SH} mcp --assistant codex`)}]\nstartup_timeout_sec = 20\n`,
+    ".codex/hooks.json": json({
+      hooks: {
+        SessionStart: [{ hooks: [hook("session-start", 20)] }],
+        UserPromptSubmit: [{ hooks: [hook("prompt", 10)] }],
+        PostToolUse: [{ matcher: "mcp__hub__.*", hooks: [hook("tool", 10)] }],
+        Stop: [{ hooks: [hook("stop", 30)] }],
+      },
+    }),
+  };
+}
+
+/** .cursor/: the MCP server and the hooks. Hooks run from the project root in a trusted workspace. */
+export function cursorFiles(): Record<string, string> {
+  const hook = (event: string) => ({ type: "command", command: `node hub/cli.js hook ${event} --assistant cursor` });
+  return {
+    ".cursor/mcp.json": json({ mcpServers: { hub: { type: "stdio", command: "node", args: ["${workspaceFolder}/hub/cli.js", "mcp", "--assistant", "cursor"] } } }),
+    ".cursor/hooks.json": json({ version: 1, hooks: { sessionStart: [hook("session-start")], beforeSubmitPrompt: [hook("prompt")], afterMCPExecution: [hook("tool")] } }),
+  };
+}

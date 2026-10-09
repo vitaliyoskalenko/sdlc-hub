@@ -60,15 +60,33 @@ export function contextOfCommand(prompt: string): { slug: string; step?: string 
 }
 
 /** What the session works on, from a hook payload: a typed hub command, or a hub tool's input and answer. */
+/** The session of a hook payload: Claude Code and Codex send session_id, Cursor conversation_id. */
+export const sessionOf = (payload: Record<string, unknown>) => String(payload["session_id"] ?? payload["conversation_id"] ?? "");
+
+/** A call of one of the hub's tools: Claude Code's mcp__plugin_hub_hub__x, Codex's mcp__hub__x, Cursor's x on server hub. */
+function hubTool(payload: Record<string, unknown>): { input: { slug?: unknown; step?: unknown }; answer: string } | undefined {
+  const name = String(payload["tool_name"] ?? "");
+  const ours = /^(?:mcp__plugin_hub_hub__|mcp__hub__)hub_/.test(name) || (payload["mcp_server_name"] === "hub" && /^hub_/.test(name));
+  if (!ours) return undefined;
+  let input = payload["tool_input"] ?? {};
+  if (typeof input === "string") {
+    try {
+      input = JSON.parse(input);
+    } catch {
+      input = {};
+    }
+  }
+  return { input: input as { slug?: unknown; step?: unknown }, answer: JSON.stringify(payload["tool_response"] ?? payload["result_json"] ?? "") };
+}
+
 export function noteContext(store: Store, payload: Record<string, unknown>, now: string): void {
-  const session = String(payload["session_id"] ?? "");
+  const session = sessionOf(payload);
   if (!session) return;
   let ctx: { slug: string; step?: string } | undefined;
   if (typeof payload["prompt"] === "string") ctx = contextOfCommand(payload["prompt"]);
-  const tool = String(payload["tool_name"] ?? "");
-  if (/^mcp__plugin_hub_hub__hub_/.test(tool)) {
-    const input = (payload["tool_input"] ?? {}) as { slug?: unknown; step?: unknown };
-    const answer = JSON.stringify(payload["tool_response"] ?? "");
+  const call = hubTool(payload);
+  if (call) {
+    const { input, answer } = call;
     // hub_next names the step it hands over: "Next for you in <slug>: <step>."
     const next = /Next for you in ([a-z0-9-]+): ([a-z0-9-]+)\./.exec(answer);
     if (typeof input.slug === "string") ctx = { slug: input.slug, ...(typeof input.step === "string" ? { step: input.step } : next && next[1] === input.slug ? { step: next[2]! } : {}) };
@@ -114,6 +132,38 @@ export async function readClaudeTranscript(path: string, from: number): Promise<
   return { messages: [...byId.values()], lines: n };
 }
 
+/**
+ * @unverified-codex-format: from the Codex source (codex-rs/protocol), not yet a real rollout file with token counts.
+ * The rollout's latest running total (event_msg token_count, info.total_token_usage) and the latest model
+ * (turn_context). OpenAI counts cached input inside input_tokens; the hub keeps them apart.
+ */
+export async function readCodexRollout(path: string): Promise<{ total: Tokens; model: string; turns: number } | undefined> {
+  let total: Tokens | undefined;
+  let model = "unknown";
+  let turns = 0;
+  const lines = createInterface({ input: createReadStream(path, "utf8"), crlfDelay: Infinity });
+  for await (const line of lines) {
+    if (!line.includes("token_count") && !line.includes("turn_context")) continue;
+    let d: { type?: string; payload?: { type?: string; model?: string; info?: { total_token_usage?: Record<string, number> } | null } };
+    try {
+      d = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (d.type === "turn_context" && d.payload?.model) {
+      model = d.payload.model;
+      turns++;
+    }
+    const u = d.type === "event_msg" && d.payload?.type === "token_count" ? d.payload.info?.total_token_usage : undefined;
+    if (u) {
+      const cached = u["cached_input_tokens"] ?? 0;
+      const written = u["cache_write_input_tokens"] ?? 0;
+      total = { input: Math.max(0, (u["input_tokens"] ?? 0) - cached - written), cache_write_5m: written, cache_write_1h: 0, cache_read: cached, output: u["output_tokens"] ?? 0 };
+    }
+  }
+  return total ? { total, model, turns } : undefined;
+}
+
 export interface CollectInput {
   store: Store;
   payload: Record<string, unknown>;
@@ -124,7 +174,7 @@ export interface CollectInput {
 
 /** On Stop: the session's usage since its last mark, one record per model, added to this month's local file. */
 export async function collectUsage(i: CollectInput): Promise<UsageRecord[]> {
-  const session = String(i.payload["session_id"] ?? "");
+  const session = sessionOf(i.payload);
   const transcript = String(i.payload["transcript_path"] ?? "");
   if (!session || !transcript || !existsSync(transcript)) return [];
   mkdirSync(i.store.dir, { recursive: true });
@@ -132,14 +182,26 @@ export async function collectUsage(i: CollectInput): Promise<UsageRecord[]> {
   const marks = readJson<Record<string, number>>(marksFile, {});
   // The session's own transcript, and its subagents' beside it (<session>/subagents/agent-*.jsonl), each with its mark.
   const subDir = join(dirname(transcript), basename(transcript, ".jsonl"), "subagents");
-  const files = [transcript, ...(existsSync(subDir) ? readdirSync(subDir).filter((f) => f.endsWith(".jsonl")).sort().map((f) => join(subDir, f)) : [])];
+  const files = i.assistant === "claude" ? [transcript, ...(existsSync(subDir) ? readdirSync(subDir).filter((f) => f.endsWith(".jsonl")).sort().map((f) => join(subDir, f)) : [])] : [transcript];
   const messages: Message[] = [];
-  for (const file of files) {
-    const key = file === transcript ? session : `${session}:${basename(file)}`;
-    const r = await readClaudeTranscript(file, marks[key] ?? 0);
-    marks[key] = r.lines;
-    messages.push(...r.messages);
-  }
+  if (i.assistant === "codex") {
+    // Codex keeps a running total per session: the usage since the last stop is the difference.
+    const totals = readJson<Record<string, Tokens>>(join(i.store.dir, "codex-totals.json"), {});
+    const r = await readCodexRollout(transcript);
+    if (r) {
+      const before = totals[session] ?? ZERO;
+      const d = { input: r.total.input - before.input, cache_write_5m: r.total.cache_write_5m - before.cache_write_5m, cache_write_1h: 0, cache_read: r.total.cache_read - before.cache_read, output: r.total.output - before.output };
+      if (d.input + d.cache_write_5m + d.cache_read + d.output > 0) messages.push({ id: `${session}:${r.turns}`, model: r.model, tokens: d });
+      totals[session] = r.total;
+      writeJson(join(i.store.dir, "codex-totals.json"), totals);
+    }
+  } else
+    for (const file of files) {
+      const key = file === transcript ? session : `${session}:${basename(file)}`;
+      const r = await readClaudeTranscript(file, marks[key] ?? 0);
+      marks[key] = r.lines;
+      messages.push(...r.messages);
+    }
   writeJson(marksFile, marks);
   const ctx = readJson<Record<string, Context>>(join(i.store.dir, "sessions.json"), {})[session];
   const byModel = new Map<string, { tokens: Tokens; messages: number }>();

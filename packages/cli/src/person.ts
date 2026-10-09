@@ -125,7 +125,10 @@ export async function personSetup(o: SetupOptions): Promise<{ ok: boolean; lines
       if (r.status !== 0) say(false, `${[cmd, ...args].join(" ")} failed: ${r.out.split("\n").at(-1) ?? ""}. Run it yourself in ${o.root}.`, false);
     }
     say(true, `Claude Code loads the ${PLUGIN} plugin from ${MARKETPLACE} in this checkout`);
-  } else say(false, `The hub commands for ${o.assistant} arrive in phase 5; until then use the site and the prompts it gives.`, false);
+  } else if (o.assistant === "codex")
+    say(true, `Codex reads the hub's commands from .agents/skills. Open Codex in ${o.root} and trust the project when it asks: only then does it load the hub's MCP server and hooks from .codex/. Approve the hub's hooks with /hooks, and again when they change.`);
+  else if (o.assistant === "cursor")
+    say(true, `Cursor reads the hub's commands from .agents/skills. Open ${o.root} in Cursor and trust the workspace, then turn on the hub MCP server when Cursor asks (in the CLI: agent mcp enable hub).`);
 
   // Tell the admin's People and roles that this person is set up.
   const at = (o.now ?? (() => new Date()))().toISOString().replace(/\.\d+Z$/, "Z");
@@ -185,6 +188,11 @@ export function doctor(root: string, run: Run = runCommand): { ok: boolean; line
   say(remote.status === 0, remote.status === 0 ? "The git host answers" : `The git host does not answer: ${remote.out.split("\n").at(-1)}`);
   if (remote.status === 0) say(/refs\/heads\/hub-state/.test(remote.out), /refs\/heads\/hub-state/.test(remote.out) ? "hub-state exists" : "There is no hub-state branch: ask the admin to run setup again", false);
   const assistant = person?.assistant ?? "claude";
+  if (assistant === "codex" || assistant === "cursor") {
+    const config = assistant === "codex" ? ".codex/config.toml" : ".cursor/mcp.json";
+    const ok = existsSync(join(root, config)) && existsSync(join(root, ".agents/skills/hub-next/SKILL.md"));
+    say(ok, ok ? `${assistant === "codex" ? "Codex" : "Cursor"} has the hub's commands and MCP server in this repository` : `The hub's files for ${assistant} are missing (${config}, .agents/skills): ask the admin to run setup again with ${assistant} on`, false);
+  }
   if (assistant === "claude") {
     const local = join(root, ".claude/settings.local.json");
     const enabled = existsSync(local) && /"hub@product-specs": true/.test(readFileSync(local, "utf8"));

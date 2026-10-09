@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { claudeSetupCommands, marketplaceFile, pluginFiles, tool, withClaudeSettings } from "../src/index.ts";
+import { agentSkillFiles, claudeSetupCommands, codexFiles, cursorFiles, marketplaceFile, pluginFiles, tool, withClaudeSettings } from "../src/index.ts";
 
 const files = pluginFiles();
 const front = (p: string) => parse(files[p]!.split("---")[1]!) as Record<string, unknown>;
@@ -49,5 +49,33 @@ describe("the marketplace and the shared settings", () => {
       ["claude", "plugin", "marketplace", "add", "/work/shop/product-specs", "--scope", "local"],
       ["claude", "plugin", "install", "hub@product-specs", "--scope", "local"],
     ]);
+  });
+});
+
+describe("the files for Codex and Cursor (from their docs; not yet run)", () => {
+  const skills = agentSkillFiles();
+  it("are one set of skills in .agents/skills that both read, named like their folders", () => {
+    const front = (p: string) => parse(skills[p]!.split("---")[1]!) as Record<string, unknown>;
+    expect(front(".agents/skills/hub-status/SKILL.md")).toMatchObject({ name: "hub-status" });
+    expect(Object.keys(skills).filter((p) => p.endsWith("SKILL.md"))).toHaveLength(Object.keys(pluginFiles()).filter((p) => p.endsWith("SKILL.md")).length);
+  });
+  it("speak each assistant's syntax and have no Claude Code placeholder", () => {
+    const signoff = skills[".agents/skills/hub-signoff/SKILL.md"]!;
+    expect(signoff).not.toContain("$ARGUMENTS");
+    expect(skills[".agents/skills/hub-next/SKILL.md"]).toContain("`$hub-signoff` in Codex or `/hub-signoff` in Cursor");
+  });
+  it("keep the saving skills for the person: Cursor's flag and Codex's policy", () => {
+    expect(skills[".agents/skills/hub-signoff/SKILL.md"]).toContain("disable-model-invocation: true");
+    expect(skills[".agents/skills/hub-signoff/agents/openai.yaml"]).toBe("policy:\n  allow_implicit_invocation: false\n");
+    expect(skills[".agents/skills/hub-status/agents/openai.yaml"]).toBeUndefined();
+  });
+  it("start the hub's MCP server and hooks from the repository root", () => {
+    const codex = codexFiles();
+    expect(codex[".codex/config.toml"]).toContain("[mcp_servers.hub]");
+    expect(codex[".codex/config.toml"]).toContain("git rev-parse --show-toplevel");
+    expect(JSON.parse(codex[".codex/hooks.json"]!).hooks.PostToolUse[0].matcher).toBe("mcp__hub__.*");
+    const cursor = cursorFiles();
+    expect(JSON.parse(cursor[".cursor/mcp.json"]!).mcpServers.hub.args[0]).toBe("${workspaceFolder}/hub/cli.js");
+    expect(JSON.parse(cursor[".cursor/hooks.json"]!)).toMatchObject({ version: 1, hooks: { sessionStart: [{ command: "node hub/cli.js hook session-start --assistant cursor" }] } });
   });
 });

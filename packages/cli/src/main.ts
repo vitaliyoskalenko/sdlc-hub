@@ -276,34 +276,45 @@ async function mcp(f: Record<string, string>) {
 }
 
 /** A hook of the assistant. session-start prints what the new session should know; it never fails the session. */
-/** The assistant's hooks. They never fail the session: a problem is swallowed. */
-async function hook(_f: Record<string, string>, event: string | undefined) {
+/**
+ * The assistant's hooks. They never fail the session: a problem is swallowed. Each assistant wants its own answer:
+ * Claude Code and Codex take plain text at session start, Cursor JSON; Codex's Stop must print nothing.
+ */
+async function hook(f: Record<string, string>, event: string | undefined) {
+  const assistant = f["assistant"] === "codex" || f["assistant"] === "cursor" ? f["assistant"] : "claude";
   if (event === "session-start") {
+    let text: string;
     try {
-      console.log(sessionContext(pluginContext({})));
+      text = sessionContext(pluginContext(f));
     } catch (e) {
-      console.log(`SDLC Hub: ${(e as Error).message}`);
+      text = `SDLC Hub: ${(e as Error).message}`;
     }
+    console.log(assistant === "cursor" ? JSON.stringify({ additional_context: text }) : text);
     return;
   }
   try {
     const payload = JSON.parse(await stdinText()) as Record<string, unknown>;
-    const root = topLevel(process.env["CLAUDE_PROJECT_DIR"] ?? String(payload["cwd"] ?? process.cwd()));
-    if (!root) return;
-    const common = execFileSync("git", ["rev-parse", "--git-common-dir"], { cwd: root, encoding: "utf8" }).trim();
-    const store = { dir: join(resolve(root, common), "sdlc-hub", "usage") };
-    const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
-    // What the session works on: a typed /hub:x, or a hub tool.
-    if (event === "prompt" || event === "tool") noteContext(store, payload, now);
-    // What it used: the transcript since the last stop, one record per model, kept on this machine until hub sync.
-    if (event === "stop") {
-      const opened = openProject(root);
-      const person = opened.project?.roles.people.find((p) => p.user === personOf(root, opened.project?.roles));
-      if (person) await collectUsage({ store, payload, person: { role: person.roles[0] ?? "unknown", ...(person.team ? { team: person.team } : {}) }, assistant: "claude", now });
+    const roots = payload["workspace_roots"];
+    const where = process.env["CLAUDE_PROJECT_DIR"] ?? process.env["CURSOR_PROJECT_DIR"] ?? (Array.isArray(roots) && typeof roots[0] === "string" ? roots[0] : String(payload["cwd"] ?? process.cwd()));
+    const root = topLevel(where);
+    if (root) {
+      const common = execFileSync("git", ["rev-parse", "--git-common-dir"], { cwd: root, encoding: "utf8" }).trim();
+      const store = { dir: join(resolve(root, common), "sdlc-hub", "usage") };
+      const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+      // What the session works on: a typed hub command, or a hub tool.
+      if (event === "prompt" || event === "tool") noteContext(store, payload, now);
+      // What it used: the session's data since the last stop, kept on this machine until hub sync. Cursor keeps none.
+      if (event === "stop" && assistant !== "cursor") {
+        const opened = openProject(root);
+        const person = opened.project?.roles.people.find((p) => p.user === personOf(root, opened.project?.roles));
+        if (person) await collectUsage({ store, payload, person: { role: person.roles[0] ?? "unknown", ...(person.team ? { team: person.team } : {}) }, assistant, now });
+      }
     }
   } catch {
     /* a hook never stops the assistant */
   }
+  // Cursor's prompt hook answers whether the prompt goes on.
+  if (event === "prompt" && assistant === "cursor") console.log(JSON.stringify({ continue: true }));
 }
 
 async function stdinText(): Promise<string> {
@@ -347,7 +358,7 @@ async function testCommand(f: Record<string, string>, slug: string | undefined) 
 }
 
 const [command, ...rest] = process.argv.slice(2);
-const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(f, rest[0]) : undefined;
+const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(flags(rest.slice(1)), rest[0]) : undefined;
 if (!run) {
   console.log(HELP);
   process.exit(command && command !== "help" && command !== "--help" ? 1 : 0);
