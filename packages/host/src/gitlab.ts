@@ -15,6 +15,9 @@ export interface GitLabUser {
   id: number;
   username: string;
   name: string;
+  /** The public e-mail, when the person set one; the commit e-mail otherwise. */
+  email?: string;
+  commit_email?: string;
   is_admin?: boolean;
 }
 

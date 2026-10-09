@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { GitLab, HostError, WORDS, type GitLabGroup, type GitLabProject, type GitLabUser } from "@sdlc-hub/host";
 import { MARKETPLACE, PLUGIN, marketplaceFile, pluginFiles, withClaudeSettings } from "@sdlc-hub/plugin/files";
 import { CLAUDE_BLOCK, hostUrl, hubFiles, teamId, withBlock, withIgnore, type SetupAnswers } from "./answers.ts";
+import { pushFiles } from "./push.ts";
 import { HUB_CI_FILE, HUB_CI_PROJECT, HUB_REPORT_FILE, hubGuardCi, hubReportJob, reportStage, withInclude } from "./ci.ts";
 
 export interface Check {
@@ -190,26 +191,31 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
     files[".claude/settings.json"] = withClaudeSettings(await gl.file(p.id, ".claude/settings.json", main), a.engine === "sdd" ? { id: "sdd", source: "genkovich/sdd" } : null);
     // An install merge request still waiting for its pipeline already carries some of the files.
     const pending = locked ? (await gl.openMergeRequests(p.id, INSTALL_BRANCH))[0] : undefined;
-    const actions = [];
+    const changed: Record<string, string> = {};
     let behindMain = false;
     for (const [path, content] of Object.entries(files)) {
       const now = await gl.file(p.id, path, main);
       if (now === content) continue;
       behindMain = true;
       const there = pending ? await gl.file(p.id, path, INSTALL_BRANCH) : now;
-      if (there === content) continue;
-      actions.push({ action: there === null ? ("create" as const) : ("update" as const), file_path: path, content });
+      if (there !== content) changed[path] = content;
     }
     if (!behindMain) return { state: "skip" as const, text: `${specsPath} already has the hub files` };
+    // With git, not the commits API: the API did not finish a commit of the vendored hub (about 3 MB) in five minutes.
+    const push = (from: string, to: string, force = false) =>
+      pushFiles({ url: `${hostUrl(a.address)}/${specsPath}.git`, authHeader: gl.gitAuthHeader(), from, to, files: changed, message: "Install SDLC Hub", author: { name: user.name, email: user.commit_email || user.email || `${user.username}@users.noreply` }, force });
     if (!locked) {
-      const c = await gl.commit(p.id, main, "Install SDLC Hub", actions);
-      return { link: c.web_url };
+      const sha = push(main, main);
+      return sha ? { link: `${hostUrl(a.address)}/${specsPath}/-/commit/${sha}` } : { state: "skip" as const, text: `${specsPath} already has the hub files` };
     }
-    if (!actions.length && pending) {
+    if (!Object.keys(changed).length && pending) {
       await gl.autoMerge(p.id, pending.iid);
       return { state: "skip" as const, text: `the hub files wait in ${w.changeRequest} ${w.sign}${pending.iid}, which merges itself when hub-guard passes`, link: pending.web_url };
     }
-    const mr = await gl.propose(p.id, { target: main, branch: INSTALL_BRANCH, title: "Update SDLC Hub", description: "Written by setup. It merges itself when hub-guard passes.", actions });
+    // The install branch is the hub's own: without an open merge request it starts again from main.
+    push(pending ? INSTALL_BRANCH : main, INSTALL_BRANCH, !pending);
+    const mr = pending ?? (await gl.createMergeRequest(p.id, INSTALL_BRANCH, main, "Update SDLC Hub", "Written by setup. It merges itself when hub-guard passes."));
+    await gl.autoMerge(p.id, mr.iid);
     return { text: `opened ${w.changeRequest} ${w.sign}${mr.iid} with the hub files; it merges itself when hub-guard passes`, link: mr.web_url };
   });
   if (!ok1) return { ok: false, steps, left };
