@@ -5,7 +5,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { guard, guardSettings, loadProject, refusalPath, type Change, type Finding, type SaveRefusal } from "@sdlc-hub/core";
+import { blocks, guard, guardSettings, loadProject, refusalPath, type Change, type Finding, type SaveRefusal } from "@sdlc-hub/core";
 import { refSource } from "@sdlc-hub/git";
 import type { GitHub, GitLab } from "@sdlc-hub/host";
 import { tokenEnv, writeHubState } from "@sdlc-hub/save";
@@ -64,7 +64,8 @@ export function guardRepo(o: GuardRepoOptions): GuardResult {
   });
   const { config, roles, flow } = project.value;
   const r = guard({ author: o.author, pushers: o.pushers, changes }, { config, roles, flow, feature: (slug) => rules.read(`docs/features/${slug}/hub/feature.yaml`) });
-  return guardSettings(config).mode === "advisory" ? { ...r, advisory: true } : r;
+  // Advisory mode lets the merge go ahead, except for a change to the hub's own files.
+  return r.ok || blocks(r, guardSettings(config).mode) ? r : { ...r, advisory: true };
 }
 
 /** The GitLab CI variables of a merge request pipeline that the guard reads. */

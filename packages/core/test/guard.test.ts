@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_FLOW_YAML, guard, guardSettings, parseConfig, parseFlow, parseRoles, type GuardContext } from "../src/index.ts";
+import { DEFAULT_FLOW_YAML, blocks, guard, guardSettings, parseConfig, parseFlow, parseRoles, type GuardContext } from "../src/index.ts";
 import { CONFIG, ROLES } from "@sdlc-hub/fixtures";
 
 const F = "docs/features/tasks-issues";
@@ -126,5 +126,13 @@ describe("hub-guard settings (guard: in config.yaml)", () => {
     expect(parseConfig(`${CONFIG}guard:\n  mode: loose\n`, "c").value).toBeUndefined();
     const r = parseConfig(`${CONFIG}guard:\n  checks:\n    reviews: false\n`, "c");
     expect(r.issues).toMatchObject([{ level: "warning", message: 'Unknown key "reviews" is ignored' }]);
+  });
+
+  it("in advisory mode stops only a change to .hub/ or hub/", () => {
+    const outside = guard({ author: "daria.l", pushers: [], changes: [spec] }, ctx);
+    const hubs = guard({ author: "daria.l", pushers: [], changes: [{ path: ".hub/roles.yaml", base: "a", next: "b" }] }, ctx);
+    expect([blocks(outside, "enforce"), blocks(outside, "advisory")]).toEqual([true, false]);
+    expect(blocks(hubs, "advisory")).toBe(true);
+    expect(blocks({ ok: true, findings: [] }, "enforce")).toBe(false);
   });
 });

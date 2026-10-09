@@ -33,6 +33,12 @@ const SIGNOFFS = /^docs\/features\/([^/]+)\/hub\/signoffs\.yaml$/;
 /** The hub's own files: whatever the switches say, only the admin changes them (and each person their own key). */
 const HUBS_OWN = picomatch([".hub/**", "hub/**"], { dot: true });
 
+/** Whether a guard result stops the merge: in advisory mode only a finding on the hub's own files does. */
+export function blocks(r: { ok: boolean; findings: Finding[] }, mode: "enforce" | "advisory"): boolean {
+  if (r.ok) return false;
+  return mode === "enforce" || r.findings.some((f) => HUBS_OWN(f.path));
+}
+
 export function guard(input: GuardInput, ctx: GuardContext): { ok: boolean; findings: Finding[] } {
   const { checks } = guardSettings(ctx.config);
   const findings: Finding[] = [];
