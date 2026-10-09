@@ -41,7 +41,7 @@ Claims 8 to 13 were found while planning phase 1, 14 to 17 while building phase 
 
 ## Not built yet in phase 2
 
-- **Saving: built in revision 66.** A save that conflicts with a newer `main` is merged onto it once: each file three-way, and `signoffs.yaml`, which only grows, keeps both sides' entries. If lines still conflict, the person keeps their version or takes the newer one. A save made offline is queued and sent at the next look at the saves or `hub sync`. Not verified on a real host: that GitLab's merge-when-pipeline-succeeds and GitHub's auto-merge stay set after the force push that moves a save.
+- **Saving: built in revision 66.** A save that conflicts with a newer `main` is merged onto it once: each file three-way, and `signoffs.yaml`, which only grows, keeps both sides' entries. If lines still conflict, the person keeps their version or takes the newer one. A save made offline is queued and sent at the next look at the saves or `hub sync`. On GitLab CE 19.4.1 a force push drops merge-when-pipeline-succeeds, so the saver pushes a moved save with the push options again. They set it on the same merge request, which then merged in the person's name (probe, 9 October 2026). Not verified: whether GitHub keeps auto-merge after the force push.
 - **Other saves.** Light edits on the site (a feature's title, links and estimates; the wording of a story) still need a merge request by hand.
 - **GitHub: still to come (claim 5).**
   - Advisory mode on GitHub Free with private repositories is built but not run: the test organization's repositories are public.

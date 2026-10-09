@@ -324,7 +324,10 @@ export function createSaver(o: SaverOptions) {
     const id = { GIT_AUTHOR_NAME: o.identity.name, GIT_AUTHOR_EMAIL: o.identity.email, GIT_COMMITTER_NAME: o.identity.name, GIT_COMMITTER_EMAIL: o.identity.email, GIT_AUTHOR_DATE: at, GIT_COMMITTER_DATE: at };
     run(wt, ["commit", "-q", "--allow-empty", "-m", s.title], { ...baseEnv, ...id });
     const sha = run(wt, ["rev-parse", "HEAD"]).trim();
-    const push = spawnSync("git", ["push", "-q", "--force", remote, `${sha}:refs/heads/${s.branch}`], { cwd: o.root, env: baseEnv, encoding: "utf8" });
+    // With the push options again: GitLab drops merge-when-pipeline-succeeds on a force push, and the options set it
+    // on the same merge request (GitLab CE 19.4.1, 9 October 2026).
+    const options = (o.pushOptions ?? gitlabPushOptions)(s.title, target);
+    const push = spawnSync("git", ["push", "-q", "--force", ...options, remote, `${sha}:refs/heads/${s.branch}`], { cwd: o.root, env: baseEnv, encoding: "utf8" });
     if (push.status !== 0) return false;
     s.sha = sha;
     s.blobs = Object.fromEntries(s.paths.map((p) => [p, tryRun(wt, ["rev-parse", `HEAD:${p}`])?.trim() ?? null]));
