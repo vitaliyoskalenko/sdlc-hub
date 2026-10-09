@@ -21,6 +21,11 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
 - **Decision:** Totals are kept per dimension (feature, step, role, team, model, assistant, and feature with step). A group of fewer than three people is merged into "other". An "other" that still has fewer than three people is left out, because subtracting it from the rest could reveal one person. Only the admin and the PM see each person, decrypted on their own machine; it is never published.
 - **By:** Proposed, from the specification's rule.
 
+### Install writes product-specs with git
+- **Decision:** The files step commits with git: a shallow fetch, a commit and a push with the admin's token in git's environment, straight to `main` before it is protected, or to `sdlc-hub/install` with a merge request after. The GitLab API stays for merge requests, checks and small files in team repositories and `hub-ci`. Every GitLab request now fails after a minute instead of waiting forever.
+- **Why:** On GitLab CE 19.4.1 a commit of the vendored hub (2.8 MB) through the commits API did not finish in five minutes; in one test run it answered after 15 minutes with an error and held the run up.
+- **By:** Proposed; verified.
+
 ### The demo's usage
 - **Decision:** The demo encrypts a month of made-up usage at start, with a key it makes then and keeps only in memory. The repository holds no key.
 - **By:** Proposed.
