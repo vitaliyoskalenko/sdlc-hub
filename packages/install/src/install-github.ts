@@ -51,7 +51,18 @@ export async function preflightGitHub(a: SetupAnswers, gh: GitHub): Promise<Pref
   const plan = org.plan?.name ?? "unknown";
   const isPrivate = specs ? specs.private : true;
   const paid = plan !== "free";
-  add("plan", !isPrivate || paid, !isPrivate ? `${org.login} is on ${plan}; ${a.repo.trim()} is public, so rulesets and auto-merge are available` : paid ? `${org.login} is on GitHub ${plan}: rulesets and auto-merge are available for private repositories` : `${org.login} is on GitHub Free, which gives private repositories no rulesets and no auto-merge. Upgrade it to GitHub Team, or make ${a.repo.trim()} public`);
+  const advisory = a.guard?.mode === "advisory";
+  add(
+    "plan",
+    !isPrivate || paid || advisory,
+    !isPrivate
+      ? `${org.login} is on ${plan}; ${a.repo.trim()} is public, so rulesets and auto-merge are available`
+      : paid
+        ? `${org.login} is on GitHub ${plan}: rulesets and auto-merge are available for private repositories`
+        : advisory
+          ? `${org.login} is on GitHub Free: no rulesets and no auto-merge for private repositories. In advisory mode hub-guard only warns, and each pull request waits for someone to merge it`
+          : `${org.login} is on GitHub Free, which gives private repositories no rulesets and no auto-merge. Upgrade it to GitHub Team, make ${a.repo.trim()} public, or choose advisory mode on screen 4`,
+  );
   // Team CI writes hub-state with a deploy key of the specifications repository.
   const keys = org.deploy_keys_enabled_for_repositories !== false;
   add("deploy-keys", keys, keys ? `${org.login} allows deploy keys, which team CI writes hub-state with` : `${org.login} has deploy keys turned off, and team CI writes hub-state with one. Turn them on in the organization's settings: Repository, Deploy keys`);
@@ -108,6 +119,10 @@ export async function installGitHub(a: SetupAnswers, gh: GitHub, opts: InstallOp
   if (!specs) throw new Error(`There is no repository ${org}/${name}`);
   const p: GitHubRepo = specs;
   const main = p.default_branch;
+  // GitHub Free gives a private repository no rulesets and no auto-merge: only advisory mode installs there.
+  const unprotected = p.private && ((await gh.org(org))?.plan?.name ?? "free") === "free";
+  if (unprotected && a.guard?.mode !== "advisory") throw new Error(`${org} is on GitHub Free, which gives private repositories no rulesets and no auto-merge: choose advisory mode, upgrade to GitHub Team, or make ${name} public`);
+  if (unprotected) a = { ...a, autoMerge: false };
   const url = `${web}/${org}/${name}.git`;
   const author = { name: me.name ?? me.login, email: me.email ?? `${me.id}+${me.login}@users.noreply.github.com` };
   const locked = (await gh.rulesets(org, name).catch(() => [])).some((r) => r.name === RULESET);
@@ -152,8 +167,14 @@ export async function installGitHub(a: SetupAnswers, gh: GitHub, opts: InstallOp
   if (!ok1) return { ok: false, steps, left };
 
   // 2. Pull requests merge themselves and their branches go; no forks.
-  await step("settings", `turned on auto-merge and branch deletion after merge, and turned off forking of ${org}/${name}`, async () => {
+  await step("settings", unprotected ? `turned on branch deletion after merge and turned off forking of ${org}/${name}` : `turned on auto-merge and branch deletion after merge, and turned off forking of ${org}/${name}`, async () => {
     const now = (await gh.repo(org, name))!;
+    if (unprotected) {
+      if (now.delete_branch_on_merge && now.allow_forking === false) return { state: "skip" as const, text: `${org}/${name} already deletes merged branches and takes no forks` };
+      await gh.updateRepo(org, name, { delete_branch_on_merge: true });
+      await gh.updateRepo(org, name, { allow_forking: false }).catch(() => undefined);
+      return;
+    }
     // A public repository can always be forked; pull requests from forks still go through hub-guard.
     if (now.allow_auto_merge && now.delete_branch_on_merge && (now.allow_forking === false || !now.private)) return { state: "skip" as const, text: `${org}/${name} already merges by itself and takes no forks` };
     await gh.updateRepo(org, name, { allow_auto_merge: true, delete_branch_on_merge: true });
@@ -185,6 +206,7 @@ export async function installGitHub(a: SetupAnswers, gh: GitHub, opts: InstallOp
   const actionsApp = new URL(web).host === "github.com" ? 15368 : undefined;
   // 5. main takes pull requests only, and hub-guard must pass.
   await step("protect", `added the ruleset "${RULESET}": pull requests only, hub-guard must pass, no deletion or force push`, async () => {
+    if (unprotected) return { state: "skip" as const, text: `no ruleset: GitHub Free has none for private repositories, so hub-guard only warns (advisory mode)` };
     const existing = (await gh.rulesets(org, name)).find((r) => r.name === RULESET);
     if (existing) {
       const now = await gh.ruleset(org, name, existing.id);

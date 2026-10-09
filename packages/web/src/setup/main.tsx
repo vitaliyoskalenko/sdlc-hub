@@ -20,7 +20,15 @@ interface Answers {
   assistants: { claude: true; codex: boolean; cursor: boolean };
   engine: "sdd" | "plain" | "custom";
   headless: boolean;
+  guard: { mode: "enforce" | "advisory"; checks: Record<GuardCheck, boolean> };
 }
+type GuardCheck = "files" | "signoffs" | "pushers" | "members";
+const GUARD_CHECKS: [GuardCheck, string, string][] = [
+  ["files", "Files by role", "Who may change which files, from roles.yaml. Off: anyone in roles.yaml may change any file."],
+  ["signoffs", "Who signs a gate", "A sign-off or QA decision comes from the step's role. Off: anyone in roles.yaml may sign, in their own name."],
+  ["pushers", "Everyone who pushed", "Judge every person who pushed to the branch. Off: only its author is judged."],
+  ["members", "People not in roles.yaml", "Refuse a change from someone who is not in roles.yaml. Off: anyone with access to the repository may change files."],
+];
 interface SignedIn {
   host: "gitlab" | "github";
   user: string;
@@ -73,8 +81,13 @@ const DEFAULTS: Answers = {
   assistants: { claude: true, codex: true, cursor: false },
   engine: "sdd",
   headless: false,
+  guard: { mode: "enforce", checks: { files: true, signoffs: true, pushers: true, members: true } },
 };
 
+const guardSummary = (g: Answers["guard"]) => {
+  const off = GUARD_CHECKS.filter(([k]) => !g.checks[k]).map(([, t]) => t.toLowerCase());
+  return `${g.mode === "enforce" ? "Enforce" : "Advisory"}${off.length ? ` · off: ${off.join(", ")}` : " · every check"}`;
+};
 const hostUrl = (a: string) => (/^https?:\/\//.test(a) ? a.replace(/\/+$/, "") : `https://${a.replace(/\/+$/, "")}`);
 const teamId = (n: string) => n.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "team";
 
@@ -499,6 +512,24 @@ function Setup() {
           )}
         </p>
       </div>
+      <div class="sec" id="guard">
+        <h3>How strict hub-guard is</h3>
+        <div class="choices">
+          <Choice group="guard" value="enforce" current={a.guard.mode} title="Enforce" sub="Recommended. A change that breaks a rule does not merge" set={(v) => set({ guard: { ...a.guard, mode: v } })} />
+          <Choice group="guard" value="advisory" current={a.guard.mode} title="Advisory" sub="hub-guard lists what breaks a rule, and the change merges anyway" set={(v) => set({ guard: { ...a.guard, mode: v } })} />
+        </div>
+        {a.host === "github" && <p class="hint">On GitHub Free with private repositories only Advisory installs: there are no rulesets and no auto-merge, so each pull request waits for someone to merge it.</p>}
+        <p class="muted">The checks hub-guard runs. Switch off what your team does not need; you can change them later in Settings. Whatever you choose, only the admin changes <code>.hub/</code> and <code>hub/</code>.</p>
+        {GUARD_CHECKS.map(([k, t, s]) => (
+          <label class="check" key={k}>
+            <input type="checkbox" id={`f-g-${k}`} checked={a.guard.checks[k]} onChange={(e) => set({ guard: { ...a.guard, checks: { ...a.guard.checks, [k]: e.currentTarget.checked } } })} />
+            <div>
+              <b>{t}</b>
+              <span>{s}</span>
+            </div>
+          </label>
+        ))}
+      </div>
       <div class="sec">
         <h3>Starting the assistant from the site</h3>
         <label class="check">
@@ -526,8 +557,9 @@ function Setup() {
             ["Project", a.project, 2],
             ["Issue tracker", a.tracker.type === "jira" ? `Jira · ${a.tracker.key}${a.tracker.mirror ? " · bugs copied" : ""}` : "None", 2],
             ["Assistants", summary(a, 3, signed), 3],
-            ["Engine", a.engine === "sdd" ? "genkovich/sdd" : "Custom adapter", 3],
+            ["Engine", a.engine === "sdd" ? "genkovich/sdd" : a.engine === "plain" ? "Plain" : "Custom adapter", 3],
             ["Run from the site", a.headless ? "Allowed" : "Off", 3],
+            ["hub-guard", guardSummary(a.guard), 3],
             ["Admin", signed ? `${signed.user} (you)` : "", 0],
           ] as const
         ).map(([k, v, i]) => (

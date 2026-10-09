@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadProject, memorySource, parseConfig } from "@sdlc-hub/core";
+import { guardSettings, loadProject, memorySource, parseConfig } from "@sdlc-hub/core";
 import { configYaml, hubFiles, hubGuardCi, hubReportJob, problem, reportStage, teamId, withBlock, withIgnore, withInclude, type SetupAnswers } from "../src/index.ts";
 
 export const ANSWERS: SetupAnswers = {
@@ -46,6 +46,13 @@ describe("setup answers to .hub/ files", () => {
     expect(issues).toEqual([]);
     expect(Object.keys(files).filter((f) => f.startsWith(".hub/engines/"))).toContain(".hub/engines/plain/specify.md");
     expect(loadProject(memorySource(files)).issues).toEqual([]);
+  });
+  it("write the guard settings: enforce with every check by default, or what the admin chose", () => {
+    expect(guardSettings(parseConfig(configYaml(ANSWERS), "c").value!)).toEqual({ mode: "enforce", checks: { files: true, signoffs: true, pushers: true, members: true } });
+    expect(configYaml(ANSWERS)).toContain("guard:\n  mode: enforce\n");
+    const loose = parseConfig(configYaml({ ...ANSWERS, guard: { mode: "advisory", checks: { files: false, signoffs: true, pushers: false, members: true } }, autoMerge: false }), "c").value!;
+    expect(guardSettings(loose)).toEqual({ mode: "advisory", checks: { files: false, signoffs: true, pushers: false, members: true } });
+    expect(loose.git.auto_merge).toBe(false);
   });
   it("keep a full address with its scheme for a server that is not https", () => {
     expect(parseConfig(configYaml({ ...ANSWERS, address: "http://localhost:8929" }), "c").value?.git.host).toBe("http://localhost:8929");

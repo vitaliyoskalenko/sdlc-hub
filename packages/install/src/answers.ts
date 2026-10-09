@@ -18,7 +18,13 @@ export interface SetupAnswers {
   assistants: { claude: true; codex: boolean; cursor: boolean };
   engine: "sdd" | "plain" | "custom";
   headless: boolean;
+  /** How strict hub-guard is; enforce with every check on when left out. */
+  guard?: { mode: "enforce" | "advisory"; checks: { files: boolean; signoffs: boolean; pushers: boolean; members: boolean } };
+  /** false where the host has no auto-merge (GitHub Free with private repositories); set by the install, not asked. */
+  autoMerge?: boolean;
 }
+
+export const DEFAULT_GUARD: NonNullable<SetupAnswers["guard"]> = { mode: "enforce", checks: { files: true, signoffs: true, pushers: true, members: true } };
 
 export const hostUrl = (address: string) => (/^https?:\/\//.test(address) ? address.replace(/\/+$/, "") : `https://${address.replace(/\/+$/, "")}`);
 
@@ -58,6 +64,7 @@ export function configYaml(a: SetupAnswers): string {
     `  host: ${q(a.address.trim())}`,
     `  namespace: ${q(ns)}`,
     `  repo: ${q(a.repo.trim())}`,
+    ...(a.autoMerge === false ? ["  auto_merge: false"] : []),
     "project:",
     `  name: ${q(a.project.trim())}`,
     "teams:",
@@ -75,6 +82,8 @@ export function configYaml(a: SetupAnswers): string {
   }
   const assts = ["claude", ...(a.assistants.codex ? ["codex"] : []), ...(a.assistants.cursor ? ["cursor"] : [])];
   L.push(`assistants: [${assts.join(", ")}]`, `engine: ${a.engine}`, "headless:", `  enabled: ${a.headless}`);
+  const g = a.guard ?? DEFAULT_GUARD;
+  L.push("guard:", `  mode: ${g.mode}`, "  checks:", ...(["files", "signoffs", "pushers", "members"] as const).map((k) => `    ${k}: ${g.checks[k]}`));
   return L.join("\n") + "\n";
 }
 

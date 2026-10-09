@@ -55,3 +55,27 @@ describe("the ruleset check on a second run", () => {
     expect(covers(JSON.parse(JSON.stringify(hubRuleset().rules)), want)).toBe(false);
   });
 });
+
+describe("the GitHub plan check", () => {
+  const answers = { host: "github", address: "github.com", namespace: "shop", repoMode: "existing", repo: "product-specs", teams: [{ name: "Backend", repo: "backend", kind: "backend" }], contract: 0, project: "P", tracker: { type: "none" }, links: {}, assistants: { claude: true, codex: false, cursor: false }, engine: "sdd", headless: false } as const;
+  const gh = (plan: string, isPrivate: boolean) =>
+    ({
+      me: async () => ({ id: 1, login: "nazar.t", name: "Nazar T." }),
+      org: async () => ({ login: "shop", id: 2, plan: { name: plan }, deploy_keys_enabled_for_repositories: true }),
+      orgRole: async () => "admin",
+      repo: async (_o: string, n: string) => ({ id: 3, name: n, full_name: `shop/${n}`, private: isPrivate, default_branch: "main" }),
+    }) as never;
+  const plan = async (p: string, priv: boolean, mode?: "enforce" | "advisory") => {
+    const { preflightGitHub } = await import("../src/install-github.ts");
+    const r = await preflightGitHub({ ...answers, teams: [...answers.teams], ...(mode ? { guard: { mode, checks: { files: true, signoffs: true, pushers: true, members: true } } } : {}) }, gh(p, priv));
+    return r.checks.find((c) => c.id === "plan")!;
+  };
+  it("passes GitHub Team, and public repositories on Free", async () => {
+    expect((await plan("team", true)).ok).toBe(true);
+    expect((await plan("free", false)).ok).toBe(true);
+  });
+  it("refuses Free with private repositories, unless the admin chose advisory mode", async () => {
+    expect(await plan("free", true)).toMatchObject({ ok: false, text: expect.stringMatching(/choose advisory mode/) });
+    expect(await plan("free", true, "advisory")).toMatchObject({ ok: true, text: expect.stringMatching(/waits for someone to merge it/) });
+  });
+});
