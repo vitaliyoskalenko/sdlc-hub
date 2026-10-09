@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { base } from "@sdlc-hub/fixtures";
-import { estimateChange, guard, validationChange, loadProject, memorySource, parseRelease, releaseChange, releaseView } from "../src/index.ts";
+import { estimateChange, featureDetailsChange, guard, validationChange, loadProject, memorySource, parseRelease, releaseChange, releaseView } from "../src/index.ts";
 
 const slug = "tasks-issues";
 const path = `docs/features/${slug}/hub/release.yaml`;
@@ -45,6 +45,16 @@ describe("the release of a feature", () => {
     expect(parseRelease(main[path]!, path).value!.versions).toEqual({ backend: "v2.30.0" });
     expect(() => releaseChange(memorySource(main), project.flow, slug, { kind: "version", team: "Back End", value: "x" }, "bohdan.r", at)).toThrow(/team/);
     expect(() => releaseChange(memorySource(main), project.flow, slug, { kind: "version", team: "web", value: "a\nb" }, "bohdan.r", at)).toThrow(/one line/);
+  });
+  it("lets the PM change a feature's title and links in feature.yaml, keeping the rest", () => {
+    const main = { ...base(), [`docs/features/${slug}/hub/feature.yaml`]: "# the PM's file\ntitle: Tasks\nowner: olena.k\nlinks: { jira: https://jira.example.com/SHOP-1 }\n" };
+    const c = featureDetailsChange(memorySource(main), slug, { title: "Tasks and issues", links: { figma: "https://figma.com/f/1", jira: "" } });
+    expect(c.next).toBe("# the PM's file\ntitle: Tasks and issues\nowner: olena.k\nlinks: { figma: https://figma.com/f/1 }\n");
+    expect(guard({ author: "maksym.d", pushers: [], changes: [c] }, ctx).ok).toBe(true);
+    expect(guard({ author: "daria.l", pushers: [], changes: [c] }, ctx).ok).toBe(false);
+    expect(() => featureDetailsChange(memorySource(main), slug, { title: " " })).toThrow(/title/);
+    expect(() => featureDetailsChange(memorySource(main), slug, { links: { jira: "jira" } })).toThrow(/https/);
+    expect(() => featureDetailsChange(memorySource(main), slug, { title: "Tasks" })).toThrow(/Nothing to change/);
   });
   it("leaves the go to the PM and the rest to Ops", () => {
     const go = releaseChange(memorySource(base()), project.flow, slug, { kind: "go", value: "no-go" }, "maksym.d", at);

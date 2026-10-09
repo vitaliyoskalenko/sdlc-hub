@@ -111,6 +111,46 @@ export function estimateChange(specs: FileSource, slug: string, tokensM: [number
   return { path, base, next };
 }
 
+export const LINK_KINDS = ["jira", "confluence", "figma", "staging"] as const;
+export interface FeatureDetailsEdit {
+  title?: string;
+  /** An empty link is removed. */
+  links?: Partial<Record<(typeof LINK_KINDS)[number], string>>;
+}
+
+/** The PM's light edits of a feature: its title and links in feature.yaml. The rest of the file stays as it is. */
+export function featureDetailsChange(specs: FileSource, slug: string, edit: FeatureDetailsEdit): Change {
+  const path = `docs/features/${slug}/hub/feature.yaml`;
+  const base = specs.read(path);
+  if (base === undefined) throw new Error(`${slug} has no feature.yaml`);
+  const doc = parseDocument(base);
+  if (edit.title !== undefined) {
+    const title = edit.title.trim();
+    if (!title || /[\r\n]/.test(title) || title.length > 120) throw new Error("Write the title on one line, up to 120 characters");
+    doc.set("title", title);
+  }
+  for (const [k, v] of Object.entries(edit.links ?? {})) {
+    if (!(LINK_KINDS as readonly string[]).includes(k)) throw new Error(`There is no ${k} link`);
+    const url = (v ?? "").trim();
+    if (url && !/^https:\/\/\S+$/.test(url)) throw new Error(`The ${k} link must start with https://, or be empty`);
+    if (url) {
+      if (!doc.has("links")) {
+        const node = doc.createNode({});
+        if (isMap(node)) node.flow = true;
+        doc.set("links", node);
+      }
+      doc.setIn(["links", k], url);
+    } else if (doc.hasIn(["links", k])) doc.deleteIn(["links", k]);
+  }
+  const links = doc.get("links");
+  if (isMap(links) && !links.items.length) doc.delete("links");
+  const next = doc.toString({ lineWidth: 0 });
+  if (next === base) throw new Error("Nothing to change");
+  const check = parseFeature(next, path);
+  if (!check.value) throw new Error(check.issues.map((i) => i.message).join("; "));
+  return { path, base, next };
+}
+
 /** A validation report from a read-only run: hub/validation/<yyyymmdd-hhmmss>.md, never changed afterwards. */
 export function validationChange(slug: string, report: string, at: string): Change {
   if (!report.trim()) throw new Error("The report is empty");

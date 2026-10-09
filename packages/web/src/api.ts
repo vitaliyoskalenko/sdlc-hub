@@ -303,7 +303,7 @@ export const api = {
   person: (as: string | undefined, body: { kind: "set"; person: PersonInput } | { kind: "remove"; user: string }) => action("person", as, body),
   people: () => get<{ people: PersonRow[]; release: string }>("/api/people"),
   /** Any other save: verdicts, bug, bug-edit, release. */
-  act: (name: "verdicts" | "bug" | "bug-edit" | "release" | "signoff" | "estimate" | "validation" | "settings", as: string | undefined, body: unknown) => action(name, as, body),
+  act: (name: "verdicts" | "bug" | "bug-edit" | "release" | "signoff" | "estimate" | "validation" | "settings" | "details", as: string | undefined, body: unknown) => action(name, as, body),
   /** A save in conflict: keep my version on the newest main, or drop it for the newer one. */
   async resolve(as: string | undefined, branch: string, choice: "mine" | "newer"): Promise<{ ok: boolean; error?: string }> {
     const r = await fetch(`/api/actions/resolve${asQuery(as)}`, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ branch, choice }) });

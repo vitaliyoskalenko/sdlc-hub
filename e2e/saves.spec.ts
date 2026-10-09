@@ -91,4 +91,22 @@ test.describe.serial("saves from the site", () => {
     await expect(page.locator("#set-guard")).toContainText("off: everyone who pushed");
     await expect(page.locator("#set-save")).toBeDisabled();
   });
+
+  test("the PM changes a feature's title and adds a link; it merges and the page shows them", async ({ page }) => {
+    await page.goto(`${DEMO}/features/returns-portal?as=maksym.d`);
+    await page.waitForSelector("#steph");
+    await page.click("#edit-details");
+    await expect(page.locator("#df-save")).toBeDisabled();
+    await page.fill("#df-title", "Returns portal for buyers");
+    await page.fill("#df-figma", "https://figma.com/file/returns");
+    await page.click("#df-save");
+    await expect(page.locator("h1")).toHaveText("Returns portal for buyers", { timeout: 20_000 });
+    await expect(page.locator('a.btn[href="https://figma.com/file/returns"]')).toBeVisible();
+  });
+
+  test("someone other than the PM or the admin sees no Edit details", async ({ page }) => {
+    await page.goto(`${DEMO}/features/returns-portal?as=daria.l`);
+    await page.waitForSelector("#steph");
+    await expect(page.locator("#edit-details")).toHaveCount(0);
+  });
 });

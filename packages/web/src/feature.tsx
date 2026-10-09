@@ -9,7 +9,7 @@ import { renderMarkdown } from "./markdown.ts";
 import { QA } from "./qa.tsx";
 import { ValidateCard } from "./validate.tsx";
 import { Release } from "./release.tsx";
-import { SignoffBox } from "./saves.tsx";
+import { PendingList, SignoffBox, useAction, usePending } from "./saves.tsx";
 import { Cmd, CopyButton, Link, names, Pill, personName, RoleChip, StatusPill, useApp, WaitMark, waitText } from "./ui.tsx";
 
 
@@ -42,7 +42,10 @@ const GATE_BY: Record<string, string> = {
 };
 
 export function Feature({ slug, tab, params }: { slug: string; tab: string; params: URLSearchParams }) {
-  const { version, features, go, project } = useApp();
+  const { version, features, go, project, me } = useApp();
+  const [editing, setEditing] = useState(false);
+  // Hooks before the early returns below.
+  const detailsPending = usePending(slug, "details");
   const [d, setD] = useState<FeatureDetail | null | "missing">(null);
   useEffect(() => {
     let live = true;
@@ -103,8 +106,15 @@ export function Feature({ slug, tab, params }: { slug: string; tab: string; para
                 </a>
               ) : null,
             )}
+            {(me.roles.includes("pm") || me.roles.includes("admin")) && !editing && (
+              <button type="button" class="btn sm" id="edit-details" onClick={() => setEditing(true)}>
+                Edit details
+              </button>
+            )}
           </div>
         </div>
+        {editing && <DetailsForm slug={slug} title={f.title} links={links} close={() => setEditing(false)} />}
+        <PendingList saves={detailsPending} />
         <NowStrip f={f} detail={d} tab={tab} />
         {notes.length > 0 && (
           <details class="more notes">
@@ -472,6 +482,49 @@ function Flow({ detail, params }: { detail: FeatureDetail; params: URLSearchPara
       <div class="card" id="steppanel">
         <StepPanel detail={detail} id={id} />
       </div>
+    </div>
+  );
+}
+
+const LINKS = [
+  ["jira", "Jira"],
+  ["confluence", "Confluence"],
+  ["figma", "Figma"],
+  ["staging", "Staging"],
+] as const;
+
+/** The PM's light edits: the title and the links, saved to feature.yaml through a merge request. */
+function DetailsForm({ slug, title, links, close }: { slug: string; title: string; links: Partial<Record<(typeof LINKS)[number][0], string>>; close: () => void }) {
+  const { run, busy, problem } = useAction();
+  const [t, setT] = useState(title);
+  const [l, setL] = useState<Record<string, string>>(Object.fromEntries(LINKS.map(([k]) => [k, links[k] ?? ""])));
+  const changedLinks = Object.fromEntries(LINKS.filter(([k]) => l[k]!.trim() !== (links[k] ?? "")).map(([k]) => [k, l[k]!.trim()]));
+  const edit = { ...(t.trim() !== title ? { title: t.trim() } : {}), ...(Object.keys(changedLinks).length ? { links: changedLinks } : {}) };
+  const changed = Object.keys(edit).length > 0;
+  return (
+    <div class="card" id="details-form">
+      <div class="form">
+        <label class="fld full">
+          <span>Title</span>
+          <input type="text" id="df-title" value={t} onInput={(e) => setT((e.target as HTMLInputElement).value)} />
+        </label>
+        {LINKS.map(([k, label]) => (
+          <label class="fld" key={k}>
+            <span>{label}</span>
+            <input type="url" id={`df-${k}`} value={l[k]} placeholder="https://" onInput={(e) => setL({ ...l, [k]: (e.target as HTMLInputElement).value })} />
+          </label>
+        ))}
+      </div>
+      <div class="row">
+        <button type="button" class="btn pri" id="df-save" disabled={!changed || !t.trim() || busy} onClick={() => void run("details", { slug, edit }).then((ok) => ok && close())}>
+          {busy ? "Saving…" : "Save"}
+        </button>
+        <button type="button" class="btn" onClick={close}>
+          Cancel
+        </button>
+        {!changed && <span class="reason">Change the title or a link first.</span>}
+      </div>
+      {problem}
     </div>
   );
 }

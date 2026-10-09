@@ -1,6 +1,6 @@
 // The site's actions: a sign-off or a return of a gate, through the same save the plugin uses.
 
-import { createSaver, saveBug, saveBugEdit, saveEstimate, savePeople, saveSettings, saveValidation, saveRelease, saveSignoff, saveVerdicts, type Save, type SaveOutcome, type SaverOptions } from "@sdlc-hub/save";
+import { createSaver, saveBug, saveBugEdit, saveEstimate, saveFeatureDetails, savePeople, saveSettings, saveValidation, saveRelease, saveSignoff, saveVerdicts, type Save, type SaveOutcome, type SaverOptions } from "@sdlc-hub/save";
 import type { ActionHandler } from "@sdlc-hub/server";
 import type { BugInput } from "@sdlc-hub/core";
 import type { HeadlessRun } from "./headless.ts";
@@ -79,6 +79,7 @@ export function actionHandler(o: ActionOptions): ActionHandler {
         },
         "/bug-edit": () => saveBugEdit({ ...feature, id: b["id"], edit: b["edit"] }),
         "/release": () => saveRelease({ ...feature, edit: b["edit"] }),
+        "/details": () => saveFeatureDetails({ ...feature, edit: b["edit"] }),
         "/estimate": () => saveEstimate({ ...feature, tokensM: b["tokens_m"] }),
         "/validation": () => saveValidation({ ...feature, report: b["report"] }),
       };
