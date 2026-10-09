@@ -16,6 +16,7 @@ import { addDemoRemote, demoHost } from "./demo-host.ts";
 import { localTests } from "@sdlc-hub/save";
 import { collectUsage, noteContext } from "@sdlc-hub/usage";
 import { sync } from "./sync.ts";
+import { rekey } from "./rekey.ts";
 import { claudeHeadless } from "./headless.ts";
 import { seedDemoUsage } from "./demo-usage.ts";
 import { keyStore } from "@sdlc-hub/usage";
@@ -56,6 +57,10 @@ const HELP = `SDLC Hub
   hub sync
       Pulls main and hub-state, publishes your usage encrypted, and on the admin's or the PM's machine the
       open totals. It also refreshes Claude Code's copy of the hub plugin.
+
+  hub usage rekey
+      On the admin's or a PM's machine, after the PM, an admin or someone's key changed: encrypts every usage
+      record in hub-state again to the person, the admins and the PMs that roles.yaml names now.
 
   hub doctor
       Checks Node.js, .hub/, who you are, the git host and your assistant's hub plugin.
@@ -369,6 +374,16 @@ async function stdinText(): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
+/** hub usage rekey: encrypt every usage record again to the readers roles.yaml names now. */
+async function usageCommand(sub: string | undefined) {
+  if (sub !== "rekey") throw new Error("hub usage rekey: encrypt the usage records again, after a PM or an admin changed");
+  const root = topLevel(process.cwd());
+  if (!root) throw new Error("Run hub usage rekey in your clone of product-specs.");
+  const r = await rekey({ root });
+  console.log(print(r.lines));
+  if (!r.ok) process.exit(1);
+}
+
 async function syncCommand() {
   const root = topLevel(process.cwd());
   if (!root) throw new Error("Run hub sync in your clone of product-specs.");
@@ -404,7 +419,7 @@ async function testCommand(f: Record<string, string>, slug: string | undefined) 
 }
 
 const [command, ...rest] = process.argv.slice(2);
-const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(flags(rest.slice(1)), rest[0]) : undefined;
+const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "usage" ? () => usageCommand(rest[0]) : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(flags(rest.slice(1)), rest[0]) : undefined;
 if (!run) {
   console.log(HELP);
   process.exit(command && command !== "help" && command !== "--help" ? 1 : 0);

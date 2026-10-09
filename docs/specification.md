@@ -259,6 +259,7 @@ The same commands exist in all three assistants: `/hub:name` in Claude Code, `$h
 | `return <step> <slug> <reason>` | Gate owner | Sends a step back instead of signing it off. `<step>` is the step whose gate the person owns; `flow.yaml` names where it goes back to (by default the step itself) | No |
 | `release <slug>` | Ops | Walks the release checklist. Never starts a production job itself | Yes |
 | `sync` | Everyone | Pulls both branches, publishes your usage encrypted, on the admin's or the PM's machine the open totals, and refreshes Claude Code's copy of the hub plugin | No |
+| `hub usage rekey` (command line only) | Admin, PM | After the PM, an admin or a key changed: encrypts every usage record in `hub-state` again, to the person, the admins and the PMs that `roles.yaml` names now. A record not encrypted to this machine's key stays as it is, and the command says which | No |
 | `doctor` | Everyone | Checks the engine, MCP servers, git identity, role and GitLab token | No |
 
 ### How proxying works
