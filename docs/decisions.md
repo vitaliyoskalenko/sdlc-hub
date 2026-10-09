@@ -2,6 +2,28 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-09: Revision 63, phase 5 so far
+
+### The second engine is the hub's own
+- **Decision:** `plain` ships with the hub: the same steps and evidence as SDD, each stage a prompt in `.hub/engines/plain/<stage>.md` that says what to write and in which format, run by the hub's `stage` command. Setup offers it beside SDD and a custom adapter.
+- **Why:** It proves the adapter contract with no outside dependency, and gives a team a fallback that needs no engine plugin. On the demo every feature has the same state with either engine.
+- **By:** Owner.
+
+### Headless validation
+- **Decision:** When `headless.enabled` is on, the local server starts the person's own Claude Code with `/hub:validate <slug>`. It runs in plan permission mode, with editing and shell tools denied and a turn limit; only the PO and the team leads may start it. The report is shown first; saving it is a separate action (`hub/validation/<time>.md`, a merge request). The run's usage is recorded by the plugin's hooks like any session.
+- **Why:** The specification's rule: read-only tools, a turn limit, the person's seat, the result shown before anything is saved. A real run changed no file.
+- **By:** Proposed; verified with Claude Code.
+
+### Codex and Cursor from their documentation
+- **Decision:**
+  - One set of skills in `.agents/skills/hub-*/SKILL.md`, which both read.
+  - Codex: `.codex/config.toml` and `.codex/hooks.json`, with commands that find the repository root through `git rev-parse`, because Codex may start in a subfolder.
+  - Cursor: `.cursor/mcp.json` and `.cursor/hooks.json`, with `${workspaceFolder}`.
+  - The hook command answers each assistant as its docs ask: Cursor gets JSON at session start and before a prompt, Codex's `Stop` prints nothing.
+  - Usage: Codex's comes from the running total in its session file. Its format is read from the Codex source and marked `@unverified-codex-format`. Cursor keeps no token counts on the machine.
+- **Why:** The owner chose to build from the docs and verify later; neither CLI is installed here.
+- **By:** Owner.
+
 ## 2026-10-09: Revision 62, metrics
 
 ### Usage from the transcript, priced at list prices

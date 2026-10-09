@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 9, 2026 · @Vitaliy · revision 62
+Oct 9, 2026 · @Vitaliy · revision 63
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -249,7 +249,8 @@ The same commands exist in all three assistants: `/hub:name` in Claude Code, `$h
 | `next [slug]` | Everyone | Runs the next stage for your role through the engine, with the hub's prompt template and links | Yes |
 | `run <step> <slug>` | Everyone | Runs one named stage through the engine | Yes |
 | `new <slug>` | PO | Creates the feature folder and `feature.yaml`, then starts the interview or the spec stage | Yes |
-| `validate <slug>` | PO, team leads | After a spec change, checks the documents downstream and writes a report. Changes nothing | Yes |
+| `validate <slug>` | PO, team leads | After a spec change, checks the documents downstream against the spec and reports per document: consistent, or conflicts with a proposed fix. Changes nothing; the person may save the report to `hub/validation/<time>.md` | Yes |
+| `stage <stage> <slug>` | Everyone | The plain engine's stage: runs the prompt in `.hub/engines/plain/<stage>.md`. `hub_next` hands it over | Yes |
 | `signoff <step> <slug>` | Gate owner | Records a human sign-off after the person confirms it | No |
 | `bug <slug>` | QA | Files a bug with AC, platform, team and severity | Optional |
 | `verify <slug>` | QA | AI-assisted check on staging through Playwright and Maestro, recorded as a test run | Yes |
@@ -309,21 +310,21 @@ Rules of the adapter:
 - `fix` is a return path from verify and from a return at `qa-final`, and is listed under `returns`, apart from the twenty steps.
 - One rule belongs to the hub, not to the adapter: when no team publishes a contract, `api` is skipped on every route, whatever its `skippable_on` says, because there is no shared contract.
 
-Replacing the engine means adding another file under `.hub/engines/` and changing `engine: sdd` in `config.yaml`.
+Replacing the engine means adding another file under `.hub/engines/` and changing `engine: sdd` in `config.yaml`. The hub ships a second engine as proof, `plain`: the same steps and evidence as SDD, each stage a prompt file in `.hub/engines/plain/<stage>.md`, run by the hub's `stage` command in any assistant. On the demo project every feature has the same state with either engine.
 
 ### The three assistants
 
 |  | Claude Code | Codex | Cursor |
 | --- | --- | --- | --- |
-| Hub commands arrive as | A plugin from the repository's own marketplace (`.claude-plugin/marketplace.json`, plugin in `hub/plugin`), enabled in `.claude/settings.json`. Each person's setup registers the marketplace once at local scope, because a relative path in the shared settings does not install | Skills in `.agents/skills/hub-*` | Skills in `.cursor/skills/hub-*` |
+| Hub commands arrive as | A plugin from the repository's own marketplace (`.claude-plugin/marketplace.json`, plugin in `hub/plugin`), enabled in `.claude/settings.json`. Each person's setup registers the marketplace once at local scope, because a relative path in the shared settings does not install | Skills in `.agents/skills/hub-*/SKILL.md`, the same files Cursor reads. Saving skills carry `agents/openai.yaml` with `allow_implicit_invocation: false` | The same skills in `.agents/skills/hub-*/SKILL.md`, with `disable-model-invocation: true` on saving skills |
 | The engine arrives as | Plugin `sdd@sdd` | `install.sh codex` from the SDD repository | `install.sh cursor` |
 | Project instructions | `CLAUDE.md` | `AGENTS.md` | `AGENTS.md`, `.cursor/rules` |
-| MCP server config | The plugin's `.mcp.json` | `.codex/config.toml` | `.cursor/mcp.json` |
+| MCP server config | The plugin's `.mcp.json`, `node ${CLAUDE_PROJECT_DIR}/hub/cli.js mcp` | `.codex/config.toml`: `sh -c 'node "$(git rev-parse --show-toplevel)/hub/cli.js" mcp'`, loaded only in a trusted project | `.cursor/mcp.json` with `${workspaceFolder}/hub/cli.js`; the person approves the server once |
 | Hooks used | `SessionStart` tells the session who the person is and what waits for them. Later: `UserPromptSubmit` (a typed `/hub:x` arrives as its `prompt`), `PostToolUse` on the hub's MCP tools, and `Stop` | `SessionStart`, `Stop`, `SessionEnd` | `sessionStart`, `stop`, `sessionEnd` |
 | Headless run | `claude -p ... --output-format json` | `codex exec ... --json` | `agent -p ... --output-format json` |
 | Path rules for edits (local, never committed) | `permissions` in `.claude/settings.local.json` | A permission profile in the person's own `~/.codex/config.toml` | The person's own Cursor CLI permissions file |
 
-Claude Code is the reference assistant and gets every feature first. Codex and Cursor read the same files, so a team can mix assistants on one feature.
+Claude Code is the reference assistant and gets every feature first. Codex and Cursor read the same files, so a team can mix assistants on one feature. The Codex and Cursor files are built from the vendors' documentation of 9 October 2026 and have not yet run against either assistant (claim 7). Codex asks each person to trust the project and to approve the hooks again whenever they change. Cursor keeps no token counts on the machine, so its usage is not recorded; Codex's comes from its session files.
 
 ## Feature lifecycle
 
@@ -744,7 +745,7 @@ The design keeps secrets off the repository and treats the local machine as untr
 - **Secrets.** None in the repository, the setup script or the site. Host credentials stay in the operating system's keychain. CI holds three kinds of token as masked variables. They are not protected, because the jobs that need them run on unprotected branches. `HUB_STATE_TOKEN` (a group variable) writes `hub-state` for `hub-report`, and for `hub-guard` when it records a refused save and deletes its branch. `HUB_GUARD_TOKEN` (a variable of product-specs, `read_api`) lets `hub-guard` read who opened a merge request and who pushed to it. There is also one fan-out token per team repository. None grants more than a Developer already has. On GitLab Free a Developer token can push to any unprotected branch; since phase 2 `main` takes no pushes, so nothing a token writes reaches `main` without a merge request that passes `hub-guard` (`docs/open-items.md`, claim 13).
 - **Local server.** It listens on the loopback address only and rejects any request whose Host or Origin is not its own address, so another site in the browser cannot call it. The session token is created at each start, kept in an HttpOnly cookie for the page and in a file only the person can read for the assistant's MCP server. The port is 4173 by default, can be changed, and falls back to a free one. Assistants are started with an argument list, never through a shell.
 - **Roles.** They are checked at merge against `roles.yaml` on `main`. Editing a local file changes only what that person's own site shows.
-- **Headless runs.** Off by default. In version 1 the only headless run is validation: read-only tools, a turn limit, the person's own seat, and the result shown before anything is saved. Stages stay copy-and-run. Running a stage from the site is a later step behind a second admin switch.
+- **Headless runs.** Off by default. In version 1 the only headless run is validation: read-only tools, a turn limit, the person's own seat, and the result shown before anything is saved. For Claude Code it is `claude -p "/hub:validate <slug>" --output-format json --permission-mode plan --max-turns 30 --disallowedTools Edit Write NotebookEdit Bash`, started by the local server for the PO and the team leads; the plugin's hooks record its usage like any session. A real run on the demo changed no file, took 9 turns and cost $0.26. Stages stay copy-and-run. Running a stage from the site is a later step behind a second admin switch.
 - **Untrusted text.** Jira tickets, Confluence pages and bug descriptions are data. Prompt templates pass them as quoted material, and validation runs that read them have no write tools. A sign-off or a QA decision that the assistant prepares is recorded only after the person confirms it, on the site or at a prompt in the terminal, so injected text cannot approve a gate.
 - **Machine branch.** Any developer can push to `hub-state`, so nothing on it is trusted for a gate. The site shows it as a cache, and the autotest gate and the state of merge requests are read from the host's API when the decision is made. A scheduled job validates the files, the site ignores malformed records, and sign-offs and bugs never live there.
 - **Supply chain.** The hub is vendored at a tag and upgrades arrive as a merge request. The engine version is pinned in the adapter.
