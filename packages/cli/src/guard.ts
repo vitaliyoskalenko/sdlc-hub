@@ -7,7 +7,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { guard, loadProject, refusalPath, type Change, type Finding, type SaveRefusal } from "@sdlc-hub/core";
 import { refSource } from "@sdlc-hub/git";
-import type { GitLab } from "@sdlc-hub/host";
+import type { GitHub, GitLab } from "@sdlc-hub/host";
 import { tokenEnv, writeHubState } from "@sdlc-hub/save";
 
 export interface GuardRepoOptions {
@@ -101,9 +101,9 @@ export function formatFindings(r: GuardResult, author: string, pushers: string[]
  * A refused save from the site: the reason goes to hub-state, where the person's site reads it, and the branch is
  * deleted, which closes its merge request. Uses HUB_STATE_TOKEN through git's environment.
  */
-export function recordRefusal(o: SaveRefusal & { url: string; token: string; env?: NodeJS.ProcessEnv }): void {
-  const { url, token, env: base, ...record } = o;
-  const env = tokenEnv(token, base);
+export function recordRefusal(o: SaveRefusal & { url: string; token: string; env?: NodeJS.ProcessEnv; tokenUser?: string }): void {
+  const { url, token, env: base, tokenUser, ...record } = o;
+  const env = tokenEnv(token, base, tokenUser);
   writeHubState({
     url,
     env,
@@ -116,4 +116,22 @@ export function recordRefusal(o: SaveRefusal & { url: string; token: string; env
     },
   });
   execFileSync("git", ["push", "-q", url, "--delete", record.branch], { env: { ...env, GIT_TERMINAL_PROMPT: "0" }, stdio: "pipe" });
+}
+
+/** The GitHub Actions context of a hub-guard run: the pull request from the event, and the repository. */
+export interface GitHubGuardEnv {
+  GITHUB_EVENT_PATH?: string;
+  GITHUB_REPOSITORY?: string;
+  GITHUB_SERVER_URL?: string;
+  GITHUB_API_URL?: string;
+  GITHUB_ACTOR?: string;
+}
+
+/** The pull request's author, from the event, and everyone who pushed to its branch, from the repository's activity. */
+export async function pullRequestPeople(gh: GitHub, env: GitHubGuardEnv, event: { pull_request?: { user?: { login?: string }; head?: { ref?: string }; number?: number } }) {
+  const pr = event.pull_request;
+  const [owner, name] = (env.GITHUB_REPOSITORY ?? "").split("/");
+  if (!pr?.user?.login || !pr.head?.ref || !owner || !name) throw new Error("hub guard --github runs in a pull_request_target workflow of product-specs");
+  const pushed = await gh.pushers(owner, name, pr.head.ref);
+  return { author: pr.user.login, pushers: [...new Set([...(env.GITHUB_ACTOR ? [env.GITHUB_ACTOR] : []), ...pushed])].sort(), branch: pr.head.ref, number: pr.number ?? 0 };
 }

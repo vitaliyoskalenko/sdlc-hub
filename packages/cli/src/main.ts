@@ -8,9 +8,9 @@ import { execFile, execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { gitIdentity, openProject, personOf, topLevel } from "@sdlc-hub/git";
 import { startServer, type RunningServer, type ServerOptions } from "@sdlc-hub/server";
-import { GitLab } from "@sdlc-hub/host";
+import { GitHub, GitLab } from "@sdlc-hub/host";
 import { isSaveBranch } from "@sdlc-hub/core";
-import { baseTime, formatFindings, guardRepo, mergeRequestPeople, recordRefusal } from "./guard.ts";
+import { baseTime, formatFindings, guardRepo, mergeRequestPeople, pullRequestPeople, recordRefusal } from "./guard.ts";
 import { actionHandler } from "./actions.ts";
 import { addDemoRemote, demoHost } from "./demo-host.ts";
 import { localTests } from "@sdlc-hub/save";
@@ -229,6 +229,7 @@ async function reportCommand(f: Record<string, string>) {
 }
 
 async function guardCommand(f: Record<string, string>) {
+  if (f["github"] !== undefined) return guardGitHub(f);
   const env = process.env;
   const base = env["CI_MERGE_REQUEST_DIFF_BASE_SHA"];
   const token = env["HUB_GUARD_TOKEN"];
@@ -315,6 +316,35 @@ async function hook(f: Record<string, string>, event: string | undefined) {
   }
   // Cursor's prompt hook answers whether the prompt goes on.
   if (event === "prompt" && assistant === "cursor") console.log(JSON.stringify({ continue: true }));
+}
+
+/** hub guard --github: in the hub-guard workflow (pull_request_target), on the pull request checked out as data. */
+async function guardGitHub(f: Record<string, string>) {
+  const env = process.env;
+  const token = env["GITHUB_TOKEN"];
+  if (!token || !env["GITHUB_EVENT_PATH"]) throw new Error("hub guard --github runs in the hub-guard workflow, with GITHUB_TOKEN set");
+  const cwd = process.cwd();
+  const rules = f["rules"] ?? "refs/remotes/origin/main";
+  const event = JSON.parse(readFileSync(env["GITHUB_EVENT_PATH"], "utf8")) as Parameters<typeof pullRequestPeople>[2];
+  const gh = new GitHub(token, env["GITHUB_API_URL"] ?? "https://api.github.com");
+  const { author, pushers, branch, number } = await pullRequestPeople(gh, env, event);
+  // Where the pull request leaves the target branch: its changes are judged from there.
+  const base = execFileSync("git", ["merge-base", "HEAD", rules], { cwd, encoding: "utf8" }).trim();
+  const r = guardRepo({ cwd, baseSha: base, rulesRef: rules, author, pushers });
+  console.log(formatFindings(r, author, pushers));
+  if (r.ok) return;
+  // A save from the site: tell the person's site why, and close the pull request by deleting its branch.
+  if (isSaveBranch(branch)) {
+    try {
+      const sha = execFileSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).trim();
+      const at = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+      recordRefusal({ url: `${env["GITHUB_SERVER_URL"] ?? "https://github.com"}/${env["GITHUB_REPOSITORY"]}.git`, token, tokenUser: "x-access-token", branch, mr: number, author, sha, at, findings: r.findings });
+      console.log(`hub-guard: recorded the refusal in hub-state and deleted ${branch}, which closes the pull request`);
+    } catch (e) {
+      console.log(`hub-guard: could not record the refusal: ${(e as Error).message}`);
+    }
+  }
+  process.exit(1);
 }
 
 async function stdinText(): Promise<string> {

@@ -56,6 +56,7 @@ export function writeHubState(o: HubStateWrite): boolean {
 }
 
 /** Git's environment for HTTPS with a token: the header goes through GIT_CONFIG_*, never the command line. */
-export function tokenEnv(token: string, base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  return { ...base, GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "http.extraHeader", GIT_CONFIG_VALUE_0: `Authorization: Basic ${Buffer.from(`oauth2:${token}`).toString("base64")}` };
+export function tokenEnv(token: string, base: NodeJS.ProcessEnv = process.env, user = "oauth2"): NodeJS.ProcessEnv {
+  // GitLab takes "oauth2" as the user for a token; GitHub "x-access-token".
+  return { ...base, GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "http.extraHeader", GIT_CONFIG_VALUE_0: `Authorization: Basic ${Buffer.from(`${user}:${token}`).toString("base64")}` };
 }

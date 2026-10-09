@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { base } from "@sdlc-hub/fixtures";
-import { GitLab } from "@sdlc-hub/host";
-import { formatFindings, guardRepo, mergeRequestPeople, recordRefusal } from "../src/guard.ts";
+import { GitHub, GitLab } from "@sdlc-hub/host";
+import { formatFindings, guardRepo, mergeRequestPeople, pullRequestPeople, recordRefusal } from "../src/guard.ts";
 
 const temp: string[] = [];
 afterAll(() => temp.forEach((d) => rmSync(d, { recursive: true, force: true })));
@@ -108,5 +108,23 @@ describe("a refused save from the site", () => {
     recordRefusal({ url: remote, token: "t", branch: "hub/olena.k/config-1", mr: 3, author: "olena.k", sha: "abcdef1", at: "2026-10-08T10:00:00Z", findings: [{ user: "olena.k", path: ".hub/config.yaml", reason: "No role" }], env });
     expect(JSON.parse(git(remote, "show", "hub-state:saves/olena.k/config-1.json"))).toMatchObject({ mr: 3, findings: [{ path: ".hub/config.yaml" }] });
     expect(git(remote, "branch", "--list", "hub/*")).toBe("");
+  });
+});
+
+describe("the people of a pull request on GitHub", () => {
+  const fetcher = (async (url: string) => {
+    const path = String(url).replace("https://api.github.com", "");
+    const answers: Record<string, unknown> = {
+      "/repos/shop/product-specs/activity?ref=refs%2Fheads%2Fhub%2Folena.k%2Fspec-1&activity_type=push&per_page=100&page=1": [{ actor: { login: "olena.k" } }, { actor: { login: "taras.m" } }],
+      "/repos/shop/product-specs/activity?ref=refs%2Fheads%2Fhub%2Folena.k%2Fspec-1&activity_type=force_push&per_page=100&page=1": [],
+    };
+    return new Response(JSON.stringify(answers[path] ?? []), { status: 200 });
+  }) as typeof fetch;
+  it("names the author from the event and everyone who pushed from the repository's activity", async () => {
+    const r = await pullRequestPeople(new GitHub("t", undefined, fetcher), { GITHUB_REPOSITORY: "shop/product-specs", GITHUB_ACTOR: "olena.k" }, { pull_request: { user: { login: "olena.k" }, head: { ref: "hub/olena.k/spec-1" }, number: 7 } });
+    expect(r).toEqual({ author: "olena.k", pushers: ["olena.k", "taras.m"], branch: "hub/olena.k/spec-1", number: 7 });
+  });
+  it("refuses to run outside a pull request workflow", async () => {
+    await expect(pullRequestPeople(new GitHub("t", undefined, fetcher), {}, {})).rejects.toThrow(/pull_request_target/);
   });
 });
