@@ -354,7 +354,7 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
  * Pushes a new branch with no history, holding one README, to the specifications repository. The token reaches git
  * through its environment (GIT_CONFIG_*), never through the command line or a file in the repository.
  */
-function pushOrphan(base: string, path: string, authHeader: string, branch: string) {
+export function pushOrphan(base: string, path: string, authHeader: string, branch: string) {
   const dir = mkdtempSync(join(tmpdir(), "hub-state-"));
   const env = {
     ...process.env,

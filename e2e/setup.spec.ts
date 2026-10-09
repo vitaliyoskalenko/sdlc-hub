@@ -18,7 +18,7 @@ for (const vp of [
   { name: "desktop", width: 1366, height: 860 },
   { name: "phone", width: 390, height: 800 },
 ]) {
-  test(`setup at ${vp.name} width: GitHub stops, GitLab needs a sign-in`, async ({ browser }) => {
+  test(`setup at ${vp.name} width: both hosts need a sign-in`, async ({ browser }) => {
     const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height } });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
@@ -28,9 +28,12 @@ for (const vp of [
     await page.click("#b-begin");
     await expect(page.locator("h2")).toHaveText("Where does your code live?");
     await page.click("#c-host-github");
-    await expect(page.locator("#github-stop")).toContainText("Install on GitHub is not available yet");
+    await expect(page.locator("#f-address")).toHaveValue("github.com");
+    await expect(page.locator("#github-perms")).toContainText("Workflows");
+    await expect(page.locator(".signin a")).toHaveAttribute("href", "https://github.com/settings/personal-access-tokens/new");
     await expect(page.locator("#b-next")).toBeDisabled();
-    await expect(page.locator(".foot .why")).toHaveText("Install on GitHub is not available yet");
+    await expect(page.locator(".foot .why")).toHaveText("Sign in to continue");
+    await expect(page.locator("#b-signin")).toBeDisabled();
     expect(await overflow(page)).toBe(0);
     await page.click("#c-host-gitlab");
     await expect(page.locator("#b-next")).toBeDisabled();

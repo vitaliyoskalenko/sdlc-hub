@@ -116,6 +116,7 @@ input[type=text]:focus,select:focus{border-color:var(--ink);outline:none}
 .check span{color:var(--muted);font-size:.88rem}
 .signed{display:flex;flex-direction:column;gap:6px;border:1.5px solid var(--ok);border-radius:11px;padding:10px 14px;background:color-mix(in srgb,var(--ok) 7%,var(--surface))}
 .signin{display:flex;flex-direction:column;gap:8px;border:1.5px dashed var(--line);border-radius:11px;padding:12px 14px}
+.perms{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;overflow-wrap:anywhere}
 details.more>summary{cursor:pointer;color:var(--muted);font-size:.88rem;list-style:none}
 details.more>summary::-webkit-details-marker{display:none}
 details.more>summary::before{content:"+ ";font-family:var(--f-mono)}

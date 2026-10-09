@@ -22,6 +22,7 @@ interface Answers {
   headless: boolean;
 }
 interface SignedIn {
+  host: "gitlab" | "github";
   user: string;
   name: string;
   address: string;
@@ -88,7 +89,6 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
 function problem(a: Answers, i: number, signed: SignedIn | null): string {
   const h = HOSTS[a.host];
   if (i === 0) {
-    if (a.host === "github") return "Install on GitHub is not available yet";
     if (!a.address.trim()) return `Enter the ${h.n} address`;
     if (!signed) return "Sign in to continue";
   }
@@ -157,7 +157,7 @@ function Setup() {
     api<{ signedIn: SignedIn | null; result: Result | null; running: boolean }>("/state").then((s) => {
       if (s.signedIn) {
         setSigned(s.signedIn);
-        set({ address: s.signedIn.address });
+        set({ host: s.signedIn.host, address: s.signedIn.address });
       }
     }, () => undefined);
   }, []);
@@ -220,7 +220,10 @@ function Setup() {
   if (step < 0) return <Start begin={() => go(0)} />;
 
   const pr = step < 4 ? problem(a, step, signed) : firstBad >= 0 ? `Screen ${firstBad + 1} is not complete: ${problem(a, firstBad, signed).toLowerCase()}` : !checks ? "Checking…" : !checks.ok ? "A check did not pass" : "";
-  const tokenUrl = `${hostUrl(a.address || "gitlab.example.com")}/-/user_settings/personal_access_tokens?name=SDLC%20Hub%20setup&scopes=api`;
+  const tokenUrl =
+    a.host === "github"
+      ? `${hostUrl(a.address || "github.com")}/settings/personal-access-tokens/new`
+      : `${hostUrl(a.address || "gitlab.example.com")}/-/user_settings/personal_access_tokens?name=SDLC%20Hub%20setup&scopes=api`;
 
   const screens = [
     // 1 · Git host
@@ -233,56 +236,67 @@ function Setup() {
         <Choice group="host" value="gitlab" current={a.host} title="GitLab" sub="GitLab.com or your own server" set={(v) => set({ host: v, address: "gitlab.example.com" })} />
         <Choice group="host" value="github" current={a.host} title="GitHub" sub="GitHub.com or Enterprise Server" set={(v) => set({ host: v, address: "github.com" })} />
       </div>
-      {a.host === "github" ? (
-        <div class="notice" id="github-stop">
-          <b>Install on GitHub is not available yet.</b>
-          <p>This version installs on GitLab only. GitHub support (rulesets, a required check and auto-merge) comes in a later version, so setup stops here. Choose GitLab to continue.</p>
-        </div>
-      ) : (
-        <>
-          <Field id="f-address" label="GitLab address" value={a.address} set={(v) => (set({ address: v }), setSigned(null))} hint="gitlab.com, or the address of your own server, such as gitlab.example.com" />
-          <div class="sec">
-            <h3>Sign in</h3>
-            {signed ? (
-              <div class="signed">
-                <div class="row sp">
-                  <b>Signed in as {signed.user}</b>
-                  <button type="button" class="btn sm" onClick={() => void api("/signout", {}).then(() => setSigned(null))}>
-                    Sign out
-                  </button>
-                </div>
-                <div class="row">
-                  {signed.version && <span class="pill ok">GitLab {signed.version}</span>}
-                  <span class={`pill ${signed.stored ? "ok" : "warn"}`}>{signed.stored ? "token kept in your system keychain" : "token kept in memory only"}</span>
-                </div>
-                <p class="muted">The Free tier has no Code Owners or approval rules; the hub-guard job does that work instead.</p>
-              </div>
+      <Field id="f-address" label={`${h.n} address`} value={a.address} set={(v) => (set({ address: v }), setSigned(null))} hint={a.host === "github" ? "github.com, or the address of your GitHub Enterprise Server" : "gitlab.com, or the address of your own server, such as gitlab.example.com"} />
+      <div class="sec">
+        <h3>Sign in</h3>
+        {signed ? (
+          <div class="signed">
+            <div class="row sp">
+              <b>Signed in as {signed.user}</b>
+              <button type="button" class="btn sm" onClick={() => void api("/signout", {}).then(() => setSigned(null))}>
+                Sign out
+              </button>
+            </div>
+            <div class="row">
+              {signed.version && <span class="pill ok">GitLab {signed.version}</span>}
+              <span class={`pill ${signed.stored ? "ok" : "warn"}`}>{signed.stored ? "token kept in your system keychain" : "token kept in memory only"}</span>
+            </div>
+            {a.host === "github" ? (
+              <p class="muted">Rulesets, a required check and auto-merge do the work of the guard. With private repositories they need GitHub Team; the review screen checks your plan.</p>
             ) : (
-              <div class="signin">
-                <p>
-                  Setup needs a personal access token of an Owner of the group, with the <code>api</code> scope. It stays in your system keychain and in this setup's memory. It is never written to the repository or to anyone's setup script.
-                </p>
-                <p>
-                  <a href={tokenUrl} target="_blank" rel="noopener noreferrer">
-                    Create a token on {a.address || "GitLab"} ↗
-                  </a>{" "}
-                  <span class="muted">(name and scope are filled in)</span>
-                </p>
-                <label class="fld">
-                  <span>Personal access token</span>
-                  <input type="password" id="f-token" value={token} autocomplete="off" onInput={(e) => setToken(e.currentTarget.value)} />
-                </label>
-                <div class="row">
-                  <button type="button" class="btn pri" id="b-signin" disabled={!a.address.trim() || !token.trim() || busy} onClick={() => void signIn()}>
-                    {busy ? "Signing in…" : "Sign in"}
-                  </button>
-                  {signErr && <span class="err">{signErr}</span>}
-                </div>
-              </div>
+              <p class="muted">The Free tier has no Code Owners or approval rules; the hub-guard job does that work instead.</p>
             )}
           </div>
-        </>
-      )}
+        ) : (
+          <div class="signin">
+            {a.host === "github" ? (
+              <>
+                <p>
+                  Setup needs a fine-grained personal access token of an owner of the organization. Set the resource owner to the organization and allow all repositories. It stays in your system keychain and in this setup's memory. It is never written to the repository or to anyone's setup script.
+                </p>
+                <ul class="perms" id="github-perms">
+                  <li>
+                    Repository: <code>Administration</code>, <code>Contents</code>, <code>Pull requests</code>, <code>Workflows</code> and <code>Secrets</code>, read and write
+                  </li>
+                  <li>
+                    Organization: <code>Members</code> read; <code>Administration</code> read and write
+                  </li>
+                </ul>
+              </>
+            ) : (
+              <p>
+                Setup needs a personal access token of an Owner of the group, with the <code>api</code> scope. It stays in your system keychain and in this setup's memory. It is never written to the repository or to anyone's setup script.
+              </p>
+            )}
+            <p>
+              <a href={tokenUrl} target="_blank" rel="noopener noreferrer">
+                Create a token on {a.address || h.n} ↗
+              </a>{" "}
+              <span class="muted">{a.host === "github" ? "(choose the permissions above)" : "(name and scope are filled in)"}</span>
+            </p>
+            <label class="fld">
+              <span>Personal access token</span>
+              <input type="password" id="f-token" value={token} autocomplete="off" onInput={(e) => setToken(e.currentTarget.value)} />
+            </label>
+            <div class="row">
+              <button type="button" class="btn pri" id="b-signin" disabled={!a.address.trim() || !token.trim() || busy} onClick={() => void signIn()}>
+                {busy ? "Signing in…" : "Sign in"}
+              </button>
+              {signErr && <span class="err">{signErr}</span>}
+            </div>
+          </div>
+        )}
+      </div>
     </>,
     // 2 · Repositories
     <>
