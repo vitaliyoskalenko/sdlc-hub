@@ -268,9 +268,9 @@ The same commands exist in all three assistants: `/hub:name` in Claude Code, `$h
 3. Otherwise it returns the engine command for this assistant, for example `/sdd:specify tasks-issues`, with the filled prompt template from `.hub/prompts/<step>.md` when there is one, and says where to run it (product-specs, the contract team's repository, or each team's).
 4. The assistant runs that engine command unchanged. It never runs a stage the hub did not give it.
 5. A step whose gate waits for the person ends with "sign it with `/hub:signoff`"; only the person signs.
-6. Later: when the stage prints its handoff block, the skill calls `hub_record`, and a hook publishes the usage of the session (phase 4).
+6. When `hub_next` hands out a stage, it records that the stage started. When the stage has run to its end, the skill calls `hub_record`, which records that it finished. Both events are queued in the git directory and pushed to `hub-state` at once in the person's name, or by the next `hub sync`. The hooks record the session's usage (phase 4).
 
-The tools are `hub_status`, `hub_next`, `hub_signoff`, `hub_return` and `hub_bug`. A tool that saves (sign-off, return, bug) checks the change with the guard first and pushes it as a merge request in the person's name, like the site. The skill shows what will be saved and asks the person to confirm it in the chat before it calls the tool. Claude Code's permission prompt is not enough on its own: in auto mode it does not appear.
+The tools are `hub_status`, `hub_next`, `hub_record`, `hub_signoff`, `hub_return` and `hub_bug`, and the QA and release tools. A tool that saves (sign-off, return, bug) checks the change with the guard first and pushes it as a merge request in the person's name, like the site. The skill shows what will be saved and asks the person to confirm it in the chat before it calls the tool. Claude Code's permission prompt is not enough on its own: in auto mode it does not appear.
 
 ### Engine adapter
 
@@ -710,7 +710,7 @@ Each record is tagged with the feature and step of the last `hub` command in tha
 
 - Tokens and API-equivalent cost per step, feature, role, team, model and assistant.
 - Estimate against actual per step. Estimates start from `flow.yaml`, and the PM can adjust them per feature.
-- Lead time per step and per feature from the event log, and the days teams waited for the team that publishes the API contract (not built yet: the hooks record usage, not yet stage start and finish).
+- Lead time per step and per feature from the event log. A step runs from its first start to its last finish, or to now while it runs. The feature runs from its first event to the release (the start of the watch period), or to now. The Flow tab shows both. Not built yet: the days teams waited for the team that publishes the API contract.
 - Bugs per feature by severity and by the step that found them, autotest pass rate, and criteria covered.
 
 On Team seats the work is not billed per step. The cost shows what the same work would cost at API list prices.

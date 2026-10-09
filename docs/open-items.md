@@ -48,9 +48,9 @@ Claims 8 to 13 were found while planning phase 1, 14 to 17 while building phase 
   - Advisory mode on GitHub Free with private repositories is built but not run: the test organization's repositories are public.
   - A person whose clone uses SSH alone has no token for saving from the site. `hub doctor` does not check for that yet; the error says how to sign in (`gh auth login`, `gh auth setup-git`).
   - The setup script on GitHub: it is generated the same way, and its clone URLs and `hub setup` are not checked against GitHub.
-- **Metrics: still to come.** Stage start and finish events (for lead time and the days teams waited), `hub usage rekey` when the PM changes, usage from Codex and Cursor (phase 5), and per-step estimates in the default `flow.yaml` (the admin sets them; the hub ships none rather than guessing).
+- **Metrics: still to come.** The days teams waited for the contract team, `hub usage rekey` when the PM changes, usage from Codex and Cursor (phase 5), and per-step estimates in the default `flow.yaml` (the admin sets them; the hub ships none rather than guessing).
 - **QA and release: still to come.** The release `versions`, an Ops view across features, and a check at decision time that a CI result is not older than the last merge of the feature branch.
-- **Plugin: still to come.** `hub_record` and the hooks that record a stage's start and finish in `events.jsonl`. (Usage, the Codex and Cursor skills, and refreshing Claude Code's copy of the plugin in `hub sync` are built.)
+- **Plugin: still to come.** Nothing from the plan. Stage events (`hub_next` records the start, `hub_record` the finish), usage, the Codex and Cursor skills, and refreshing Claude Code's copy of the plugin in `hub sync` are built. A stage started outside the hub (an engine command typed directly) records no event.
 - **People and roles: still to come.** The check that a person is a member of the group on the host (the site only says to add them), and adding a team later.
 - **Settings: still to come.** The price table, the host checklist, the engine, and adding a team. Settings has the guard settings, assistants, headless runs and links (revision 65).
 - **Stale guard results** (claim 14) and **group Maintainers** (claim 15) are accepted risks for now.
