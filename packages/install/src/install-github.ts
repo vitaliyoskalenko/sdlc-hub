@@ -149,7 +149,8 @@ export async function installGitHub(a: SetupAnswers, gh: GitHub, opts: InstallOp
   // 2. Pull requests merge themselves and their branches go; no forks.
   await step("settings", `turned on auto-merge and branch deletion after merge, and turned off forking of ${org}/${name}`, async () => {
     const now = (await gh.repo(org, name))!;
-    if (now.allow_auto_merge && now.delete_branch_on_merge && now.allow_forking === false) return { state: "skip" as const, text: `${org}/${name} already merges by itself and takes no forks` };
+    // A public repository can always be forked; pull requests from forks still go through hub-guard.
+    if (now.allow_auto_merge && now.delete_branch_on_merge && (now.allow_forking === false || !now.private)) return { state: "skip" as const, text: `${org}/${name} already merges by itself and takes no forks` };
     await gh.updateRepo(org, name, { allow_auto_merge: true, delete_branch_on_merge: true });
     // Forking of private repositories is often off for the whole organization already; then GitHub refuses the field.
     await gh.updateRepo(org, name, { allow_forking: false }).catch(() => undefined);
@@ -199,6 +200,10 @@ export async function installGitHub(a: SetupAnswers, gh: GitHub, opts: InstallOp
       const job = hubReportWorkflow({ specs: `${org}/${name}`, team: id, workflows: flows, host: new URL(web).host });
       if ((await gh.file(org, repo, REPORT_WORKFLOW, r.default_branch)) === job) return { state: "skip" as const, text: `${org}/${repo} already has the hub-report workflow` };
       const pending = (await gh.openPulls(org, repo, REPORT_BRANCH))[0];
+      if (pending && (await gh.file(org, repo, REPORT_WORKFLOW, REPORT_BRANCH)) === job) {
+        opened.push(`${repo} ${w.sign}${pending.number}`);
+        return { state: "skip" as const, text: `${org}/${repo} has the ${w.changeRequest} open already`, link: pending.html_url };
+      }
       pushFiles({ url: `${web}/${org}/${repo}.git`, authHeader: gh.gitAuthHeader(), from: pending ? REPORT_BRANCH : r.default_branch, to: REPORT_BRANCH, files: { [REPORT_WORKFLOW]: job }, message: "Add the hub-report workflow (SDLC Hub)", author, force: !pending });
       const pr = pending ?? (await gh.createPull(org, repo, REPORT_BRANCH, r.default_branch, "Add the hub-report workflow (SDLC Hub)", `SDLC Hub was installed in ${org}/${name}. This workflow publishes this team's tasks, tracker, review verdict and the result of its workflows for each feature to its hub-state branch. It changes nothing in this repository.\n\nThe team lead merges it.`));
       opened.push(`${repo} ${w.sign}${pr.number}`);
