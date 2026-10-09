@@ -8,7 +8,7 @@ import { costOf, decryptWith, PRICES_AS_OF, usageRecordSchema, type TotalRow, ty
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { extname, resolve, sep } from "node:path";
-import { awaitsSignoff, CONTRACT_LEAD_RULES, parseSignoffs, platformsOf, releaseView, verificationMatrix, parsePersonState, personStatePath, scriptName, setupScript, type FileSource, DEFAULT_ROLE_RULES, detectFeature, LEAD_RULES, listDocuments, listFeatures, parseFeature, type FeatureState, type Issue, type Project, type ProjectView } from "@sdlc-hub/core";
+import { awaitsSignoff, CONTRACT_LEAD_RULES, guardSettings, parseSignoffs, platformsOf, releaseView, verificationMatrix, parsePersonState, personStatePath, scriptName, setupScript, type FileSource, DEFAULT_ROLE_RULES, detectFeature, LEAD_RULES, listDocuments, listFeatures, parseFeature, type FeatureState, type Issue, type Project, type ProjectView } from "@sdlc-hub/core";
 
 export interface OpenedProject {
   root: string;
@@ -217,6 +217,8 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
         engine: { id: engine.id, source: engine.source, version: engine.version, invoke: engine.invoke },
         tracker: config.tracker,
         headless: config.headless.enabled,
+        // What Settings shows and the admin changes.
+        settings: { assistants: config.assistants, links: config.links ?? {}, guard: guardSettings(config), autoMerge: config.git.auto_merge !== false, engine: config.engine },
         // What each role may write, for Your guide: the same rules the guard applies.
         rules: { roles: { ...DEFAULT_ROLE_RULES, ...Object.fromEntries(Object.entries(roles.roles ?? {}).map(([r, v]) => [r, v.write])) }, lead: LEAD_RULES, contractLead: CONTRACT_LEAD_RULES },
         issues: opened.issues,

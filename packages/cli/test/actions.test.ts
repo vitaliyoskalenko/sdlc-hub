@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { detectFeature, parseSignoffs } from "@sdlc-hub/core";
+import { detectFeature, parseConfig, parseSignoffs } from "@sdlc-hub/core";
 import { fixtures, materialize } from "@sdlc-hub/fixtures";
 import { openProject } from "@sdlc-hub/git";
 import type { ActionContext } from "@sdlc-hub/server";
@@ -66,6 +66,18 @@ describe("sign-off and return from the site", () => {
     const r = await handler.handle("POST", "/bug", "daria.l", { slug: "tasks-issues", bug: { title: "Counter stays", team: "web", severity: "low" } }, ctx);
     expect(r.status, JSON.stringify(r.body)).toBe(202);
     expect(r.body).toMatchObject({ save: { state: "pending", warnings: [{ user: "daria.l", reason: expect.stringMatching(/No role of daria.l/) }] } });
+  });
+
+  it("saves the admin's Settings to config.yaml, and refuses them from anyone else", async () => {
+    const { remote, ctx, handler } = project();
+    const r = await handler.handle("POST", "/settings", "nazar.t", { edit: { guard: { mode: "advisory", checks: { members: false } }, headless: true } }, ctx);
+    expect(r.status, JSON.stringify(r.body)).toBe(202);
+    const branch = (r.body as { save: { branch: string } }).save.branch;
+    const config = git(remote, "show", `${branch}:.hub/config.yaml`);
+    expect(config.split("\n").slice(0, 2)).toEqual(git(remote, "show", "main:.hub/config.yaml").split("\n").slice(0, 2));
+    expect(parseConfig(config, "c").value).toMatchObject({ guard: { mode: "advisory", checks: { members: false } }, headless: { enabled: true } });
+    expect((await handler.handle("POST", "/settings", "olena.k", { edit: { headless: true } }, ctx)).status).toBe(403);
+    expect((await handler.handle("POST", "/settings", "nazar.t", { edit: { teams: [] } }, ctx)).status).toBe(400);
   });
 
   it("records a return with its reason", async () => {

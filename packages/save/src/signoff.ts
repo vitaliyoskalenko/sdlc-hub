@@ -1,7 +1,7 @@
 // A sign-off or a return of a gate, saved: checked with the same guard that runs at merge, on main as it is on the
 // remote, and only then pushed. The site's action and the plugin's hub_signoff and hub_return both use this.
 
-import { awaitsSignoff, blocks, bugChange, bugEditChange, estimateChange, guard, guardSettings, validationChange, loadProject, peopleChange, platformsOf, releaseChange, signoffChange, verdictChange, verificationMatrix, type BugEdit, type BugInput, type PeopleEdit, type ReleaseEdit, type VerdictInput, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
+import { awaitsSignoff, blocks, bugChange, settingsChange, settingsEdit, bugEditChange, estimateChange, guard, guardSettings, validationChange, loadProject, peopleChange, platformsOf, releaseChange, signoffChange, verdictChange, verificationMatrix, type BugEdit, type BugInput, type PeopleEdit, type ReleaseEdit, type VerdictInput, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
 import { Pending, Unchanged, type Save, type Saver } from "./index.ts";
 
 export type SaveOutcome =
@@ -149,6 +149,32 @@ export async function savePeople(i: PeopleSaveInput): Promise<SaveOutcome> {
     title: `${verb} ${who} on People and roles`,
     meta: { kind: "person", person: who, action: verb.toLowerCase() },
     build: (main, p) => peopleChange(main, p.config, edit),
+    fallback: i.project,
+  });
+}
+
+export interface SettingsSaveInput {
+  saver: Saver;
+  project: Project;
+  user: string;
+  edit: unknown;
+}
+
+/** Changes .hub/config.yaml from Settings. Only the admin passes the guard, in any guard mode. */
+export async function saveSettings(i: SettingsSaveInput): Promise<SaveOutcome> {
+  const edit = settingsEdit(i.edit);
+  if (typeof edit === "string") return { ok: false, code: "bad-input", error: edit };
+  if (!i.project.roles.people.find((p) => p.user === i.user)?.roles.includes("admin")) return { ok: false, code: "refused", error: "Only the admin changes Settings" };
+  return checkedSave(i.saver, i.user, {
+    label: "settings",
+    title: "Change Settings",
+    meta: { kind: "settings" },
+    build: (main) => {
+      const c = settingsChange(main.read(".hub/config.yaml") ?? "", edit);
+      if (c === "Nothing to change") throw new Unchanged("Nothing to save: main already has these settings");
+      if (typeof c === "string") throw new Error(c);
+      return c;
+    },
     fallback: i.project,
   });
 }

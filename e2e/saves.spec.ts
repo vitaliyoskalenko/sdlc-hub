@@ -67,4 +67,28 @@ test.describe.serial("saves from the site", () => {
     await expect(page.locator("[data-edit], [data-remove]")).toHaveCount(0);
     await expect(page.locator(".note.warn")).toContainText("Only the admin changes people");
   });
+
+  test("only the admin changes Settings; the others read them, with the reason", async ({ page }) => {
+    await page.goto(`${DEMO}/settings?as=maksym.d`);
+    await page.waitForSelector("#set-guard");
+    await expect(page.locator(".note.warn")).toContainText("Only the admin changes Settings");
+    await expect(page.locator("#set-mode-advisory")).toBeDisabled();
+    await expect(page.locator("#set-save")).toBeDisabled();
+  });
+
+  test("the admin sets hub-guard to advisory and turns a check off; it merges and Settings shows it", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${DEMO}/settings?as=nazar.t`);
+    await page.waitForSelector("#set-guard");
+    await expect(page.locator("#set-guard")).toContainText("enforce");
+    await expect(page.locator("#set-save")).toBeDisabled();
+    await page.check("#set-mode-advisory");
+    await page.uncheck("#set-check-pushers");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.click("#set-save");
+    await expect(page.locator('[data-save="pending"]')).toContainText("Change Settings");
+    await expect(page.locator("#set-guard .pill")).toHaveText("advisory", { timeout: 20_000 });
+    await expect(page.locator("#set-guard")).toContainText("off: everyone who pushed");
+    await expect(page.locator("#set-save")).toBeDisabled();
+  });
 });

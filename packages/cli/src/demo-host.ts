@@ -38,7 +38,20 @@ export function demoHost(o: { root: string; remote: string; delayMs?: number; on
     const main = "refs/remotes/origin/main";
     const base = git(o.root, "merge-base", main, save.sha);
     const r = guardRepo({ cwd: o.root, baseSha: base, head: save.sha, rulesRef: main, author: save.user, pushers: [save.user] });
-    if (r.ok) {
+    const record = (advisory: boolean) =>
+      writeHubState({
+        url: o.remote,
+        message: `hub-guard: ${advisory ? "warnings on" : "refused"} ${save.branch}`,
+        edit(dir) {
+          const path = join(dir, refusalPath(save.branch));
+          mkdirSync(dirname(path), { recursive: true });
+          writeFileSync(path, JSON.stringify({ branch: save.branch, ...(advisory ? { advisory: true } : {}), author: save.user, sha: save.sha, at: now(), findings: r.findings }, null, 2) + "\n");
+          return true;
+        },
+      });
+    if (r.ok || r.advisory) {
+      // Advisory mode: the warnings go to hub-state, and the save merges anyway.
+      if (r.advisory) record(true);
       const wt = mkdtempSync(join(tmpdir(), "hub-demo-merge-"));
       try {
         git(o.root, "worktree", "add", "-q", "--detach", "-f", wt, main);
@@ -53,16 +66,7 @@ export function demoHost(o: { root: string; remote: string; delayMs?: number; on
       // The demo checkout has no edits of its own: bring it to main, as hub sync would.
       git(o.root, "merge", "-q", "--ff-only", main);
     } else {
-      writeHubState({
-        url: o.remote,
-        message: `hub-guard: refused ${save.branch}`,
-        edit(dir) {
-          const path = join(dir, refusalPath(save.branch));
-          mkdirSync(dirname(path), { recursive: true });
-          writeFileSync(path, JSON.stringify({ branch: save.branch, author: save.user, sha: save.sha, at: now(), findings: r.findings }, null, 2) + "\n");
-          return true;
-        },
-      });
+      record(false);
       git(o.root, "push", "-q", "origin", "--delete", save.branch);
       git(o.root, "fetch", "-q", "origin");
     }

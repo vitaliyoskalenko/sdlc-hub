@@ -1,6 +1,6 @@
 // The site's actions: a sign-off or a return of a gate, through the same save the plugin uses.
 
-import { createSaver, saveBug, saveBugEdit, saveEstimate, savePeople, saveValidation, saveRelease, saveSignoff, saveVerdicts, type Save, type SaveOutcome, type SaverOptions } from "@sdlc-hub/save";
+import { createSaver, saveBug, saveBugEdit, saveEstimate, savePeople, saveSettings, saveValidation, saveRelease, saveSignoff, saveVerdicts, type Save, type SaveOutcome, type SaverOptions } from "@sdlc-hub/save";
 import type { ActionHandler } from "@sdlc-hub/server";
 import type { BugInput } from "@sdlc-hub/core";
 import type { HeadlessRun } from "./headless.ts";
@@ -50,6 +50,7 @@ export function actionHandler(o: ActionOptions): ActionHandler {
       const actions: Record<string, () => Promise<SaveOutcome>> = {
         "/signoff": () => saveSignoff({ ...feature, step: b["step"], decision: b["decision"], reason: b["reason"], bugs: b["bugs"] }),
         "/person": () => savePeople({ saver: s, project: ctx.project, local: ctx.specs, user, edit: b }),
+        "/settings": () => saveSettings({ saver: s, project: ctx.project, user, edit: b["edit"] }),
         "/verdicts": () => saveVerdicts({ ...feature, verdicts: b["verdicts"] }),
         "/bug": () => {
           const state = typeof b["slug"] === "string" ? ctx.state(b["slug"]) : undefined;

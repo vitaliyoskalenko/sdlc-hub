@@ -12,6 +12,8 @@ export interface Person {
   assistant?: Assistant;
 }
 
+export type GuardCheck = "files" | "signoffs" | "pushers" | "members";
+
 export interface Session {
   me: (Person & { assistant: Assistant }) | null;
   demo: boolean;
@@ -44,6 +46,13 @@ export interface ProjectInfo {
   engine: { id: string; source: string; version: string; invoke: Record<Assistant, string> };
   tracker: { type: "none" | "jira"; url?: string; project_key?: string };
   headless: boolean;
+  settings: {
+    assistants: Assistant[];
+    links: { confluence?: string; figma?: string };
+    guard: { mode: "enforce" | "advisory"; checks: Record<GuardCheck, boolean> };
+    autoMerge: boolean;
+    engine: string;
+  };
   rules: { roles: Record<string, string[]>; lead: string[]; contractLead: string[] };
 }
 
@@ -286,7 +295,7 @@ export const api = {
   person: (as: string | undefined, body: { kind: "set"; person: PersonInput } | { kind: "remove"; user: string }) => action("person", as, body),
   people: () => get<{ people: PersonRow[]; release: string }>("/api/people"),
   /** Any other save: verdicts, bug, bug-edit, release. */
-  act: (name: "verdicts" | "bug" | "bug-edit" | "release" | "signoff" | "estimate" | "validation", as: string | undefined, body: unknown) => action(name, as, body),
+  act: (name: "verdicts" | "bug" | "bug-edit" | "release" | "signoff" | "estimate" | "validation" | "settings", as: string | undefined, body: unknown) => action(name, as, body),
   costs: (slug: string, as?: string) => get<Costs>(`/api/features/${encodeURIComponent(slug)}/costs${as ? `?as=${encodeURIComponent(as)}` : ""}`),
   script: (user: string, shell: "bash" | "powershell", as?: string) =>
     get<{ name: string; text: string; release: string }>(`/api/script?user=${encodeURIComponent(user)}&shell=${shell}${as ? `&as=${encodeURIComponent(as)}` : ""}`),
