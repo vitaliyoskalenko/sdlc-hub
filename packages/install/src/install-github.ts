@@ -175,17 +175,20 @@ export async function installGitHub(a: SetupAnswers, gh: GitHub, opts: InstallOp
   });
   left.push(`The deploy key on ${org}/${name} can write any branch but main; remove older "${KEY_TITLE}" keys once team CI uses the newest`);
 
+  // 5. main takes pull requests only, and hub-guard must pass. On github.com the check must come from GitHub Actions
+  // (app 15368), so a status of the same name that a person posts does not count; an Enterprise Server has its own id.
+  const actionsApp = new URL(web).host === "github.com" ? 15368 : undefined;
   // 5. main takes pull requests only, and hub-guard must pass.
   await step("protect", `added the ruleset "${RULESET}": pull requests only, hub-guard must pass, no deletion or force push`, async () => {
     const existing = (await gh.rulesets(org, name)).find((r) => r.name === RULESET);
     if (existing) {
       const now = await gh.ruleset(org, name, existing.id);
-      const want = hubRuleset();
-      if (JSON.stringify(now.rules.map((r) => r.type)) === JSON.stringify(want.rules.map((r) => r.type)) && now.enforcement === "active") return { state: "skip" as const, text: `${org}/${name} already has the ruleset` };
+      const want = hubRuleset(actionsApp);
+      if (now.enforcement === "active" && covers(now.rules, want.rules)) return { state: "skip" as const, text: `${org}/${name} already has the ruleset` };
       await gh.updateRuleset(org, name, existing.id, want);
       return;
     }
-    await gh.createRuleset(org, name, hubRuleset());
+    await gh.createRuleset(org, name, hubRuleset(actionsApp));
   });
 
   // 6. One pull request per team repository with the hub-report workflow.
@@ -213,4 +216,11 @@ export async function installGitHub(a: SetupAnswers, gh: GitHub, opts: InstallOp
   if (opened.length) left.push(`${a.teams.length === 1 ? "The team lead merges" : "Each team lead merges"} the ${w.changeRequest} that adds the hub-report workflow: ${opened.join(", ")}`);
   left.push("Add each person on People and roles, then send them their setup script");
   return { ok: steps.every((s) => s.state !== "fail"), steps, left };
+}
+
+/** Whether every wanted value is there; GitHub answers with more parameters than were sent. */
+export function covers(have: unknown, want: unknown): boolean {
+  if (Array.isArray(want)) return Array.isArray(have) && have.length === want.length && want.every((w, i) => covers(have[i], w));
+  if (want && typeof want === "object") return !!have && typeof have === "object" && Object.entries(want).every(([k, v]) => covers((have as Record<string, unknown>)[k], v));
+  return have === want;
 }

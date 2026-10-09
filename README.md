@@ -51,6 +51,13 @@ npm run test:gitlab                # the install twice, a real hub-report pipeli
 HUB_GITLAB_IT=1 npx playwright test e2e/setup.spec.ts
 ```
 
+On GitHub, choose GitHub on the first screen and paste a fine-grained token of an organization owner. The setup page lists the permissions it needs. A Free organization can install only with public repositories. To try it on a throwaway organization, put `{"org": "<org>", "token": "<token>"}` in `~/.sdlc-hub-test/github.json` (mode 600). Add `"people": {"<login>": "<token>"}` with a second member's token to include the refusal test. Then:
+
+```
+node e2e/github/bootstrap.mjs      # public product-specs, backend and web-admin, each team with a CI workflow
+npm run test:github                # the install twice, a save that merges itself, hub-report with the deploy key
+```
+
 ## Check it
 
 ```

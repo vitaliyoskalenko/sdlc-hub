@@ -6,7 +6,7 @@ Write everything (code, comments, docs, UI text) in English. Talk to the owner i
 
 ## Read first
 
-1. `docs/specification.md` — the specification, revision 63. The copy in this repository is the source of truth; the published copy is a snapshot. The two diagrams are missing from the export (placeholders in the text).
+1. `docs/specification.md` — the specification, revision 64. The copy in this repository is the source of truth; the published copy is a snapshot. The two diagrams are missing from the export (placeholders in the text).
 2. `docs/decisions.md` — a dated log of what was decided and why. Add an entry whenever a decision changes the specification.
 3. `docs/open-items.md` — what is still not done or not verified, with the phase each unverified claim blocks.
 4. `prototypes/` — what every screen looks like and how it behaves. Treat them as the UI reference, not as code to keep. They predate revision 51 and 52; where they differ, the specification wins.
@@ -19,7 +19,7 @@ Write everything (code, comments, docs, UI text) in English. Talk to the owner i
 - Stages are proxied to an engine through one adapter file. Default engine: `genkovich/sdd` 2.3.x. The engine must stay replaceable.
 - A feature moves through 20 steps in six role lanes (PO/analyst, PM, designer, engineering, QA, Ops). The current step is derived from files, never typed. The table is in the specification, "The twenty steps".
 - Roles decide which paths a person may change. Enforcement is the CI guard, because GitLab Free has no Code Owners.
-- The team runs self-managed GitLab, Free tier. GitHub must work too; the host is chosen at the first install. The version 1 install is GitLab only; the GitHub install comes in phase 5.
+- The team runs self-managed GitLab, Free tier. GitHub must work too; the host is chosen at the first install. The GitLab install is built and verified; the GitHub install is built in phase 5 and waits for its run against a test organization.
 - First install: `npx sdlc-hub init` opens a local setup page with five screens. After it the admin adds people and generates one setup script per person (no secrets in it).
 - The hub is vendored into `product-specs/hub/` as one bundled file. Nothing is fetched from a registry on a person's machine after the first install.
 - Per-person spend is visible to the admin and the PM only (records encrypted with `age`).

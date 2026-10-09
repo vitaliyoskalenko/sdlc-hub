@@ -41,3 +41,17 @@ describe("the hub-report workflow in a team repository", () => {
     expect(w.jobs["hub-report"].steps.at(-1).run).not.toContain("secrets.");
   });
 });
+
+describe("the ruleset check on a second run", () => {
+  it("accepts GitHub's answer with more parameters than were sent, and sees a missing rule or source", async () => {
+    const { covers } = await import("../src/install-github.ts");
+    const { hubRuleset } = await import("@sdlc-hub/host");
+    const want = hubRuleset(15368).rules;
+    const answer = JSON.parse(JSON.stringify(want)) as { type: string; parameters?: Record<string, unknown> }[];
+    answer[0]!.parameters!["allowed_merge_methods"] = ["merge", "squash", "rebase"];
+    expect(covers(answer, want)).toBe(true);
+    expect(covers(answer.slice(1), want)).toBe(false);
+    expect(covers(answer, hubRuleset().rules)).toBe(true);
+    expect(covers(JSON.parse(JSON.stringify(hubRuleset().rules)), want)).toBe(false);
+  });
+});

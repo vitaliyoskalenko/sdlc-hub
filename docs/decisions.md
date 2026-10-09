@@ -2,6 +2,32 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-09: Revision 64, the GitHub install
+
+### GitHub install, built from the docs
+- **Decision:**
+  - Setup signs in to GitHub with a fine-grained token of an organization owner, and checks the owner role, the plan, the team repositories and `ssh-keygen`.
+  - Install writes the hub files with git. Once the ruleset protects `main`, it opens a pull request with auto-merge instead.
+  - Install turns on auto-merge and branch deletion, and creates `hub-state`.
+  - It adds a deploy key with write access to product-specs, and stores the private half as `HUB_STATE_KEY` in each team repository, sealed with libsodium's sealed box.
+  - It adds the ruleset "sdlc-hub: main": pull requests only, `hub-guard` required (from GitHub Actions on github.com), no deletion or force push.
+  - It opens one pull request per team with a `hub-report` workflow on `workflow_run`.
+  - `hub-guard` runs on `pull_request_target` from the default branch, with the pull request checked out as data only.
+- **Why:**
+  - A fine-grained token cannot be created through the API. A deploy key can, so nothing is left to do by hand.
+  - `pull_request_target` keeps the workflow and the hub out of the author's reach.
+- **By:** Owner chose a throwaway test organization for verification; the rest proposed.
+
+### Saves on GitHub open their own pull request
+- **Decision:** GitHub has no push options. After pushing the branch, the person's server opens the pull request and sets auto-merge through the API. It uses the person's own token from git's credential helper. If that fails, the branch is deleted and the save fails with the reason.
+- **Why:** A save must stay in the person's name and must never wait on a pull request that was not opened.
+- **By:** Proposed.
+
+### GitHub Free with private repositories is refused, not advisory
+- **Decision:** For now, setup's plan check fails for a Free organization with private repositories. The advisory mode in the specification is not built.
+- **Why:** Free has no auto-merge for private repositories, so every save would wait for someone to merge it by hand. That changes the product, and the owner has not decided it.
+- **By:** Proposed; open for the owner.
+
 ## 2026-10-09: Revision 63, phase 5 so far
 
 ### The second engine is the hub's own

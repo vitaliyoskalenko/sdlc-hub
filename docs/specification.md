@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 9, 2026 · @Vitaliy · revision 63
+Oct 9, 2026 · @Vitaliy · revision 64
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -551,7 +551,7 @@ The `hub-state` branch accepts pushes from Developers and Maintainers. It holds 
 
 ### The same rules on GitHub
 
-This project runs on self-managed GitLab, so the rest of this document uses GitLab words. The hub asks for the host at init and keeps every difference in one host adapter. In version 1 only the GitLab install is built. The GitHub column below is the design for a later phase; until then the setup site says on the GitHub path that install on GitHub is not available yet, and stops before Install.
+This project runs on self-managed GitLab, so the rest of this document uses GitLab words. The hub asks for the host at init and keeps every difference in one host adapter. The GitLab install is built and verified. The GitHub install is built in phase 5 from the column below. It is checked against GitHub's documentation and is to be verified in a test organization (claim 5).
 
 | Concern | GitLab | GitHub |
 | --- | --- | --- |
@@ -564,14 +564,17 @@ This project runs on self-managed GitLab, so the rest of this document uses GitL
 | The author cannot edit the guard | The pipeline config lives in the `hub-ci` project | The workflow runs on `pull_request_target`, so its file always comes from the default branch |
 | Who the author is | Merge request API, because CI has no author variable | `github.event.pull_request.user.login` |
 | Self-merge | Merge when the pipeline succeeds | Auto-merge |
-| Credential for `hub-report` | Project access token in a masked group variable, created by init | Fine-grained token in an organization secret, created by hand |
+| A save from the site opens its request | Push options: git alone, over HTTPS or SSH | No push options: after the push the hub opens the pull request and sets auto-merge through the API, with the person's own token from git's credential helper (an HTTPS clone, or `gh auth setup-git`) |
+| Everyone who pushed to the branch | Push events of the project | The repository's activity API (push and force push) |
+| Credential for `hub-report` | Project access token in a masked group variable, created by init | A deploy key of product-specs with write access, created by init; its private half is the repository secret `HUB_STATE_KEY` in each team repository |
+| When `hub-report` runs | A job in the team's pipeline | A workflow on `workflow_run` of the team's workflows |
 | Check at push time | Pre-receive hook, self-managed only | Pre-receive hook, Enterprise Server only |
 | Assistant access | GitLab MCP server | GitHub MCP server |
-| Plan needed | Free is enough on a self-managed server. On gitlab.com, project access tokens (for `HUB_STATE_TOKEN`) need Premium | Private repositories need Team or higher |
+| Plan needed | Free is enough on a self-managed server. On gitlab.com, project access tokens (for `HUB_STATE_TOKEN`) need Premium | Private repositories need Team or higher; public repositories work on Free |
 
-On GitHub Free, private repositories have no protected branches or rulesets. init stops there and asks whether to continue in advisory mode, in which the guard reports a violation and cannot block it.
+On GitHub Free, private repositories have no protected branches, rulesets or auto-merge. Setup's plan check fails there, and Install stays disabled. The advisory mode this document described (the guard reports a violation and cannot block it, and every request is merged by hand) is not built; see `docs/open-items.md`.
 
-The GitHub guard never checks out or runs code from the pull request. It reads the list of changed files through the API and compares it with `roles.yaml` on `main`, which keeps `pull_request_target` safe to use.
+The GitHub guard never runs code from the pull request. The `hub-guard` workflow runs on `pull_request_target`, so the workflow file and `hub/cli.js` come from the default branch. It checks the pull request out into a separate folder only as data, with no credentials kept, and compares its changes with `roles.yaml` on the default branch. The author comes from the event, and the pushers from the activity API. A refusal is recorded in `hub-state` with the workflow's own token, and the branch is deleted, as on GitLab.
 
 GitHub Team also has push rulesets that restrict file paths. The hub does not depend on them, so both hosts behave the same.
 
@@ -617,7 +620,7 @@ The list of team repositories is free: one row for a single-repository product, 
 
 With no tracker chosen, tasks and bugs live only in the repository and the site shows no tracker links. Jira can be added later in Settings.
 
-Before the review screen, setup checks what the install needs: Owner rights, a CI runner that is online (without one no change could ever merge), the host version, and that forking of the specifications repository is off. On GitHub it stops before Install in version 1 (see "The same rules on GitHub"). When the GitHub install is built, GitHub Free will stop on the first screen and ask whether to continue in advisory mode.
+Before the review screen, setup checks what the install needs: Owner rights, a CI runner that is online (without one no change could ever merge), the host version, and that forking of the specifications repository is off. On GitHub it checks that the person is an owner of the organization, the plan (Free with private repositories cannot install), the team repositories, and `ssh-keygen` for the deploy key. Setup on GitHub takes a fine-grained token of an owner, with the resource owner set to the organization and all repositories. Its repository permissions are Administration, Contents, Pull requests, Workflows and Secrets, read and write. Its organization permissions are Members read, and Administration read and write.
 
 Install can be run again. Each step first checks the host, so a second run skips what is done and continues from the first step that did not finish; the page shows each step as done, already done or failed. A team that merged an older hub-report job gets a merge request with the new one, and an open merge request with an older job is updated. The first commit is pushed before branch protection is turned on.
 
@@ -625,7 +628,7 @@ After Install the page lists what it did and what is left for people:
 
 - Each team lead merges the merge request that adds `hub-report` to their repository.
 - On a self-managed server, the optional pre-receive hook needs someone with access to the server.
-- On GitHub, once its install is built (phase 5), someone creates the `HUB_STATE_TOKEN` secret by hand, because a fine-grained token cannot be created through the API.
+- On GitHub, nothing is created by hand. Install makes the deploy key and stores its private half in each team repository. Older `sdlc-hub hub-state` keys can be removed once team CI uses the newest.
 
 The SDLC Hub Setup prototype plays these screens for both hosts.
 
