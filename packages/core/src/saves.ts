@@ -11,6 +11,8 @@ export const SAVE_PREFIX = "hub/";
 export const saveRefusalSchema = z.strictObject({
   branch: z.string().startsWith(SAVE_PREFIX),
   mr: z.number().int().positive().optional(),
+  /** Advisory mode: the findings are warnings, and the request merges anyway. */
+  advisory: z.boolean().optional(),
   author: z.string().min(1),
   sha: z.string().regex(/^[0-9a-f]{7,64}$/),
   at: isoTime,

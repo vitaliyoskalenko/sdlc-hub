@@ -5,7 +5,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { guard, loadProject, refusalPath, type Change, type Finding, type SaveRefusal } from "@sdlc-hub/core";
+import { guard, guardSettings, loadProject, refusalPath, type Change, type Finding, type SaveRefusal } from "@sdlc-hub/core";
 import { refSource } from "@sdlc-hub/git";
 import type { GitHub, GitLab } from "@sdlc-hub/host";
 import { tokenEnv, writeHubState } from "@sdlc-hub/save";
@@ -26,6 +26,8 @@ export interface GuardRepoOptions {
 export interface GuardResult {
   ok: boolean;
   findings: Finding[];
+  /** The admin set hub-guard to advisory on main: findings are warnings and the job passes. */
+  advisory?: boolean;
 }
 
 /** Changed paths between the base and the head; a rename keeps both paths. */
@@ -61,7 +63,8 @@ export function guardRepo(o: GuardRepoOptions): GuardResult {
     return { path, ...(from ? { from } : {}), ...(base !== undefined ? { base } : {}), ...(next !== undefined ? { next } : {}) };
   });
   const { config, roles, flow } = project.value;
-  return guard({ author: o.author, pushers: o.pushers, changes }, { config, roles, flow, feature: (slug) => rules.read(`docs/features/${slug}/hub/feature.yaml`) });
+  const r = guard({ author: o.author, pushers: o.pushers, changes }, { config, roles, flow, feature: (slug) => rules.read(`docs/features/${slug}/hub/feature.yaml`) });
+  return guardSettings(config).mode === "advisory" ? { ...r, advisory: true } : r;
 }
 
 /** The GitLab CI variables of a merge request pipeline that the guard reads. */
@@ -94,12 +97,14 @@ export function formatFindings(r: GuardResult, author: string, pushers: string[]
   const who = `author ${author}${pushers.filter((p) => p !== author).length ? `; also pushed: ${pushers.filter((p) => p !== author).join(", ")}` : ""}`;
   if (r.ok) return `hub-guard: passed (${who})`;
   const lines = r.findings.map((f) => `  ✗ ${f.path}${f.line ? `:${f.line}` : ""} — ${f.reason}${f.user !== author ? ` (${f.user})` : ""}`);
+  if (r.advisory) return [`hub-guard: passed with warnings (${who})`, ...lines, "", "The admin set hub-guard to advisory, so these do not stop the merge. In enforce mode they would."].join("\n");
   return [`hub-guard: refused (${who})`, ...lines, "", "Only the people whose role allows a path may change it. Ask the admin if your role is wrong."].join("\n");
 }
 
 /**
  * A refused save from the site: the reason goes to hub-state, where the person's site reads it, and the branch is
- * deleted, which closes its merge request. Uses HUB_STATE_TOKEN through git's environment.
+ * deleted, which closes its merge request. Uses HUB_STATE_TOKEN through git's environment. In advisory mode the
+ * findings are recorded as warnings and the branch stays, to merge.
  */
 export function recordRefusal(o: SaveRefusal & { url: string; token: string; env?: NodeJS.ProcessEnv; tokenUser?: string }): void {
   const { url, token, env: base, tokenUser, ...record } = o;
@@ -107,7 +112,7 @@ export function recordRefusal(o: SaveRefusal & { url: string; token: string; env
   writeHubState({
     url,
     env,
-    message: `hub-guard: refused ${record.branch}`,
+    message: `hub-guard: ${record.advisory ? "warnings on" : "refused"} ${record.branch}`,
     edit(dir) {
       const path = join(dir, refusalPath(record.branch));
       mkdirSync(dirname(path), { recursive: true });
@@ -115,7 +120,7 @@ export function recordRefusal(o: SaveRefusal & { url: string; token: string; env
       return true;
     },
   });
-  execFileSync("git", ["push", "-q", url, "--delete", record.branch], { env: { ...env, GIT_TERMINAL_PROMPT: "0" }, stdio: "pipe" });
+  if (!record.advisory) execFileSync("git", ["push", "-q", url, "--delete", record.branch], { env: { ...env, GIT_TERMINAL_PROMPT: "0" }, stdio: "pipe" });
 }
 
 /** The GitHub Actions context of a hub-guard run: the pull request from the event, and the repository. */

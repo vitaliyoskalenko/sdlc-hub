@@ -248,13 +248,13 @@ async function guardCommand(f: Record<string, string>) {
     try {
       const sha = env["CI_COMMIT_SHA"] ?? execFileSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).trim();
       const at = new Date().toISOString().replace(/\.\d+Z$/, "Z");
-      recordRefusal({ url: `${server.replace(/\/+$/, "")}/${env["CI_PROJECT_PATH"]}.git`, token: stateToken, branch, mr: Number(env["CI_MERGE_REQUEST_IID"]), author, sha, at, findings: r.findings });
-      console.log(`hub-guard: recorded the refusal in hub-state and deleted ${branch}, which closes the merge request`);
+      recordRefusal({ url: `${server.replace(/\/+$/, "")}/${env["CI_PROJECT_PATH"]}.git`, token: stateToken, branch, mr: Number(env["CI_MERGE_REQUEST_IID"]), author, sha, at, findings: r.findings, ...(r.advisory ? { advisory: true } : {}) });
+      console.log(r.advisory ? "hub-guard: recorded the warnings in hub-state" : `hub-guard: recorded the refusal in hub-state and deleted ${branch}, which closes the merge request`);
     } catch (e) {
-      console.log(`hub-guard: could not record the refusal: ${(e as Error).message}`);
+      console.log(`hub-guard: could not record the ${r.advisory ? "warnings" : "refusal"}: ${(e as Error).message}`);
     }
   }
-  process.exit(1);
+  if (!r.advisory) process.exit(1);
 }
 
 /** The plugin's view of the product-specs checkout the assistant works in. */
@@ -342,13 +342,13 @@ async function guardGitHub(f: Record<string, string>) {
     try {
       const sha = execFileSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).trim();
       const at = new Date().toISOString().replace(/\.\d+Z$/, "Z");
-      recordRefusal({ url: `${env["GITHUB_SERVER_URL"] ?? "https://github.com"}/${env["GITHUB_REPOSITORY"]}.git`, token, tokenUser: "x-access-token", branch, mr: number, author, sha, at, findings: r.findings });
-      console.log(`hub-guard: recorded the refusal in hub-state and deleted ${branch}, which closes the pull request`);
+      recordRefusal({ url: `${env["GITHUB_SERVER_URL"] ?? "https://github.com"}/${env["GITHUB_REPOSITORY"]}.git`, token, tokenUser: "x-access-token", branch, mr: number, author, sha, at, findings: r.findings, ...(r.advisory ? { advisory: true } : {}) });
+      console.log(r.advisory ? "hub-guard: recorded the warnings in hub-state" : `hub-guard: recorded the refusal in hub-state and deleted ${branch}, which closes the pull request`);
     } catch (e) {
-      console.log(`hub-guard: could not record the refusal: ${(e as Error).message}`);
+      console.log(`hub-guard: could not record the ${r.advisory ? "warnings" : "refusal"}: ${(e as Error).message}`);
     }
   }
-  process.exit(1);
+  if (!r.advisory) process.exit(1);
 }
 
 async function stdinText(): Promise<string> {

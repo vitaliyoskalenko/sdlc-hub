@@ -1,7 +1,7 @@
 // A sign-off or a return of a gate, saved: checked with the same guard that runs at merge, on main as it is on the
 // remote, and only then pushed. The site's action and the plugin's hub_signoff and hub_return both use this.
 
-import { awaitsSignoff, bugChange, bugEditChange, estimateChange, guard, validationChange, loadProject, peopleChange, platformsOf, releaseChange, signoffChange, verdictChange, verificationMatrix, type BugEdit, type BugInput, type PeopleEdit, type ReleaseEdit, type VerdictInput, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
+import { awaitsSignoff, bugChange, bugEditChange, estimateChange, guard, guardSettings, validationChange, loadProject, peopleChange, platformsOf, releaseChange, signoffChange, verdictChange, verificationMatrix, type BugEdit, type BugInput, type PeopleEdit, type ReleaseEdit, type VerdictInput, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
 import { Pending, Unchanged, type Save, type Saver } from "./index.ts";
 
 export type SaveOutcome =
@@ -283,7 +283,9 @@ export async function saveValidation(i: FeatureSaveInput & { report: unknown }):
 /** Builds one change from main of the remote, checks it with the guard as the author, and pushes it. */
 async function checkedSave(saver: Saver, user: string, o: { label: string; title: string; meta: Record<string, string>; build: (main: FileSource, p: Project) => Change; fallback: Project }): Promise<SaveOutcome> {
   try {
+    let warned: Finding[] | undefined;
     const save = await saver.save({
+      warnings: () => warned,
       user,
       label: o.label,
       title: o.title,
@@ -293,7 +295,9 @@ async function checkedSave(saver: Saver, user: string, o: { label: string; title
         const p = loadProject(main).value ?? o.fallback;
         const change = o.build(main, p);
         const r = guard({ author: user, pushers: [user], changes: [change] }, { config: p.config, roles: p.roles, flow: p.flow, feature: (x) => main.read(`docs/features/${x}/hub/feature.yaml`) });
-        if (!r.ok) throw new Refused(r.findings);
+        // In advisory mode the guard only warns: the save goes ahead and carries the warnings.
+        if (!r.ok && guardSettings(p.config).mode === "advisory") warned = r.findings;
+        else if (!r.ok) throw new Refused(r.findings);
         return [change];
       },
     });

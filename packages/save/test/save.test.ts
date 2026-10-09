@@ -75,6 +75,23 @@ describe("saving from the site", () => {
     expect(r).toMatchObject({ state: "refused", findings: [{ path: ".hub/config.yaml" }] });
   });
 
+  it("shows the warnings of advisory mode on a save that merged anyway", async () => {
+    const { remote, clone } = setup();
+    const saver = createSaver({ root: clone, identity: { name: "Daria L.", email: "daria.l@example.com" }, now: () => new Date("2026-10-09T11:00:00Z") });
+    const s = await saver.save({ user: "daria.l", label: "spec", title: "Spec", build: () => [{ path: "docs/spec.md", next: "# By the designer\n" }] });
+    const w = tmp("hub-guardjob-");
+    git(w, "clone", "-q", "-b", "hub-state", remote, ".");
+    const path = join(w, refusalPath(s.branch));
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, JSON.stringify({ branch: s.branch, mr: 5, advisory: true, author: "daria.l", sha: s.sha, at: "2026-10-09T11:01:00Z", findings: [{ user: "daria.l", path: "docs/spec.md", reason: "No role of daria.l (designer) may change docs/spec.md" }] }));
+    git(w, "add", ".");
+    git(w, "commit", "-q", "-m", "warnings");
+    git(w, "push", "-q", "origin", "hub-state");
+    expect(saver.refresh()[0]).toMatchObject({ state: "pending", warnings: [{ path: "docs/spec.md" }] });
+    mergeOnRemote(remote, s.branch);
+    expect(saver.refresh()[0]).toMatchObject({ state: "merged", warnings: [{ path: "docs/spec.md" }] });
+  });
+
   it("pushes to a remote named by a relative path, as git resolves it from the checkout", async () => {
     const { remote, clone } = setup();
     git(clone, "remote", "set-url", "origin", relative(clone, remote));

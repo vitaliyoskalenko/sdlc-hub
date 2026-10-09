@@ -30,6 +30,8 @@ export interface Save {
   meta?: Record<string, string>;
   mr?: { iid: number; url: string };
   findings?: Finding[];
+  /** Advisory mode: what breaks a rule; the save merges anyway. */
+  warnings?: Finding[];
 }
 
 export interface SaveRequest {
@@ -41,6 +43,8 @@ export interface SaveRequest {
   meta?: Record<string, string>;
   /** The changes, built from main as it is on the remote right now. */
   build: (main: FileSource) => Change[];
+  /** Read after build: what the guard warned about, in advisory mode. */
+  warnings?: () => Finding[] | undefined;
 }
 
 export interface SaverOptions {
@@ -60,8 +64,9 @@ export interface SaverOptions {
   env?: NodeJS.ProcessEnv;
 }
 
-export function gitlabPushOptions(title: string, target: string): string[] {
-  return ["merge_request.create", `merge_request.target=${target}`, "merge_request.merge_when_pipeline_succeeds", "merge_request.remove_source_branch", `merge_request.title=${title}`].flatMap((o) => ["-o", o]);
+/** Opens the merge request; with autoMerge (the default) it merges itself when the pipeline succeeds. */
+export function gitlabPushOptions(title: string, target: string, autoMerge = true): string[] {
+  return ["merge_request.create", `merge_request.target=${target}`, ...(autoMerge ? ["merge_request.merge_when_pipeline_succeeds"] : []), "merge_request.remove_source_branch", `merge_request.title=${title}`].flatMap((o) => ["-o", o]);
 }
 
 export function createSaver(o: SaverOptions) {
@@ -159,7 +164,8 @@ export function createSaver(o: SaverOptions) {
           spawnSync("git", ["push", "-q", remote, "--delete", branch], { cwd: o.root, env: baseEnv });
           throw new Error(`The change was pushed but no pull request opened, so it was taken back: ${(e as Error).message}`);
         }
-      const s: Save = { branch, title: req.title, user: req.user, paths, at: at.toISOString().replace(/\.\d+Z$/, "Z"), sha, blobs, state: "pending", ...(req.meta ? { meta: req.meta } : {}), ...(mr ? { mr } : {}) };
+      const warnings = req.warnings?.();
+      const s: Save = { branch, title: req.title, user: req.user, paths, at: at.toISOString().replace(/\.\d+Z$/, "Z"), sha, blobs, state: "pending", ...(req.meta ? { meta: req.meta } : {}), ...(mr ? { mr } : {}), ...(warnings?.length ? { warnings } : {}) };
       write([s, ...read()]);
       return s;
     },
@@ -174,13 +180,14 @@ export function createSaver(o: SaverOptions) {
         if (s.state !== "pending") continue;
         const ancestor = tryRun(o.root, ["merge-base", "--is-ancestor", s.sha, mainRef]) !== undefined;
         const same = Object.entries(s.blobs).every(([p, b]) => (tryRun(o.root, ["rev-parse", `${mainRef}:${p}`])?.trim() ?? null) === b);
+        const text = state.read(refusalPath(s.branch));
+        const r = text ? parseSaveRefusal(text, refusalPath(s.branch)).value : undefined;
+        if (r && r.sha === s.sha && r.advisory) s.warnings = r.findings;
         if (ancestor || same) {
           s.state = "merged";
           continue;
         }
-        const text = state.read(refusalPath(s.branch));
-        const r = text ? parseSaveRefusal(text, refusalPath(s.branch)).value : undefined;
-        if (r && r.sha === s.sha) {
+        if (r && r.sha === s.sha && !r.advisory) {
           s.state = "refused";
           s.findings = r.findings;
           if (r.mr) s.mr ??= { iid: r.mr, url: "" };

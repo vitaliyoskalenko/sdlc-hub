@@ -53,6 +53,21 @@ describe("sign-off and return from the site", () => {
     expect(git(remote, "branch", "--list", "hub/*")).toBe("");
   });
 
+  it("in advisory mode lets a save outside the person's role go ahead, with the guard's warnings", async () => {
+    const { root, ctx, handler } = project();
+    // The admin set advisory mode on main of the remote.
+    const config = git(root, "show", "origin/main:.hub/config.yaml");
+    const w = mkdtempSync(join(tmpdir(), "hub-act-admin-"));
+    temp.push(w);
+    git(w, "clone", "-q", git(root, "remote", "get-url", "origin"), ".");
+    execFileSync("sh", ["-c", `printf '%s' "$0" > .hub/config.yaml`, `${config}\nguard:\n  mode: advisory\n`], { cwd: w });
+    git(w, "-c", "user.name=a", "-c", "user.email=a@x", "commit", "-qam", "advisory");
+    git(w, "push", "-q", "origin", "main");
+    const r = await handler.handle("POST", "/bug", "daria.l", { slug: "tasks-issues", bug: { title: "Counter stays", team: "web", severity: "low" } }, ctx);
+    expect(r.status, JSON.stringify(r.body)).toBe(202);
+    expect(r.body).toMatchObject({ save: { state: "pending", warnings: [{ user: "daria.l", reason: expect.stringMatching(/No role of daria.l/) }] } });
+  });
+
   it("records a return with its reason", async () => {
     const { remote, ctx, handler } = project();
     const r = await handler.handle("POST", "/signoff", "olena.k", { slug: "returns-portal", step: "clarify", decision: "return", reason: "AC-03 needs a time limit" }, ctx);

@@ -207,6 +207,8 @@ export interface Save {
   meta?: Record<string, string>;
   mr?: { iid: number; url: string };
   findings?: Finding[];
+  /** Advisory mode: what breaks a rule; the save merges anyway. */
+  warnings?: Finding[];
 }
 
 export interface PersonRow {

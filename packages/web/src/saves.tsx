@@ -14,6 +14,7 @@ export function SaveState({ save }: { save: Save }) {
   return (
     <span class="row">
       <Pill kind={kind}>{label}</Pill>
+      {save.warnings?.length && save.state !== "refused" ? <Pill kind="warn">with warnings</Pill> : null}
       {save.mr?.url ? (
         <a href={save.mr.url} target="_blank" rel="noopener noreferrer">
           {session.demo ? "" : "!"}
@@ -23,6 +24,17 @@ export function SaveState({ save }: { save: Save }) {
         <code>{save.branch}</code>
       )}
     </span>
+  );
+}
+
+/** What hub-guard warned about in advisory mode: the save merges anyway. */
+function Warnings({ save }: { save: Save }) {
+  if (!save.warnings?.length || save.state === "refused") return null;
+  return (
+    <div class="warnings" data-warnings>
+      <span class="muted">hub-guard is in advisory mode. In enforce mode it would refuse this:</span>
+      <Findings findings={save.warnings} />
+    </div>
   );
 }
 
@@ -142,6 +154,7 @@ export function YourSaves() {
                     x.title
                   )}
                   {x.state === "refused" && x.findings && <Findings findings={x.findings} />}
+                  <Warnings save={x} />
                 </td>
                 <td class="nw">
                   <SaveState save={x} />
@@ -193,6 +206,7 @@ export function PendingList({ saves }: { saves: Save[] }) {
           <span class="muted">{s.title}</span>
           <SaveState save={s} />
           {s.findings && <Findings findings={s.findings} />}
+          <Warnings save={s} />
         </div>
       ))}
     </div>

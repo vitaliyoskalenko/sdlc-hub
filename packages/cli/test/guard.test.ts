@@ -19,11 +19,11 @@ const write = (root: string, files: Record<string, string>) => {
 };
 
 /** product-specs at a base commit on main, and a branch with the merge request's changes. */
-function repo(changes: Record<string, string>, remove: string[] = []) {
+function repo(changes: Record<string, string>, remove: string[] = [], onMain: Record<string, string> = {}) {
   const dir = mkdtempSync(join(tmpdir(), "hub-guard-"));
   temp.push(dir);
   git(dir, "init", "-q", "-b", "main");
-  write(dir, { ...base(), "docs/features/tasks-issues/spec.md": "# Spec\n", "docs/features/tasks-issues/hub/feature.yaml": "title: T\nowner: olena.k\n" });
+  write(dir, { ...base(), "docs/features/tasks-issues/spec.md": "# Spec\n", "docs/features/tasks-issues/hub/feature.yaml": "title: T\nowner: olena.k\n", ...onMain });
   git(dir, "add", ".");
   git(dir, "commit", "-q", "-m", "base");
   const baseSha = git(dir, "rev-parse", "HEAD");
@@ -87,6 +87,15 @@ describe("the people of a merge request", () => {
     await expect(mergeRequestPeople(gl, {}, "2026-10-07T00:00:00Z")).rejects.toThrow(/merge request pipeline/);
   });
 
+  it("in advisory mode (set on main) reports what breaks a rule as warnings and passes", async () => {
+    const { dir, baseSha } = repo({ "docs/features/tasks-issues/spec.md": "# Spec by the designer\n" }, [], { ".hub/config.yaml": `${base()[".hub/config.yaml"]}guard:\n  mode: advisory\n` });
+    const r = await guardRepo({ cwd: dir, baseSha, author: "daria.l", pushers: ["daria.l"] });
+    expect(r).toMatchObject({ ok: false, advisory: true, findings: [{ user: "daria.l", path: "docs/features/tasks-issues/spec.md" }] });
+    const text = formatFindings(r, "daria.l", ["daria.l"]);
+    expect(text).toContain("hub-guard: passed with warnings (author daria.l)");
+    expect(text).toContain("advisory");
+  });
+
   it("explains a refusal path by path", () => {
     const text = formatFindings({ ok: false, findings: [{ user: "daria.l", path: ".hub/config.yaml", reason: "No role of daria.l (designer) may change .hub/config.yaml" }] }, "olena.k", ["daria.l", "olena.k"]);
     expect(text).toContain("refused (author olena.k; also pushed: daria.l)");
@@ -108,6 +117,21 @@ describe("a refused save from the site", () => {
     recordRefusal({ url: remote, token: "t", branch: "hub/olena.k/config-1", mr: 3, author: "olena.k", sha: "abcdef1", at: "2026-10-08T10:00:00Z", findings: [{ user: "olena.k", path: ".hub/config.yaml", reason: "No role" }], env });
     expect(JSON.parse(git(remote, "show", "hub-state:saves/olena.k/config-1.json"))).toMatchObject({ mr: 3, findings: [{ path: ".hub/config.yaml" }] });
     expect(git(remote, "branch", "--list", "hub/*")).toBe("");
+  });
+
+  it("in advisory mode is recorded as warnings, and the branch stays to merge", () => {
+    const work = mkdtempSync(join(tmpdir(), "hub-refuse-"));
+    const remote = mkdtempSync(join(tmpdir(), "hub-remote-"));
+    temp.push(work, remote);
+    git(remote, "init", "-q", "--bare", "-b", "main");
+    git(work, "init", "-q", "-b", "main");
+    write(work, { "README.md": "x\n" });
+    git(work, "add", ".");
+    git(work, "commit", "-q", "-m", "main");
+    git(work, "push", "-q", remote, "main", "main:hub-state", "main:hub/daria.l/spec-1");
+    recordRefusal({ url: remote, token: "t", branch: "hub/daria.l/spec-1", mr: 4, author: "daria.l", sha: "abcdef1", at: "2026-10-09T10:00:00Z", advisory: true, findings: [{ user: "daria.l", path: "docs/spec.md", reason: "No role" }], env });
+    expect(JSON.parse(git(remote, "show", "hub-state:saves/daria.l/spec-1.json"))).toMatchObject({ advisory: true, findings: [{ path: "docs/spec.md" }] });
+    expect(git(remote, "branch", "--list", "hub/*")).toContain("hub/daria.l/spec-1");
   });
 });
 

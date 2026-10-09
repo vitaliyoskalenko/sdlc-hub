@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 import type { Config } from "@sdlc-hub/core";
 import { GitHub } from "@sdlc-hub/host";
 import { githubApi, githubWeb } from "@sdlc-hub/install";
-import type { SaverOptions } from "@sdlc-hub/save";
+import { gitlabPushOptions, type SaverOptions } from "@sdlc-hub/save";
 
 /** The token git would use for a host, or undefined; never prompts. */
 export function credentialFill(web: string): string | undefined {
@@ -30,7 +30,9 @@ export interface HostSaveOptions {
 }
 
 export function hostSaves(config: Config, o: HostSaveOptions = {}): Pick<SaverOptions, "pushOptions" | "propose"> {
-  if (config.git.provider !== "github") return {};
+  // Without auto-merge (git.auto_merge: false) a request waits for someone to merge it.
+  const autoMerge = config.git.auto_merge !== false;
+  if (config.git.provider !== "github") return autoMerge ? {} : { pushOptions: (title, target) => gitlabPushOptions(title, target, false) };
   const web = githubWeb(config.git.host);
   return {
     pushOptions: () => [],
@@ -38,8 +40,8 @@ export function hostSaves(config: Config, o: HostSaveOptions = {}): Pick<SaverOp
       const token = (o.fill ?? credentialFill)(web);
       if (!token) throw new Error(`git has no token for ${new URL(web).host}. Sign in with \`gh auth login\` and \`gh auth setup-git\`, or clone over HTTPS with a credential helper`);
       const gh = new GitHub(token, githubApi(web), o.fetcher);
-      const pr = await gh.createPull(config.git.namespace, config.git.repo, branch, target, title, "Saved from SDLC Hub. It merges itself when hub-guard passes.");
-      await gh.autoMerge(pr);
+      const pr = await gh.createPull(config.git.namespace, config.git.repo, branch, target, title, autoMerge ? "Saved from SDLC Hub. It merges itself when hub-guard passes." : "Saved from SDLC Hub. Merge it when hub-guard has run.");
+      if (autoMerge) await gh.autoMerge(pr);
       return { iid: pr.number, url: pr.html_url };
     },
   };
