@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { base } from "@sdlc-hub/fixtures";
-import { estimateChange, guard, loadProject, memorySource, parseRelease, releaseChange, releaseView } from "../src/index.ts";
+import { estimateChange, guard, validationChange, loadProject, memorySource, parseRelease, releaseChange, releaseView } from "../src/index.ts";
 
 const slug = "tasks-issues";
 const path = `docs/features/${slug}/hub/release.yaml`;
@@ -62,5 +62,15 @@ describe("the PM's token estimate of a feature", () => {
   it("refuses a range that makes no sense", () => {
     expect(() => estimateChange(memorySource(main), slug, [60, 40])).toThrow(/low.*high/);
     expect(() => estimateChange(memorySource(main), slug, [-1, 4])).toThrow(/low.*high/);
+  });
+});
+
+describe("a validation report", () => {
+  it("is a new file under hub/validation/, named by its time, that the PO and the feature's leads may write", () => {
+    const c = validationChange("tasks-issues", "## spec.md\nConsistent.\n", "2026-10-09T12:30:05Z");
+    expect(c).toEqual({ path: "docs/features/tasks-issues/hub/validation/20261009-123005.md", next: "# Validation of tasks-issues, 2026-10-09T12:30:05Z\n\n## spec.md\nConsistent.\n" });
+    expect(guard({ author: "olena.k", pushers: [], changes: [c] }, ctx).ok).toBe(true);
+    expect(guard({ author: "iryna.s", pushers: [], changes: [c] }, ctx).ok).toBe(false);
+    expect(() => validationChange("tasks-issues", "  ", "2026-10-09T12:30:05Z")).toThrow(/empty/);
   });
 });

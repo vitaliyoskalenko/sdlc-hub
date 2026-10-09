@@ -108,6 +108,33 @@ describe("QA and release from the site", () => {
   }, 30_000);
 });
 
+describe("validation from the site", () => {
+  const withHeadless = (enabled: boolean) => {
+    const { root, remote, ctx } = project();
+    const runs: string[] = [];
+    const handler = actionHandler({ root, identity: (u) => ({ name: u, email: `${u}@example.com` }), pushOptions: () => [], headless: async (_cwd, prompt) => (runs.push(prompt), { ok: true, text: "## spec.md\nConsistent." }) });
+    const config = { ...ctx.project.config, headless: { enabled } };
+    return { remote, runs, handler, ctx: { ...ctx, project: { ...ctx.project, config } } };
+  };
+  it("runs the PO's read-only validation when the admin turned headless runs on, and saves nothing", async () => {
+    const { remote, runs, handler, ctx } = withHeadless(true);
+    const r = await handler.handle("POST", "/validate", "olena.k", { slug: "tasks-issues" }, ctx);
+    expect(r).toEqual({ status: 200, body: { report: "## spec.md\nConsistent." } });
+    expect(runs).toEqual(["/hub:validate tasks-issues"]);
+    expect(git(remote, "branch", "--list", "hub/*")).toBe("");
+    // The person saves the report: a new file in hub/validation/.
+    const saved = await handler.handle("POST", "/validation", "olena.k", { slug: "tasks-issues", report: "## spec.md\nConsistent." }, ctx);
+    expect(saved.status).toBe(202);
+  });
+  it("is refused while headless runs are off, and to people who do not validate", async () => {
+    const off = withHeadless(false);
+    expect((await off.handler.handle("POST", "/validate", "olena.k", { slug: "tasks-issues" }, off.ctx)).status).toBe(409);
+    const on = withHeadless(true);
+    expect((await on.handler.handle("POST", "/validate", "iryna.s", { slug: "tasks-issues" }, on.ctx)).status).toBe(403);
+    expect(on.runs).toEqual([]);
+  });
+});
+
 describe("People and roles from the site", () => {
   it("saves the admin's new person in roles.yaml as a branch", async () => {
     const { remote, ctx, handler } = project();

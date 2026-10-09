@@ -3,7 +3,7 @@
 
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { hubBug, hubDecide, hubNext, hubQa, hubRelease, hubReleaseEdit, hubSignoff, hubStatus, hubTest, hubVerdicts, type ToolContext, type ToolResult } from "./tools.ts";
+import { hubBug, hubDecide, hubValidation, hubNext, hubQa, hubRelease, hubReleaseEdit, hubSignoff, hubStatus, hubTest, hubVerdicts, type ToolContext, type ToolResult } from "./tools.ts";
 
 const text = (r: ToolResult) => ({ content: [{ type: "text" as const, text: r.text }], ...(r.isError ? { isError: true } : {}) });
 const slug = z.string().regex(/^[a-z0-9][a-z0-9-]*$/).describe("The feature's folder name under docs/features, for example tasks-issues");
@@ -156,6 +156,17 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
       annotations: { destructiveHint: false },
     },
     async ({ slug: s, team }) => text(hubTest(ctx, s, team)),
+  );
+
+  server.registerTool(
+    "hub_validation",
+    {
+      title: "Save a validation report",
+      description: "Saves a validation report as hub/validation/<time>.md in the feature, through a merge request. Call it only after the person asked to save the report; never in a headless run.",
+      inputSchema: z.object({ slug, report: z.string().min(1).describe("The report in Markdown: a heading per document, then Consistent or the conflicts with a proposed fix") }),
+      annotations: { destructiveHint: false },
+    },
+    async ({ slug: s, report }) => text(hubValidation(ctx, s, report)),
   );
 
   return server;

@@ -16,6 +16,7 @@ import { addDemoRemote, demoHost } from "./demo-host.ts";
 import { localTests } from "@sdlc-hub/save";
 import { collectUsage, noteContext } from "@sdlc-hub/usage";
 import { sync } from "./sync.ts";
+import { claudeHeadless } from "./headless.ts";
 import { seedDemoUsage } from "./demo-usage.ts";
 import { keyStore } from "@sdlc-hub/usage";
 import { doctor, personSetup, print, remoteUrl } from "./person.ts";
@@ -129,7 +130,8 @@ async function serve(f: Record<string, string>) {
   } catch {
     hasRemote = false;
   }
-  const actions = hasRemote ? actionHandler({ root, identity: () => gitIdentity(root) }) : undefined;
+  // Headless validation starts the person's own Claude Code, read-only; only when the admin turned it on.
+  const actions = hasRemote ? actionHandler({ root, identity: () => gitIdentity(root), headless: claudeHeadless() }) : undefined;
   // The per-person costs the admin and the PM may see are decrypted with this machine's usage key.
   const usageKey = () => {
     try {

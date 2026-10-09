@@ -90,3 +90,10 @@ export function estimateChange(specs: FileSource, slug: string, tokensM: [number
   if (!check.value) throw new Error(check.issues.map((i) => i.message).join("; "));
   return { path, base, next };
 }
+
+/** A validation report from a read-only run: hub/validation/<yyyymmdd-hhmmss>.md, never changed afterwards. */
+export function validationChange(slug: string, report: string, at: string): Change {
+  if (!report.trim()) throw new Error("The report is empty");
+  const stamp = at.replace(/\.\d+Z$/, "Z").replace(/[-:]/g, "").replace("T", "-").replace("Z", "");
+  return { path: `docs/features/${slug}/hub/validation/${stamp}.md`, next: `# Validation of ${slug}, ${at}\n\n${report.trim()}\n` };
+}

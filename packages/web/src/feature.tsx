@@ -1,17 +1,17 @@
 // One feature: the Now strip and the Flow, Documents and Tasks tabs.
 
-import MarkdownIt from "markdown-it";
 import { useEffect, useState } from "preact/hooks";
 import { api, type FeatureDetail, type FlowStep, type StepState, type Summary } from "./api.ts";
 import { layout, Loop } from "./features.tsx";
 import { engineCmd, hubCmd, LEGEND, roleOf, STATUS, STEP } from "./text.ts";
 import { Costs } from "./costs.tsx";
+import { renderMarkdown } from "./markdown.ts";
 import { QA } from "./qa.tsx";
+import { ValidateCard } from "./validate.tsx";
 import { Release } from "./release.tsx";
 import { SignoffBox } from "./saves.tsx";
 import { Cmd, CopyButton, Link, names, Pill, personName, RoleChip, StatusPill, useApp, WaitMark, waitText } from "./ui.tsx";
 
-const md = new MarkdownIt({ html: false, linkify: false, typographer: false });
 
 /** Steps recorded on the QA or Release screen. */
 const SCREEN: Record<string, [string, string]> = {
@@ -486,6 +486,8 @@ function Documents({ slug, detail, params }: { slug: string; detail: FeatureDeta
   if (!sel) return <div class="lockbox">No documents yet. The spec appears here after step 1.</div>;
   const isMd = sel.path.endsWith(".md");
   return (
+    <>
+    <ValidateCard slug={slug} />
     <div class="docgrid">
       <div class="doclist">
         {docs.map((x) => (
@@ -512,13 +514,14 @@ function Documents({ slug, detail, params }: { slug: string; detail: FeatureDeta
         ) : text === null ? (
           <p class="muted">The file could not be read.</p>
         ) : isMd ? (
-          <div class="md" dangerouslySetInnerHTML={{ __html: md.render(text) }} />
+          <div class="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }} />
         ) : (
           <pre>{text}</pre>
         )}
-        <p class="reason">Edits that need no LLM arrive with phase 2. Changes of meaning go through the owner's stage in the assistant.</p>
+        <p class="reason">Light edits on the site are not built yet: change a document through its owner's stage in the assistant.</p>
       </div>
     </div>
+    </>
   );
 }
 

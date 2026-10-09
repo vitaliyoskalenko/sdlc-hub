@@ -4,7 +4,7 @@
 
 import { detectFeature, listFeatures, nextFor, parseSignoffs, platformsOf, releaseView, verificationMatrix, type FeatureState, type Project, type StepPlan } from "@sdlc-hub/core";
 import type { OpenProject } from "@sdlc-hub/git";
-import { localTests, saveBug, saveRelease, saveSignoff, saveVerdicts, type Save, type SaveOutcome, type Saver } from "@sdlc-hub/save";
+import { localTests, saveBug, saveRelease, saveSignoff, saveValidation, saveVerdicts, type Save, type SaveOutcome, type Saver } from "@sdlc-hub/save";
 
 export type Assistant = "claude" | "codex" | "cursor";
 
@@ -283,4 +283,12 @@ export function hubTest(ctx: ToolContext, slug: string, team?: string): ToolResu
   const open = ctx.open();
   const r = localTests({ root: open.root, slug, ...(team ? { team } : {}), now: ctx.now, quiet: true });
   return { text: r.lines.map((x) => `${x.ok ? "✓" : x.blocking === false ? "!" : "✗"} ${x.text}`).join("\n"), ...(r.ok ? {} : { isError: true }) };
+}
+
+/** Saves a validation report as a new file in the feature's hub/validation/. */
+export function hubValidation(ctx: ToolContext, slug: string, report: string): ToolResult {
+  const l = load(ctx);
+  if (isResult(l)) return l;
+  const r = saveValidation({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, report, at: iso(ctx.now()) });
+  return outcomeText(r, `The validation report of ${slug}`);
 }

@@ -1,7 +1,7 @@
 // A sign-off or a return of a gate, saved: checked with the same guard that runs at merge, on main as it is on the
 // remote, and only then pushed. The site's action and the plugin's hub_signoff and hub_return both use this.
 
-import { awaitsSignoff, bugChange, bugEditChange, estimateChange, guard, loadProject, peopleChange, platformsOf, releaseChange, signoffChange, verdictChange, verificationMatrix, type BugEdit, type BugInput, type PeopleEdit, type ReleaseEdit, type VerdictInput, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
+import { awaitsSignoff, bugChange, bugEditChange, estimateChange, guard, validationChange, loadProject, peopleChange, platformsOf, releaseChange, signoffChange, verdictChange, verificationMatrix, type BugEdit, type BugInput, type PeopleEdit, type ReleaseEdit, type VerdictInput, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
 import { Pending, Unchanged, type Save, type Saver } from "./index.ts";
 
 export type SaveOutcome =
@@ -261,6 +261,21 @@ export function saveEstimate(i: FeatureSaveInput & { tokensM: unknown }): SaveOu
     title: `Token estimate of ${f.slug}: ${range[0]} to ${range[1]} million`,
     meta: { kind: "estimate", slug: f.slug },
     build: (main) => estimateChange(main, f.slug, range),
+    fallback: i.project,
+  });
+}
+
+/** A validation report, saved as a new file in hub/validation/. */
+export function saveValidation(i: FeatureSaveInput & { report: unknown }): SaveOutcome {
+  const f = feature(i);
+  if (isOutcome(f)) return f;
+  if (typeof i.report !== "string" || !i.report.trim()) return { ok: false, code: "bad-input", error: "The report is empty" };
+  const report = i.report;
+  return checkedSave(i.saver, i.user, {
+    label: `validation-${f.slug}`,
+    title: `Validation report of ${f.slug}`,
+    meta: { kind: "validation", slug: f.slug },
+    build: () => validationChange(f.slug, report, i.at),
     fallback: i.project,
   });
 }
