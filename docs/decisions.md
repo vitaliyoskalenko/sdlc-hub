@@ -2,6 +2,18 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-09: The real SDD run (claim 8)
+
+### Read what SDD 2.3.0 actually writes
+- **Decision:**
+  - Criteria are read from headings as well as list items, with suffixed ids (`AC-02b`) everywhere an id is checked or matched.
+  - Tracker ids are read from their markdown links.
+  - Install ignores `.claude/*.local.md`, SDD's own pattern.
+  - The real output is the fixture `packages/core/test/fixtures/sdd-2.3.0`.
+- **Why:** A real run from `specify` to `tasks` found no criteria and whole links as tracker ids with the old readers.
+- **Open:** `tech-design` counts as done after `design`, before `sequences`, which leaves only `_sequences-log.md`. Whether to wait for that log is the owner's call, because a size or route may skip `sequences`.
+- **By:** Owner asked for the run; fixes proposed.
+
 ## 2026-10-09: Revision 66, conflicts, offline saves, rekey, setup merges its own pull request on GitHub
 
 ### Conflicting saves: merge once, then the person chooses

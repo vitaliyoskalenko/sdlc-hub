@@ -1,7 +1,7 @@
 // Readers for what genkovich/sdd 2.3 writes, and the team snapshot that hub-report publishes.
-// Formats checked against the SDD v2.3.0 skill files and templates (see docs/decisions.md), not yet against a
-// real run. Every assumption about real output is tagged @assumed-sdd-format here and nowhere else, so a real
-// run can replace them in one place.
+// Formats checked against the SDD v2.3.0 skill files and templates (see docs/decisions.md), and against a real run
+// from specify to tasks (9 October 2026; the output is in test/fixtures/sdd-2.3.0). What that run did not reach (the
+// review record) is still tagged @assumed-sdd-format, here and nowhere else.
 
 import { parse as parseYamlText } from "yaml";
 import { z } from "zod";
@@ -61,7 +61,8 @@ export function parseTasksJson(text: string, file: string): Result<{ slug: strin
 }
 
 // --- tasks/tracker.md: the status table
-// @assumed-sdd-format: the column names and states of skills/tasks/templates/tracker.md, one table per file.
+// Checked against a real SDD 2.3.0 run (9 October 2026): the columns and states of skills/tasks/templates/tracker.md,
+// one table per file, each id a link to its task file.
 
 const CELL_SPLIT = /(?<!\\)\|/;
 const TASK_REF = /\b(?:[a-z][a-z0-9]*(?:-[a-z0-9]+)*:)?T\d+\b/g;
@@ -80,7 +81,8 @@ export function parseTracker(text: string, file: string): Result<TrackerRow[]> {
     const line = lines[n]!;
     if (!/^\s*\|/.test(line)) break;
     const c = cells(line);
-    const id = c[iId]?.trim() ?? "";
+    // SDD 2.3.0 links each id to its task file: [T05](./t05-implement-the-order-exports-repository.md).
+    const id = (c[iId] ?? "").trim().replace(/^\[([^\]]+)\]\([^)]*\)$/, "$1");
     const status = c[iStatus]?.trim() ?? "";
     if (!(TRACKER_STATUSES as readonly string[]).includes(status)) {
       issues.push({ level: "error", file, line: n + 1, message: `Task ${id || "?"} has the status "${status}"; SDD uses ${TRACKER_STATUSES.join(", ")}` });
@@ -192,14 +194,20 @@ export function buildTeamSnapshot(input: SnapshotInput): Result<TeamSnapshot> {
 
 // --- acceptance criteria in spec.md
 
-// @assumed-sdd-format: each criterion is a list item that starts with its id, as "- AC-01: text" or "- **AC-01** text".
-const CRITERION = /^\s*[-*]\s+\**(AC-\d+)\**[:.]?\**\s+(.+?)\s*$/;
+// Checked against a real SDD 2.3.0 run (9 October 2026): SDD writes headings (CRITERION_HEADING). The list items
+// "- AC-01: text" or "- **AC-01** text" are still read, for specs written by hand.
+const CRITERION = /^\s*[-*]\s+\**(AC-\d+[a-z]?)\**[:.]?\**\s+(.+?)\s*$/;
+/**
+ * SDD 2.3.0 writes each criterion as a heading with Given/When/Then lines under it; clarify adds ids such as AC-02b
+ * (seen in a real run, 9 October 2026): `### AC-01 (US-01, US-04) — happy path`.
+ */
+const CRITERION_HEADING = /^#{2,4}\s+(AC-\d+[a-z]?)\b\s*(?:\([^)]*\))?\s*[—–:-]?\s*(.*?)\s*$/;
 
 /** The acceptance criteria of a spec, in order, each once. */
 export function readCriteria(spec: string): { id: string; text: string }[] {
   const out: { id: string; text: string }[] = [];
   for (const line of spec.split("\n")) {
-    const m = CRITERION.exec(line);
+    const m = CRITERION.exec(line) ?? CRITERION_HEADING.exec(line);
     if (m && !out.some((c) => c.id === m[1])) out.push({ id: m[1]!, text: m[2]!.replace(/^[:–-]\s*/, "") });
   }
   return out;

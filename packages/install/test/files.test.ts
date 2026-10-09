@@ -73,9 +73,9 @@ describe("sections in files the hub does not own", () => {
     expect(twice).toMatch(/^# Project\n\nOur rules.\n\n<!-- sdlc-hub:start -->\n## SDLC Hub\n\nv2\n<!-- sdlc-hub:end -->\n$/);
   });
   it("add a .gitignore line once", () => {
-    expect(withIgnore(null, ".claude/sdd.local.md")).toBe(".claude/sdd.local.md\n");
-    expect(withIgnore("node_modules", ".claude/sdd.local.md")).toBe("node_modules\n.claude/sdd.local.md\n");
-    expect(withIgnore("a\n.claude/sdd.local.md\n", ".claude/sdd.local.md")).toBe("a\n.claude/sdd.local.md\n");
+    expect(withIgnore(null, ".claude/*.local.md")).toBe(".claude/*.local.md\n");
+    expect(withIgnore("node_modules", ".claude/*.local.md")).toBe("node_modules\n.claude/*.local.md\n");
+    expect(withIgnore("a\n.claude/*.local.md\n", ".claude/*.local.md")).toBe("a\n.claude/*.local.md\n");
   });
 });
 

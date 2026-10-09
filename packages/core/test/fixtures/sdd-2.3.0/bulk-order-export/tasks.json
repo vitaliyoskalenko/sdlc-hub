@@ -1,0 +1,407 @@
+{
+  "slug": "bulk-order-export",
+  "tasks": [
+    {
+      "id": "T01",
+      "title": "Promote the staged order_exports and orders-index migrations",
+      "layer": "migration",
+      "deps": [],
+      "acs": [
+        "AC-07",
+        "AC-15"
+      ],
+      "dod": "staged migrations promoted to live `backend/migrations/`, then apply and revert cleanly (up → down → up); constraint probe test: the partial unique index rejects a second in-progress export per requester",
+      "files_hint": [
+        "docs/features/bulk-order-export/migrations/01_create_order_exports.up.sql",
+        "docs/features/bulk-order-export/migrations/01_create_order_exports.down.sql",
+        "docs/features/bulk-order-export/migrations/02_create_index_orders_created_at_status.up.sql",
+        "docs/features/bulk-order-export/migrations/02_create_index_orders_created_at_status.down.sql"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t01-promote-the-staged-order-exports-and-orders-index-migrations.md"
+    },
+    {
+      "id": "T02",
+      "title": "Add the export filter rules and the Kyiv calendar helper",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-04",
+        "AC-05",
+        "AC-06"
+      ],
+      "dod": "unit tests for AC-04, AC-05, AC-06 (incl. both AC-06 examples) pass; DST-Sunday fixtures for `kyivDayBounds` and `formatKyivOffset` pass",
+      "files_hint": [
+        "backend/src/exports/domain/export-filter.ts",
+        "backend/src/exports/domain/kyiv-calendar.ts",
+        "backend/src/exports/domain/export-filter.test.ts",
+        "backend/src/exports/domain/kyiv-calendar.test.ts"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t02-add-the-export-filter-rules-and-the-kyiv-calendar-helper.md"
+    },
+    {
+      "id": "T03",
+      "title": "Model the order export aggregate: status transitions, expiry and listing window",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-12",
+        "AC-12b",
+        "AC-13"
+      ],
+      "dod": "unit tests for AC-12, AC-12b boundaries and the AC-13 transitions pass; `NotReady` exists alongside the §8 errors (contract 409 `exports.not_ready`)",
+      "files_hint": [
+        "backend/src/exports/domain/order-export.ts",
+        "backend/src/exports/domain/errors.ts",
+        "backend/src/exports/domain/order-export.test.ts"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t03-model-the-order-export-aggregate-status-transitions-expiry-a.md"
+    },
+    {
+      "id": "T04",
+      "title": "Add the export orders capability to the staff module",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-08",
+        "AC-14"
+      ],
+      "dod": "capability tests for all five cases pass; no caller reads the role from session claims",
+      "files_hint": [
+        "backend/src/staff/"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t04-add-the-export-orders-capability-to-the-staff-module.md"
+    },
+    {
+      "id": "T05",
+      "title": "Implement the order_exports repository",
+      "layer": "infra",
+      "deps": [
+        "T01",
+        "T03"
+      ],
+      "acs": [
+        "AC-07",
+        "AC-12b",
+        "AC-16"
+      ],
+      "dod": "repository integration tests pass on PostgreSQL (incl. the concurrent-insert race); list query plans use `order_exports_requester_requested_idx` / `order_exports_requested_idx`",
+      "files_hint": [
+        "backend/src/exports/infra/order-exports-repository.ts",
+        "backend/src/exports/infra/order-exports-repository.test.ts"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t05-implement-the-order-exports-repository.md"
+    },
+    {
+      "id": "T06",
+      "title": "Write the export CSV writer with fixed columns, value formats and formula escaping",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-02",
+        "AC-02b"
+      ],
+      "dod": "CSV fixture tests for AC-02 column order and every AC-02b format pass; formula-escape tests for all six leading characters pass",
+      "files_hint": [
+        "backend/src/exports/infra/csv-writer.ts",
+        "backend/src/exports/infra/csv-writer.test.ts"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t06-write-the-export-csv-writer-with-fixed-columns-value-formats.md"
+    },
+    {
+      "id": "T07",
+      "title": "Add the orders snapshot reader (REPEATABLE READ cursor)",
+      "layer": "infra",
+      "deps": [
+        "T01",
+        "T02"
+      ],
+      "acs": [
+        "AC-15"
+      ],
+      "dod": "snapshot integration test for AC-15 passes; memory stays flat over a 200 000-row fixture (batches of 2 000)",
+      "files_hint": [
+        "backend/src/orders/",
+        "backend/src/exports/infra/orders-snapshot-reader.ts",
+        "backend/src/exports/infra/orders-snapshot-reader.test.ts"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t07-add-the-orders-snapshot-reader-repeatable-read-cursor.md"
+    },
+    {
+      "id": "T08",
+      "title": "Add the exports bucket client (upload, delete, 5-minute signed URL)",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-02"
+      ],
+      "dod": "bucket client tests pass (upload → sign → fetch → delete → delete again); signed URL expiry asserted at 5 minutes",
+      "files_hint": [
+        "backend/src/exports/infra/export-files.ts",
+        "backend/src/exports/infra/export-files.test.ts"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t08-add-the-exports-bucket-client-upload-delete-5-minute-signed.md"
+    },
+    {
+      "id": "T09",
+      "title": "Implement the request-export use case",
+      "layer": "app",
+      "deps": [
+        "T02",
+        "T03",
+        "T04",
+        "T05"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-07",
+        "AC-08",
+        "AC-16"
+      ],
+      "dod": "use-case tests for AC-01, AC-07, AC-08, AC-16 pass (incl. a concurrent double-submit); insert and build job commit or roll back together",
+      "files_hint": [
+        "backend/src/exports/app/request-export.ts",
+        "backend/src/exports/app/request-export.test.ts"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t09-implement-the-request-export-use-case.md"
+    },
+    {
+      "id": "T10",
+      "title": "Implement the list-exports and resolve-download use cases",
+      "layer": "app",
+      "deps": [
+        "T03",
+        "T04",
+        "T05",
+        "T08"
+      ],
+      "acs": [
+        "AC-09",
+        "AC-10",
+        "AC-11",
+        "AC-12",
+        "AC-14"
+      ],
+      "dod": "use-case tests for AC-09, AC-10, AC-11, AC-12, AC-14 pass; foreign and missing ids produce indistinguishable results",
+      "files_hint": [
+        "backend/src/exports/app/list-exports.ts",
+        "backend/src/exports/app/resolve-download.ts",
+        "backend/src/exports/app/list-exports.test.ts",
+        "backend/src/exports/app/resolve-download.test.ts"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t10-implement-the-list-exports-and-resolve-download-use-cases.md"
+    },
+    {
+      "id": "T11",
+      "title": "Implement the export build job",
+      "layer": "app",
+      "deps": [
+        "T05",
+        "T06",
+        "T07",
+        "T08"
+      ],
+      "acs": [
+        "AC-02",
+        "AC-03",
+        "AC-13",
+        "AC-15"
+      ],
+      "dod": "build-job tests for AC-02, AC-03, AC-13, AC-15 pass (incl. the CAS race); `order_count` equals the file's data-row count in every test",
+      "files_hint": [
+        "backend/src/exports/app/build-export.ts",
+        "backend/src/exports/ports/jobs/build.ts",
+        "backend/src/exports/app/build-export.test.ts"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t11-implement-the-export-build-job.md"
+    },
+    {
+      "id": "T12",
+      "title": "Implement the export email job and the ready/failed templates",
+      "layer": "app",
+      "deps": [
+        "T04",
+        "T05"
+      ],
+      "acs": [
+        "AC-02",
+        "AC-03",
+        "AC-13",
+        "AC-14b"
+      ],
+      "dod": "email-job tests for AC-02, AC-03, AC-13, AC-14b pass; rendered templates snapshot-tested; no customer email in logs",
+      "files_hint": [
+        "backend/src/exports/app/send-export-email.ts",
+        "backend/src/exports/ports/jobs/email.ts",
+        "backend/src/email/templates/",
+        "backend/src/exports/app/send-export-email.test.ts"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t12-implement-the-export-email-job-and-the-ready-failed-template.md"
+    },
+    {
+      "id": "T13",
+      "title": "Implement the reaper and the daily sweeper jobs",
+      "layer": "app",
+      "deps": [
+        "T05",
+        "T08"
+      ],
+      "acs": [
+        "AC-12b",
+        "AC-13"
+      ],
+      "dod": "reaper/sweeper tests for AC-13 and AC-12b pass; both handlers are idempotent under re-delivery",
+      "files_hint": [
+        "backend/src/exports/app/reap-stuck.ts",
+        "backend/src/exports/app/sweep-expired.ts",
+        "backend/src/exports/ports/jobs/reap.ts",
+        "backend/src/exports/ports/jobs/sweep.ts",
+        "backend/src/exports/app/reap-sweep.test.ts"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t13-implement-the-reaper-and-the-daily-sweeper-jobs.md"
+    },
+    {
+      "id": "T14",
+      "title": "Expose the exports HTTP endpoints with error mapping",
+      "layer": "ports",
+      "deps": [
+        "T09",
+        "T10"
+      ],
+      "acs": [
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-08",
+        "AC-09",
+        "AC-12"
+      ],
+      "dod": "HTTP contract tests for every listed status code pass and validate bodies against `openapi.yaml`; handler tests for AC-04, AC-05, AC-06, AC-08, AC-09, AC-12 pass",
+      "files_hint": [
+        "backend/src/exports/ports/http/",
+        "backend/src/exports/ports/http/exports.http.test.ts"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t14-expose-the-exports-http-endpoints-with-error-mapping.md"
+    },
+    {
+      "id": "T15",
+      "title": "Wire the export worker process and mount the exports API",
+      "layer": "wiring",
+      "deps": [
+        "T11",
+        "T12",
+        "T13",
+        "T14"
+      ],
+      "acs": [
+        "AC-13"
+      ],
+      "dod": "worker smoke test passes end to end (request → ready → email marker); reap schedule fires every 5 minutes in a time-shifted test (AC-13)",
+      "files_hint": [
+        "backend/src/worker.ts",
+        "backend/src/exports/index.ts",
+        "backend/src/jobs/"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t15-wire-the-export-worker-process-and-mount-the-exports-api.md"
+    },
+    {
+      "id": "T16",
+      "title": "Add the exports UI foundation: API client, StatePanel, InlineNotice, access-denied and entry points",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-08"
+      ],
+      "dod": "component tests for SCR-01 (both role states) and SCR-08 pass (AC-08); StatePanel and InlineNotice have tests for every variant",
+      "files_hint": [
+        "admin/src/pages/exports/api.ts",
+        "admin/src/pages/exports/routes.tsx",
+        "admin/src/pages/exports/ExportAccessDenied.tsx",
+        "admin/src/components/StatePanel.tsx",
+        "admin/src/components/InlineNotice.tsx",
+        "admin/src/pages/index.tsx"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t16-add-the-exports-ui-foundation-api-client-statepanel-inlineno.md"
+    },
+    {
+      "id": "T17",
+      "title": "Build the export request form (SCR-02)",
+      "layer": "ui",
+      "deps": [
+        "T16"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-07",
+        "AC-16"
+      ],
+      "dod": "component tests for every SCR-02 state pass; AC-01, AC-04, AC-05, AC-06, AC-07, AC-16 messages render as in the manifest",
+      "files_hint": [
+        "admin/src/pages/exports/ExportRequestForm.tsx",
+        "admin/src/pages/exports/ExportRequestForm.test.tsx"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t17-build-the-export-request-form-scr-02.md"
+    },
+    {
+      "id": "T18",
+      "title": "Build the Exports list with polling and paging (SCR-03)",
+      "layer": "ui",
+      "deps": [
+        "T16"
+      ],
+      "acs": [
+        "AC-10",
+        "AC-11",
+        "AC-12b"
+      ],
+      "dod": "component tests for every SCR-03 state and row status pass (AC-10, AC-11, AC-12b); polling stops when no row is queued or running",
+      "files_hint": [
+        "admin/src/pages/exports/ExportsList.tsx",
+        "admin/src/pages/exports/ExportsList.test.tsx"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t18-build-the-exports-list-with-polling-and-paging-scr-03.md"
+    },
+    {
+      "id": "T19",
+      "title": "Build the download route, the expired notice (SCR-07) and the sign-in return path",
+      "layer": "ui",
+      "deps": [
+        "T16"
+      ],
+      "acs": [
+        "AC-09",
+        "AC-12",
+        "AC-14"
+      ],
+      "dod": "component tests for every download-route outcome and SCR-07 pass (AC-09, AC-12, AC-14); sign-in returns to `/exports/:id/download` in a routing test",
+      "files_hint": [
+        "admin/src/pages/exports/ExportDownload.tsx",
+        "admin/src/pages/exports/ExportExpired.tsx",
+        "admin/src/pages/exports/ExportDownload.test.tsx",
+        "admin/src/pages/"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t19-build-the-download-route-the-expired-notice-scr-07-and-the-s.md"
+    },
+    {
+      "id": "T20",
+      "title": "Add the cross-cutting integration and load tests (snapshot, DST, role change, retention, storefront impact)",
+      "layer": "tests",
+      "deps": [
+        "T15"
+      ],
+      "acs": [
+        "AC-14",
+        "AC-14b",
+        "AC-15"
+      ],
+      "dod": "integration suite for AC-14, AC-14b, AC-15 + DST + retention passes in CI; load test run once with its checkout-p95 comparison recorded in the PR",
+      "files_hint": [
+        "backend/test/exports/",
+        "backend/test/load/exports-storefront-impact"
+      ],
+      "file": "docs/features/bulk-order-export/tasks/t20-add-the-cross-cutting-integration-and-load-tests-snapshot-ds.md"
+    }
+  ]
+}

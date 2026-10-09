@@ -16,7 +16,7 @@ export const VERDICTS = ["pass", "fail", "na"] as const;
 export type Verdict = (typeof VERDICTS)[number];
 
 const record = z.strictObject({
-  ac: z.string().regex(/^AC-\d+$/, "Write the criterion as AC-NN"),
+  ac: z.string().regex(/^AC-\d+[a-z]?$/, "Write the criterion as AC-NN"),
   platform: z.string().min(1),
   verdict: z.enum(VERDICTS),
   bugs: z.array(z.string().regex(/^BUG-\d{4,}$/)).optional(),

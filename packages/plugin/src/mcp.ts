@@ -99,7 +99,7 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
   );
 
   const verdict = z.object({
-    ac: z.string().regex(/^AC-\d+$/).describe("The criterion, for example AC-04"),
+    ac: z.string().regex(/^AC-\d+[a-z]?$/).describe("The criterion, for example AC-04 or AC-02b"),
     platform: z.string().describe("A platform of the feature, as hub_qa lists them"),
     verdict: z.enum(["pass", "fail", "na"]),
     bugs: z.array(z.string().regex(/^BUG-\d{4,}$/)).optional().describe("For a fail: the bug or bugs it found"),

@@ -138,7 +138,7 @@ export async function installGitHub(a: SetupAnswers, gh: GitHub, opts: InstallOp
     files["hub/package.json"] = '{ "private": true, "type": "module" }\n';
     files["CLAUDE.md"] = withBlock(await gh.file(org, name, "CLAUDE.md", main), CLAUDE_BLOCK);
     if (a.assistants.codex || a.assistants.cursor) files["AGENTS.md"] = withBlock(await gh.file(org, name, "AGENTS.md", main), AGENTS_BLOCK);
-    files[".gitignore"] = withIgnore(withIgnore(await gh.file(org, name, ".gitignore", main), ".claude/sdd.local.md"), ".claude/settings.local.json");
+    files[".gitignore"] = withIgnore(withIgnore(await gh.file(org, name, ".gitignore", main), ".claude/*.local.md"), ".claude/settings.local.json");
     Object.assign(files, pluginFiles());
     files[".claude-plugin/marketplace.json"] = marketplaceFile(a.project.trim() || name);
     files[".claude/settings.json"] = withClaudeSettings(await gh.file(org, name, ".claude/settings.json", main), a.engine === "sdd" ? { id: "sdd", source: "genkovich/sdd" } : null);

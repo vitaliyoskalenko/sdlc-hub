@@ -11,7 +11,7 @@ const platforms = platformsOf(project.config, detectFeature(project, view(f.main
 const at = "2026-10-08T10:00:00Z";
 
 describe("the criteria of a spec", () => {
-  it("are read in both list styles (@assumed-sdd-format)", () => {
+  it("are read in both list styles, as written by hand", () => {
     expect(readCriteria("## 5. Acceptance criteria\n\n- AC-01: The thing works.\n- **AC-02** Another.\n- [x] per AC-02, not a criterion\n")).toEqual([
       { id: "AC-01", text: "The thing works." },
       { id: "AC-02", text: "Another." },

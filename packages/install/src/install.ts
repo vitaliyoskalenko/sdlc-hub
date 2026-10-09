@@ -184,7 +184,7 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
     files["hub/package.json"] = '{ "private": true, "type": "module" }\n';
     files["CLAUDE.md"] = withBlock(await gl.file(p.id, "CLAUDE.md", main), CLAUDE_BLOCK);
     if (a.assistants.codex || a.assistants.cursor) files["AGENTS.md"] = withBlock(await gl.file(p.id, "AGENTS.md", main), AGENTS_BLOCK);
-    files[".gitignore"] = withIgnore(withIgnore(await gl.file(p.id, ".gitignore", main), ".claude/sdd.local.md"), ".claude/settings.local.json");
+    files[".gitignore"] = withIgnore(withIgnore(await gl.file(p.id, ".gitignore", main), ".claude/*.local.md"), ".claude/settings.local.json");
     // The hub plugin for Claude Code, the repository's own marketplace, and the shared settings that enable both.
     Object.assign(files, pluginFiles());
     // Codex and Cursor: one set of skills in .agents/skills, and each one's MCP server and hooks.

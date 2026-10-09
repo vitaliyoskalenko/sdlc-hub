@@ -78,7 +78,7 @@ export async function saveBug(i: BugSaveInput): Promise<SaveOutcome> {
   if (typeof i.slug !== "string" || !SLUG.test(i.slug)) return { ok: false, code: "bad-input", error: "Give the feature's slug" };
   const b = i.bug;
   if (typeof b.title !== "string" || typeof b.team !== "string" || typeof b.severity !== "string") return { ok: false, code: "bad-input", error: "A bug needs a title, a team and a severity" };
-  if (b.ac !== undefined && (typeof b.ac !== "string" || !/^AC-\d+$/.test(b.ac))) return { ok: false, code: "bad-input", error: "Write the criterion as AC-NN" };
+  if (b.ac !== undefined && (typeof b.ac !== "string" || !/^AC-\d+[a-z]?$/.test(b.ac))) return { ok: false, code: "bad-input", error: "Write the criterion as AC-NN" };
   if (b.platforms !== undefined && (!Array.isArray(b.platforms) || !b.platforms.every((p) => typeof p === "string" && /^[a-z0-9-]+$/.test(p)))) return { ok: false, code: "bad-input", error: "Give the platforms as a list of names" };
   if (b.body !== undefined && typeof b.body !== "string") return { ok: false, code: "bad-input", error: "The description is text" };
   const slug = i.slug;
