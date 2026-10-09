@@ -220,6 +220,19 @@ describe("saving from the site", () => {
     expect(git(remote, "show", `${s.branch}:docs/x.md`)).toBe("x");
   });
 
+  it("nudges only pending saves older than a minute and a half", async () => {
+    const { clone } = setup();
+    let clock = new Date("2026-10-09T15:00:00Z");
+    const nudged: string[] = [];
+    const saver = createSaver({ root: clone, identity: { name: "O", email: "o@x" }, now: () => clock, propose: async () => ({ iid: 4, url: "u" }), nudge: async (s) => void nudged.push(s.branch) });
+    const s = await saver.save({ user: "olena.k", label: "x", title: "x", build: () => [{ path: "docs/x.md", next: "x\n" }] });
+    await saver.nudge();
+    expect(nudged).toEqual([]);
+    clock = new Date("2026-10-09T15:02:00Z");
+    await saver.nudge();
+    expect(nudged).toEqual([s.branch]);
+  });
+
   it("asks GitLab for a merge request that merges itself", () => {
     expect(gitlabPushOptions("Sign off clarify", "main")).toEqual([
       "-o", "merge_request.create",

@@ -5,7 +5,7 @@
 import { useEffect, useState } from "preact/hooks";
 import type { FeatureDetail } from "./api.ts";
 import { PendingList, SignoffBox, useAction, usePending } from "./saves.tsx";
-import { personName, Pill, StatusPill, useApp } from "./ui.tsx";
+import { personName, Pill, StatusPill, teamName, useApp } from "./ui.tsx";
 
 const STAGES = [0, 10, 25, 50, 100];
 const day = (iso: string) => iso.slice(0, 10);
@@ -19,6 +19,7 @@ export function Release({ detail }: { detail: FeatureDetail }) {
   const { run, busy, problem } = useAction();
   const pending = usePending(slug, "release");
   const [item, setItem] = useState("");
+  const [versions, setVersions] = useState<Record<string, string>>({});
   // A ticked item shows as ticked while its merge request waits, until main has it.
   const [want, setWant] = useState<Record<string, boolean>>({});
   useEffect(() => setWant((w) => Object.fromEntries(Object.entries(w).filter(([k, v]) => r.checklist.find((c) => c.item === k)?.done !== v))), [r.checklist.map((c) => `${c.item}:${c.done}`).join("|")]);
@@ -157,6 +158,33 @@ export function Release({ detail }: { detail: FeatureDetail }) {
             <span class="muted">The watch period of {project.flow.watchDays} days starts when the rollout reaches 100%.</span>
           )}
         </p>
+        <div id="versions">
+          <h3>Versions shipped</h3>
+          <table>
+            <tbody>
+              {detail.state.teams.map((t) => {
+                const now = r.versions?.[t.id] ?? "";
+                const typed = versions[t.id] ?? now;
+                return (
+                  <tr key={t.id} data-team={t.id}>
+                    <td class="nw">{teamName(project, t.id)}</td>
+                    <td class="wide">
+                      <input type="text" aria-label={`Version of ${teamName(project, t.id)}`} value={typed} placeholder={ops ? "such as v2.30.0" : "not recorded"} disabled={!ops || wait} onInput={(e) => setVersions({ ...versions, [t.id]: (e.target as HTMLInputElement).value })} />
+                    </td>
+                    <td class="nw">
+                      {ops && typed.trim() !== now && (
+                        <button type="button" class="btn sm" disabled={wait} onClick={() => edit({ kind: "version", team: t.id, value: typed.trim() })}>
+                          {typed.trim() ? "Save" : "Clear"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {opsOnly && <span class="reason">{opsOnly}</span>}
+        </div>
         <p class="muted">The hub never starts a production job itself; it records what Ops did.</p>
       </section>
     </div>

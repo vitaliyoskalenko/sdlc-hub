@@ -197,6 +197,8 @@ export interface ReleaseInfo {
   checklist: { item: string; done: boolean; user?: string; at?: string }[];
   go?: { value: "go" | "no-go"; user: string; at: string };
   rollout?: { stage: number; at?: string };
+  /** The version each team shipped, by team id. */
+  versions?: Record<string, string>;
   watch?: { started: string; days: number };
   watchEnds: string | null;
   now: string;

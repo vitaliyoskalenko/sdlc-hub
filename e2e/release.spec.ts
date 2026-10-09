@@ -65,6 +65,13 @@ test("a feature goes from staging to released on the site", async ({ page }) => 
     await page.locator("[data-item]").nth(k).check();
     await merged(page);
   }
+  // The version each team shipped.
+  const web = page.locator('#versions tr[data-team="web"]');
+  await web.locator("input").fill("admin build 870");
+  await web.locator("button").click();
+  await merged(page);
+  await expect(web.locator("input")).toHaveValue("admin build 870");
+  await expect(web.locator("button")).toHaveCount(0);
   await page.click('[data-stage="100"]');
   await merged(page);
   await expect(page.locator("#watch")).toContainText("watch period over");

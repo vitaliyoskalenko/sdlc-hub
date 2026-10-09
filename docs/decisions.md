@@ -2,6 +2,17 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-09: GitHub saves are nudged; release versions
+
+### The person's server merges a slow GitHub save
+- **Decision:** A pending save on GitHub still open after 90 seconds is merged through the API with the person's token. The ruleset still requires `hub-guard` to pass, so this changes nothing about who may merge what.
+- **Why:** On github.com, auto-merge merged one save after 8 minutes and left the install pull request open with its check passed. Other runs merged in about 25 seconds.
+- **By:** Found in verification.
+
+### Versions shipped
+- **Decision:** Ops records the version each team shipped on the Release tab, as `versions.<team>` in `release.yaml`. The plugin's release tool takes the same edit.
+- **By:** Specification (the `versions` field); the UI was proposed.
+
 ## 2026-10-09: The real SDD run (claim 8)
 
 ### Read what SDD 2.3.0 actually writes

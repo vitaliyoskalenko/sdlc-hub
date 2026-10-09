@@ -302,7 +302,8 @@ export type ReleaseEditArgs =
   | { kind: "go"; value: "go" | "no-go" }
   | { kind: "check"; item: string; done: boolean }
   | { kind: "add-item"; item: string }
-  | { kind: "rollout"; stage: number };
+  | { kind: "rollout"; stage: number }
+  | { kind: "version"; team: string; value: string };
 
 export async function hubReleaseEdit(ctx: ToolContext, slug: string, edit: ReleaseEditArgs): Promise<ToolResult> {
   const l = load(ctx);

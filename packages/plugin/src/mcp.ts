@@ -142,7 +142,7 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
     {
       title: "Record a release change",
       description:
-        "Records one release change in release.yaml through a merge request: the smoke check, a checklist item done or not, a new item, or the rollout stage (Ops); the go or no-go (PM). It records what people did; it never starts a production job. Call it only after the person confirmed the change.",
+        "Records one release change in release.yaml through a merge request: the smoke check, a checklist item done or not, a new item, a team's version, or the rollout stage (Ops); the go or no-go (PM). It records what people did; it never starts a production job. Call it only after the person confirmed the change.",
       inputSchema: z.object({
         slug,
         edit: z.discriminatedUnion("kind", [
@@ -151,6 +151,7 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
           z.object({ kind: z.literal("check"), item: z.string(), done: z.boolean() }),
           z.object({ kind: z.literal("add-item"), item: z.string() }),
           z.object({ kind: z.literal("rollout"), stage: z.number().min(0).max(100) }),
+          z.object({ kind: z.literal("version"), team: z.string().describe("The team id, such as backend"), value: z.string().describe("The version shipped, such as v2.30.0; empty clears it") }),
         ]),
       }),
       annotations: { destructiveHint: false },

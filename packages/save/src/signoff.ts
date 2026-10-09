@@ -252,7 +252,8 @@ export async function saveRelease(i: FeatureSaveInput & { edit: unknown }): Prom
     (e["kind"] === "go" && ["go", "no-go"].includes(e["value"] as string)) ||
     (e["kind"] === "check" && typeof e["item"] === "string" && typeof e["done"] === "boolean") ||
     (e["kind"] === "add-item" && typeof e["item"] === "string") ||
-    (e["kind"] === "rollout" && typeof e["stage"] === "number");
+    (e["kind"] === "rollout" && typeof e["stage"] === "number") ||
+    (e["kind"] === "version" && typeof e["team"] === "string" && typeof e["value"] === "string");
   if (!ok) return { ok: false, code: "bad-input", error: "Not a release change the site knows" };
   const edit = e as ReleaseEdit;
   try {
@@ -260,7 +261,7 @@ export async function saveRelease(i: FeatureSaveInput & { edit: unknown }): Prom
   } catch (err) {
     return { ok: false, code: "bad-input", error: (err as Error).message };
   }
-  const what = edit.kind === "smoke" ? `staging smoke ${edit.value}` : edit.kind === "go" ? edit.value : edit.kind === "rollout" ? `rollout ${edit.stage}%` : edit.kind === "check" ? `${edit.done ? "done" : "not done"}: ${edit.item}` : `new item: ${edit.item}`;
+  const what = edit.kind === "smoke" ? `staging smoke ${edit.value}` : edit.kind === "go" ? edit.value : edit.kind === "rollout" ? `rollout ${edit.stage}%` : edit.kind === "version" ? `${edit.team} version ${edit.value || "cleared"}` : edit.kind === "check" ? `${edit.done ? "done" : "not done"}: ${edit.item}` : `new item: ${edit.item}`;
   return checkedSave(i.saver, i.user, {
     label: `release-${edit.kind}-${f.slug}`,
     title: `Release of ${f.slug}: ${what}`,

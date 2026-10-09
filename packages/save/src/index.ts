@@ -70,6 +70,8 @@ export interface SaverOptions {
   propose?: (p: { branch: string; title: string; target: string }) => Promise<{ iid: number; url: string }>;
   /** Closes a request whose branch was deleted, where the host does not (GitHub). */
   close?: (save: Save) => Promise<void>;
+  /** Merges a request that should have merged itself by now, where the host's auto-merge is slow (GitHub). */
+  nudge?: (save: Save) => Promise<void>;
   now?: () => Date;
   env?: NodeJS.ProcessEnv;
 }
@@ -172,6 +174,17 @@ export function createSaver(o: SaverOptions) {
       if (online && (await send(s)) === "offline") online = false;
       write([s, ...read()]);
       return s;
+    },
+
+    /**
+     * Pending saves older than a minute and a half get a nudge: on GitHub, auto-merge left some pull requests open for
+     * minutes, or for good, after hub-guard passed (github.com, 9 October 2026). The host still refuses the merge until
+     * hub-guard passes.
+     */
+    async nudge(): Promise<void> {
+      if (!o.nudge) return;
+      const due = now().getTime() - 90_000;
+      for (const s of read().filter((x) => x.state === "pending" && x.mr && Date.parse(x.at) < due)) await o.nudge(s).catch(() => undefined);
     },
 
     /** Sends the saves made offline, oldest first; those the host still cannot be reached for stay queued. */

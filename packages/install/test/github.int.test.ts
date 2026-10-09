@@ -64,6 +64,8 @@ async function settle(saver: Saver, branch: string): Promise<Save> {
   let s = saver.list().find((x) => x.branch === branch)!;
   for (let i = 0; i < 60 && s.state === "pending"; i++) {
     await wait(5000);
+    // As the site does on each look: nudge a save that should have merged by now, then refresh.
+    await saver.nudge();
     s = saver.refresh().find((x) => x.branch === branch)!;
   }
   return s;

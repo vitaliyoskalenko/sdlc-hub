@@ -1,5 +1,5 @@
 // The release of a feature on the site: release.yaml, field by field. Ops records the staging smoke check, ticks the
-// checklist and sets the rollout stage; the PM records the go or no-go. Rollout at 100% starts the watch period.
+// checklist, records each team's version and sets the rollout stage; the PM records the go or no-go. Rollout at 100% starts the watch period.
 // The guard checks the same split at merge (keys:go for the PM, keys:!go for Ops).
 
 import { isMap, isSeq, parseDocument, type Document } from "yaml";
@@ -14,7 +14,9 @@ export type ReleaseEdit =
   | { kind: "go"; value: "go" | "no-go" }
   | { kind: "check"; item: string; done: boolean }
   | { kind: "add-item"; item: string }
-  | { kind: "rollout"; stage: number };
+  | { kind: "rollout"; stage: number }
+  /** The version a team shipped, such as v2.30.0; an empty value clears it. */
+  | { kind: "version"; team: string; value: string };
 
 export const releasePath = (slug: string) => `docs/features/${slug}/hub/release.yaml`;
 
@@ -60,6 +62,24 @@ export function releaseChange(specs: FileSource, flow: Flow, slug: string, edit:
       const node = doc.createNode(items);
       if (isSeq(node)) for (const n of node.items) if (isMap(n)) n.flow = true;
       doc.set("checklist", node);
+      break;
+    }
+    case "version": {
+      if (!/^[a-z0-9][a-z0-9-]*$/.test(edit.team)) throw new Error("Name the team by its id, such as backend");
+      const value = edit.value.trim();
+      if (/[\r\n]/.test(value) || value.length > 100) throw new Error("Write the version on one line, up to 100 characters");
+      if (value) {
+        if (!doc.has("versions")) {
+          const node = doc.createNode({});
+          if (isMap(node)) node.flow = true;
+          doc.set("versions", node);
+        }
+        doc.setIn(["versions", edit.team], value);
+      } else if (doc.hasIn(["versions", edit.team])) {
+        doc.deleteIn(["versions", edit.team]);
+        const v = doc.get("versions");
+        if (isMap(v) && !v.items.length) doc.delete("versions");
+      }
       break;
     }
     case "rollout":

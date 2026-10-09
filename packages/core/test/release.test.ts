@@ -36,6 +36,16 @@ describe("the release of a feature", () => {
     expect(r.rollout).toEqual({ stage: 100, at });
     expect(r.watch).toEqual({ started: at, days: 7 });
   });
+  it("records the version each team shipped, and clears one, as Ops", () => {
+    let main: Record<string, string> = { ...base() };
+    main = apply(main, "bohdan.r", { kind: "version", team: "backend", value: "v2.30.0" });
+    main = apply(main, "bohdan.r", { kind: "version", team: "web", value: "admin build 870" });
+    expect(parseRelease(main[path]!, path).value!.versions).toEqual({ backend: "v2.30.0", web: "admin build 870" });
+    main = apply(main, "bohdan.r", { kind: "version", team: "web", value: "" });
+    expect(parseRelease(main[path]!, path).value!.versions).toEqual({ backend: "v2.30.0" });
+    expect(() => releaseChange(memorySource(main), project.flow, slug, { kind: "version", team: "Back End", value: "x" }, "bohdan.r", at)).toThrow(/team/);
+    expect(() => releaseChange(memorySource(main), project.flow, slug, { kind: "version", team: "web", value: "a\nb" }, "bohdan.r", at)).toThrow(/one line/);
+  });
   it("leaves the go to the PM and the rest to Ops", () => {
     const go = releaseChange(memorySource(base()), project.flow, slug, { kind: "go", value: "no-go" }, "maksym.d", at);
     expect(guard({ author: "bohdan.r", pushers: [], changes: [go] }, ctx).ok).toBe(false);

@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 import type { Config } from "@sdlc-hub/core";
 import { GitHub } from "@sdlc-hub/host";
 import { githubApi, githubWeb } from "@sdlc-hub/install";
-import { gitlabPushOptions, type SaverOptions } from "@sdlc-hub/save";
+import { gitlabPushOptions, type Save, type SaverOptions } from "@sdlc-hub/save";
 
 /** The token git would use for a host, or undefined; never prompts. */
 export function credentialFill(web: string): string | undefined {
@@ -29,7 +29,7 @@ export interface HostSaveOptions {
   fetcher?: typeof fetch;
 }
 
-export function hostSaves(config: Config, o: HostSaveOptions = {}): Pick<SaverOptions, "pushOptions" | "propose" | "close"> {
+export function hostSaves(config: Config, o: HostSaveOptions = {}): Pick<SaverOptions, "pushOptions" | "propose" | "close" | "nudge"> {
   // Without auto-merge (git.auto_merge: false) a request waits for someone to merge it.
   const autoMerge = config.git.auto_merge !== false;
   if (config.git.provider !== "github") return autoMerge ? {} : { pushOptions: (title, target) => gitlabPushOptions(title, target, false) };
@@ -41,6 +41,16 @@ export function hostSaves(config: Config, o: HostSaveOptions = {}): Pick<SaverOp
   };
   return {
     pushOptions: () => [],
+    // Auto-merge on GitHub was slow or stuck at times: merge once the required check allows it.
+    ...(autoMerge
+      ? {
+          async nudge(save: Save) {
+            const gh = client();
+            const pr = await gh.pull(config.git.namespace, config.git.repo, save.mr!.iid);
+            if (pr.state === "open" && !pr.merged) await gh.mergePull(config.git.namespace, config.git.repo, save.mr!.iid);
+          },
+        }
+      : {}),
     // GitHub leaves a pull request open when its branch is deleted.
     async close(save) {
       if (save.mr?.iid) await client().closePull(config.git.namespace, config.git.repo, save.mr.iid);

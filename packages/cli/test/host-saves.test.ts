@@ -38,4 +38,15 @@ describe("how a save opens its request", () => {
     expect(await hostSaves(config("github", "github.com", false), { fill: () => "t", fetcher }).propose!({ branch: "b", title: "t", target: "main" })).toEqual({ iid: 3, url: "https://github.com/shop/product-specs/pull/3" });
     expect(urls).toEqual(["https://api.github.com/repos/shop/product-specs/pulls"]);
   });
+
+  it("nudges a GitHub pull request that should have merged: merges it, which GitHub allows once hub-guard passed", async () => {
+    const calls: string[] = [];
+    const fetcher = (async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? "GET"} ${String(url).replace("https://api.github.com", "")}`);
+      return new Response(JSON.stringify(String(url).endsWith("/merge") ? { merged: true } : { state: "open", merged: false }), { status: 200 });
+    }) as typeof fetch;
+    await hostSaves(config("github", "github.com"), { fill: () => "t", fetcher }).nudge!({ mr: { iid: 9, url: "" } } as never);
+    expect(calls).toEqual(["GET /repos/shop/product-specs/pulls/9", "PUT /repos/shop/product-specs/pulls/9/merge"]);
+    expect(hostSaves(config("github", "github.com", false)).nudge).toBeUndefined();
+  });
 });

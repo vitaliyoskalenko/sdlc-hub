@@ -14,6 +14,7 @@ export interface ActionOptions {
   /** Opens the request after the push where the host takes no push options (GitHub). */
   propose?: SaverOptions["propose"];
   close?: SaverOptions["close"];
+  nudge?: SaverOptions["nudge"];
   now?: () => Date;
   /** Called after a push; the demo's stand-in for the git host uses it. */
   afterPush?: (save: Save) => void;
@@ -26,7 +27,7 @@ const iso = (d: Date) => d.toISOString().replace(/\.\d+Z$/, "Z");
 
 export function actionHandler(o: ActionOptions): ActionHandler {
   const now = o.now ?? (() => new Date());
-  const saver = (user: string) => createSaver({ root: o.root, identity: o.identity(user), now, ...(o.pushOptions ? { pushOptions: o.pushOptions } : {}), ...(o.propose ? { propose: o.propose } : {}), ...(o.close ? { close: o.close } : {}) });
+  const saver = (user: string) => createSaver({ root: o.root, identity: o.identity(user), now, ...(o.pushOptions ? { pushOptions: o.pushOptions } : {}), ...(o.propose ? { propose: o.propose } : {}), ...(o.close ? { close: o.close } : {}), ...(o.nudge ? { nudge: o.nudge } : {}) });
 
   /** A read-only validation run, for the PO and the feature's leads, when the admin turned headless runs on. Saves nothing. */
   async function validate(user: string, slug: unknown, ctx: Parameters<ActionHandler["handle"]>[4]) {
@@ -44,6 +45,7 @@ export function actionHandler(o: ActionOptions): ActionHandler {
       if (method === "GET" && path === "/saves") {
         const s = saver(user);
         await s.sendQueued();
+        await s.nudge();
         return { status: 200, body: { saves: s.refresh().filter((x) => x.user === user), enabled: true } };
       }
       if (method !== "POST") return { status: 404, body: { error: "No such action" } };
