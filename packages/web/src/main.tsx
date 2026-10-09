@@ -121,12 +121,13 @@ function Root() {
     let live = true;
     const load = () => api.saves(session?.demo ? viewer : undefined).then((x) => live && setSaves({ list: x.saves, enabled: x.enabled }), () => undefined);
     void load();
-    const timer = setInterval(() => saves.list.some((x) => x.state === "pending") && void load(), 8000);
+    const waiting = (x: Save) => x.state === "pending" || x.state === "queued";
+    const timer = setInterval(() => saves.list.some(waiting) && void load(), 8000);
     return () => {
       live = false;
       clearInterval(timer);
     };
-  }, [viewer, version, saves.list.some((x) => x.state === "pending")]);
+  }, [viewer, version, saves.list.some((x) => x.state === "pending" || x.state === "queued")]);
 
   const r = route(loc.split("?")[0]!);
   useEffect(() => {

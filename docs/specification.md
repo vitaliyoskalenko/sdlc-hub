@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 9, 2026 · @Vitaliy · revision 65
+Oct 9, 2026 · @Vitaliy · revision 66
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -833,8 +833,13 @@ guard:
 - If `hub-guard` refuses the change at merge, the job writes the reason to `hub-state` at `saves/<user>/<label>-<time>.json` and deletes the branch with `HUB_STATE_TOKEN`, which closes the merge request. The person's site reads the record and shows the path and the rule. Only `hub/<user>/…` branches are closed this way; a refused merge request opened by hand just fails its pipeline.
 - The site saves sign-offs and returns, People and roles, QA's verdicts, bugs (QA files and edits them, the owning team changes the status), the QA decision, and the release fields of each role. The plugin saves the same through its tools.
 - One change per file at a time: while a person's save of a file waits to merge, a second save of that file is refused with the reason, because it would conflict with the first. The site's controls wait and say so.
-- If the change conflicts, the server rebases once. If that fails, the person chooses between their version and the newer one.
-- Without a connection, saves queue locally and are sent at the next sync.
+- If the change conflicts with a newer `main` (`git merge-tree`, git 2.38 or later), the server moves it onto `main` once:
+  - each file is merged three-way;
+  - `signoffs.yaml`, which only grows, keeps both sides' entries;
+  - the branch is force-pushed, which updates the open request.
+
+  If lines still conflict, the save shows as "conflicts". The person chooses: Keep mine puts their version on the newest `main`, and Use the newer one drops the save (on GitHub its pull request is closed).
+- Without a connection, a save is made on `main` as the machine last saw it and queued. It is sent at the next look at the saves (the site checks every few seconds) or at `hub sync`.
 - Sync fast-forwards `main` only when the tree is clean, and says so otherwise.
 
 ### Team repositories and fan-out

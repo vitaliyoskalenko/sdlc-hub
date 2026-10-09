@@ -29,17 +29,24 @@ export interface HostSaveOptions {
   fetcher?: typeof fetch;
 }
 
-export function hostSaves(config: Config, o: HostSaveOptions = {}): Pick<SaverOptions, "pushOptions" | "propose"> {
+export function hostSaves(config: Config, o: HostSaveOptions = {}): Pick<SaverOptions, "pushOptions" | "propose" | "close"> {
   // Without auto-merge (git.auto_merge: false) a request waits for someone to merge it.
   const autoMerge = config.git.auto_merge !== false;
   if (config.git.provider !== "github") return autoMerge ? {} : { pushOptions: (title, target) => gitlabPushOptions(title, target, false) };
   const web = githubWeb(config.git.host);
+  const client = () => {
+    const token = (o.fill ?? credentialFill)(web);
+    if (!token) throw new Error(`git has no token for ${new URL(web).host}. Sign in with \`gh auth login\` and \`gh auth setup-git\`, or clone over HTTPS with a credential helper`);
+    return new GitHub(token, githubApi(web), o.fetcher);
+  };
   return {
     pushOptions: () => [],
+    // GitHub leaves a pull request open when its branch is deleted.
+    async close(save) {
+      if (save.mr?.iid) await client().closePull(config.git.namespace, config.git.repo, save.mr.iid);
+    },
     async propose({ branch, title, target }) {
-      const token = (o.fill ?? credentialFill)(web);
-      if (!token) throw new Error(`git has no token for ${new URL(web).host}. Sign in with \`gh auth login\` and \`gh auth setup-git\`, or clone over HTTPS with a credential helper`);
-      const gh = new GitHub(token, githubApi(web), o.fetcher);
+      const gh = client();
       const pr = await gh.createPull(config.git.namespace, config.git.repo, branch, target, title, autoMerge ? "Saved from SDLC Hub. It merges itself when hub-guard passes." : "Saved from SDLC Hub. Merge it when hub-guard has run.");
       if (autoMerge) await gh.autoMerge(pr);
       return { iid: pr.number, url: pr.html_url };

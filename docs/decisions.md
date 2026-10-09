@@ -2,6 +2,27 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-09: Revision 66, conflicts, offline saves, rekey, setup merges its own pull request on GitHub
+
+### Conflicting saves: merge once, then the person chooses
+- **Decision:** A pending save that conflicts with `main` is merged onto it once, each file three-way. `signoffs.yaml` keeps both sides' entries. If that fails, the save shows "conflicts" with Keep mine and Use the newer one.
+- **Why:** The specification's rule ("rebase once, then ask"). A plain rebase of an append-only YAML list always conflicts, while a union merge keeps both entries in order.
+- **By:** Specification; the per-file merge was proposed.
+
+### Offline saves are queued
+- **Decision:** Without a connection, a save is made on the last fetched `main` and queued, then sent at the next look at the saves or `hub sync`. A queued save blocks a second save of the same file, like a pending one.
+- **By:** Specification.
+
+### hub usage rekey
+- **Decision:** On the admin's or a PM's machine, `hub usage rekey` decrypts every usage record and encrypts it again to the person, the admins and the PMs that `roles.yaml` on `main` names now.
+- **Why:** A new PM could not read records encrypted before they joined.
+- **By:** Proposed.
+
+### Setup merges its own pull request on GitHub
+- **Decision:** After opening the install pull request and setting auto-merge, setup waits for `hub-guard` and merges it through the API.
+- **Why:** On github.com, auto-merge left a pull request that changed `.github/workflows/hub-guard.yml` open, with its check passed and its state clean. A direct merge by the same owner worked.
+- **By:** Found in verification.
+
 ## 2026-10-09: Revision 65, guard settings and Settings
 
 ### Advisory mode: warn, then merge

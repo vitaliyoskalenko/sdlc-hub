@@ -6,7 +6,8 @@ import { existsSync, readdirSync, readFileSync, mkdirSync, writeFileSync } from 
 import { dirname, join } from "node:path";
 import { identityToRecipient } from "age-encryption";
 import { gitIdentity, openProject, personOf, refSource } from "@sdlc-hub/git";
-import { flushEvents, queuedEvents, writeHubState, type Line } from "@sdlc-hub/save";
+import { createSaver, flushEvents, queuedEvents, writeHubState, type Line } from "@sdlc-hub/save";
+import { hostSaves } from "./host-saves.ts";
 import { decryptWith, encryptTo, keyStore, machineName, openTotals, recipientsFor, usageRecordSchema, type UsageRecord } from "@sdlc-hub/usage";
 import { remoteUrl, runCommand, type Run } from "./person.ts";
 
@@ -71,6 +72,14 @@ export async function sync(o: SyncOptions): Promise<{ ok: boolean; lines: Line[]
   const identity = keyStore(remote).load();
   const id = gitIdentity(o.root);
   const author = { name: id.name || user, email: id.email || `${user}@localhost` };
+
+  // Saves made from the site while offline.
+  const saver = createSaver({ root: o.root, identity: author, ...hostSaves(project.config) });
+  const queued = saver.list().filter((s) => s.state === "queued" && s.user === user).length;
+  if (queued) {
+    const left = (await saver.sendQueued()).filter((s) => s.state === "queued" && s.user === user).length;
+    say(left === 0, left === 0 ? `Sent ${queued} save${queued === 1 ? "" : "s"} made offline` : `${left} save${left === 1 ? "" : "s"} made offline could not be sent yet`, false);
+  }
 
   // Stage events the plugin could not push when they happened.
   if (queuedEvents(o.root).length)

@@ -156,6 +156,70 @@ describe("saving from the site", () => {
     expect(saver.list()).toEqual([]);
   });
 
+  describe("when someone else's change to the same file merged first", () => {
+    /** A second person's clone and saver on the same remote. */
+    const other = (remote: string) => {
+      const clone = tmp("hub-clone2-");
+      git(clone, "clone", "-q", remote, ".");
+      return createSaver({ root: clone, identity: { name: "Taras M.", email: "taras.m@example.com" }, now: () => new Date("2026-10-09T13:00:00Z") });
+    };
+    const signoffs = "docs/features/x/hub/signoffs.yaml";
+
+    it("moves the save onto main once: both sign-offs are kept", async () => {
+      const { remote, clone } = setup();
+      const a = createSaver({ root: clone, identity: { name: "Olena K.", email: "olena.k@example.com" }, now: () => new Date("2026-10-09T12:00:00Z") });
+      const b = other(remote);
+      const sa = await a.save({ user: "olena.k", label: "a", title: "A", build: () => [{ path: signoffs, next: "- step: clarify\n  user: olena.k\n" }] });
+      const sb = await b.save({ user: "taras.m", label: "b", title: "B", build: () => [{ path: signoffs, next: "- step: tasks\n  user: taras.m\n" }] });
+      mergeOnRemote(remote, sa.branch);
+      const [r] = b.refresh();
+      expect(r).toMatchObject({ state: "pending", rebased: true });
+      expect(r!.sha).not.toBe(sb.sha);
+      const merged = git(remote, "show", `${sb.branch}:${signoffs}`);
+      expect(merged).toContain("user: olena.k");
+      expect(merged).toContain("user: taras.m");
+      mergeOnRemote(remote, sb.branch);
+      expect(b.refresh()[0]!.state).toBe("merged");
+    });
+
+    it("asks the person when the same lines changed, and keeps their version or drops the save", async () => {
+      const { remote, clone } = setup();
+      const a = createSaver({ root: clone, identity: { name: "Olena K.", email: "olena.k@example.com" }, now: () => new Date("2026-10-09T12:00:00Z") });
+      const b = other(remote);
+      const sa = await a.save({ user: "olena.k", label: "a", title: "A", build: () => [{ path: "docs/spec.md", next: "# Spec by Olena\n" }] });
+      const sb = await b.save({ user: "taras.m", label: "b", title: "B", build: () => [{ path: "docs/spec.md", next: "# Spec by Taras\n" }] });
+      mergeOnRemote(remote, sa.branch);
+      expect(b.refresh()[0]).toMatchObject({ state: "conflict", conflict: ["docs/spec.md"] });
+      const kept = await b.resolve(sb.branch, "mine");
+      expect(kept).toMatchObject({ state: "pending", rebased: true });
+      expect(git(remote, "show", `${sb.branch}:docs/spec.md`)).toBe("# Spec by Taras");
+      expect(git(remote, "merge-base", "--is-ancestor", "main", sb.branch)).toBe("");
+
+      // Again, and this time the newer one wins.
+      const sc = await a.save({ user: "olena.k", label: "c", title: "C", build: () => [{ path: "docs/spec.md", next: "# Spec, third\n" }] });
+      mergeOnRemote(remote, sb.branch);
+      expect(a.refresh().find((x) => x.branch === sc.branch)).toMatchObject({ state: "conflict" });
+      expect(await a.resolve(sc.branch, "newer")).toBeUndefined();
+      expect(git(remote, "branch", "--list", sc.branch)).toBe("");
+      expect(a.list().find((x) => x.branch === sc.branch)).toBeUndefined();
+      await expect(a.resolve(sc.branch, "mine")).rejects.toThrow(/does not wait/);
+    });
+  });
+
+  it("queues a save made while the host cannot be reached, and sends it once it can", async () => {
+    const { remote, clone } = setup();
+    const saver = createSaver({ root: clone, identity: { name: "O", email: "o@x" }, now: () => new Date("2026-10-09T14:00:00Z") });
+    git(clone, "remote", "set-url", "origin", join(tmpdir(), "hub-no-such-remote"));
+    const s = await saver.save({ user: "olena.k", label: "offline", title: "Offline", build: () => [{ path: "docs/x.md", next: "x\n" }] });
+    expect(s.state).toBe("queued");
+    // A second save of the same file waits for the first, offline too.
+    await expect(saver.save({ user: "olena.k", label: "again", title: "Again", build: () => [{ path: "docs/x.md", next: "y\n" }] })).rejects.toThrow(Pending);
+    expect((await saver.sendQueued())[0]!.state).toBe("queued");
+    git(clone, "remote", "set-url", "origin", remote);
+    expect((await saver.sendQueued())[0]!.state).toBe("pending");
+    expect(git(remote, "show", `${s.branch}:docs/x.md`)).toBe("x");
+  });
+
   it("asks GitLab for a merge request that merges itself", () => {
     expect(gitlabPushOptions("Sign off clarify", "main")).toEqual([
       "-o", "merge_request.create",

@@ -80,6 +80,12 @@ describe("sign-off and return from the site", () => {
     expect((await handler.handle("POST", "/settings", "nazar.t", { edit: { teams: [] } }, ctx)).status).toBe(400);
   });
 
+  it("resolves only a save of the person's own that waits for a decision", async () => {
+    const { ctx, handler } = project();
+    expect((await handler.handle("POST", "/resolve", "olena.k", { branch: "hub/olena.k/x", choice: "maybe" }, ctx)).status).toBe(400);
+    expect((await handler.handle("POST", "/resolve", "olena.k", { branch: "hub/olena.k/x", choice: "mine" }, ctx)).status).toBe(404);
+  });
+
   it("records a return with its reason", async () => {
     const { remote, ctx, handler } = project();
     const r = await handler.handle("POST", "/signoff", "olena.k", { slug: "returns-portal", step: "clarify", decision: "return", reason: "AC-03 needs a time limit" }, ctx);

@@ -156,6 +156,8 @@ export class GitHub {
   openPulls = (owner: string, name: string, head: string) => this.call<GitHubPull[]>("GET", `/repos/${enc(owner)}/${enc(name)}/pulls?state=open&head=${enc(`${owner}:${head}`)}`);
   pull = (owner: string, name: string, n: number) => this.call<GitHubPull>("GET", `/repos/${enc(owner)}/${enc(name)}/pulls/${n}`);
   createPull = (owner: string, name: string, head: string, base: string, title: string, body: string) => this.call<GitHubPull>("POST", `/repos/${enc(owner)}/${enc(name)}/pulls`, { head, base, title, body });
+  /** Merges a pull request; GitHub refuses while a required check has not passed. */
+  mergePull = (owner: string, name: string, n: number) => this.call<{ merged: boolean }>("PUT", `/repos/${enc(owner)}/${enc(name)}/pulls/${n}/merge`, { merge_method: "merge" });
   /** GitHub keeps a pull request open when its branch is deleted; this closes it. */
   closePull = (owner: string, name: string, n: number) => this.call<GitHubPull>("PATCH", `/repos/${enc(owner)}/${enc(name)}/pulls/${n}`, { state: "closed" });
 

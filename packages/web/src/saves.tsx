@@ -1,12 +1,52 @@
 // Saving from the site: Sign off and Return on a gate, and what became of each save. A save is a merge request that
 // merges by itself when hub-guard passes; until then it is pending, and a refusal shows the path and the rule.
 
+import { Fragment } from "preact";
 import { useState } from "preact/hooks";
 import type { ActionResult } from "./api.ts";
 import { api, type Finding, type Save } from "./api.ts";
 import { Pill, useApp } from "./ui.tsx";
 
-const STATE: Record<Save["state"], [string, string]> = { pending: ["warn", "waiting to merge"], merged: ["ok", "merged"], refused: ["bad", "refused"] };
+const STATE: Record<Save["state"], [string, string]> = { queued: ["warn", "queued: offline"], pending: ["warn", "waiting to merge"], merged: ["ok", "merged"], refused: ["bad", "refused"], conflict: ["bad", "conflicts"] };
+
+/** Someone else's change to the same lines merged first: the person keeps their version or takes the newer one. */
+function Conflict({ save }: { save: Save }) {
+  const { me, session } = useApp();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (save.state !== "conflict") return null;
+  const choose = async (choice: "mine" | "newer") => {
+    setBusy(true);
+    setError("");
+    const r = await api.resolve(session.demo ? me.user : undefined, save.branch, choice);
+    setBusy(false);
+    // The server announces the change; the list of saves reloads by itself.
+    if (!r.ok) setError(r.error ?? "");
+  };
+  return (
+    <div class="conflict" data-conflict={save.branch}>
+      <p>
+        Someone else changed the same lines of {(save.conflict ?? save.paths).map((p, i) => (
+          <Fragment key={p}>
+            {i > 0 && ", "}
+            <code>{p}</code>
+          </Fragment>
+        ))} and it merged first. Choose which version stays.
+      </p>
+      <div class="row">
+        <button type="button" class="btn" data-choose="mine" disabled={busy} onClick={() => void choose("mine")}>
+          Keep mine
+        </button>
+        <button type="button" class="btn" data-choose="newer" disabled={busy} onClick={() => void choose("newer")}>
+          Use the newer one
+        </button>
+        {busy && <span class="reason">Saving…</span>}
+      </div>
+      <p class="muted">Keep mine puts your version on the newest main as a new request; the newer one drops your save.</p>
+      {error && <p class="bad-text">{error}</p>}
+    </div>
+  );
+}
 
 export function SaveState({ save }: { save: Save }) {
   const { session } = useApp();
@@ -155,6 +195,7 @@ export function YourSaves() {
                   )}
                   {x.state === "refused" && x.findings && <Findings findings={x.findings} />}
                   <Warnings save={x} />
+                  <Conflict save={x} />
                 </td>
                 <td class="nw">
                   <SaveState save={x} />
@@ -207,6 +248,7 @@ export function PendingList({ saves }: { saves: Save[] }) {
           <SaveState save={s} />
           {s.findings && <Findings findings={s.findings} />}
           <Warnings save={s} />
+          <Conflict save={s} />
         </div>
       ))}
     </div>

@@ -384,6 +384,8 @@ svg.dag{max-width:none} /* the task graph keeps its size and scrolls inside its 
 .findings{margin:6px 0 0;padding-left:18px;font-size:.9rem}
 .findings li{margin:2px 0;overflow-wrap:anywhere}
 .warnings{margin-top:6px;font-size:.9rem}
+.conflict{margin-top:6px;padding:6px 10px;border-left:3px solid var(--bad);border-radius:6px;font-size:.9rem}
+.conflict p{margin:0 0 6px;overflow-wrap:anywhere}
 .problem{border-left:3px solid var(--bad);padding:6px 10px;background:color-mix(in srgb,var(--bad) 8%,transparent);border-radius:6px}
 .problem p{margin:0}
 

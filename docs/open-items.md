@@ -1,6 +1,6 @@
 # Open items
 
-State on 9 October 2026, revision 65 of the specification. Items already fixed are not listed. Decisions that closed earlier items are in `docs/decisions.md`.
+State on 9 October 2026, revision 66 of the specification. Items already fixed are not listed. Decisions that closed earlier items are in `docs/decisions.md`.
 
 ## Specification
 
@@ -41,8 +41,7 @@ Claims 8 to 13 were found while planning phase 1, 14 to 17 while building phase 
 
 ## Not built yet in phase 2
 
-- **Saving: rebase once, then ask.** A save is cut from the newest `main`, and a person's second save of a file waits for the first. Two people saving the same file at once (QA and Ops in `release.yaml` is the likely case) can still conflict; the second merge request then fails to merge. Rebasing it once and asking the person after that is not built.
-- **Saving offline.** A push that fails is reported, not queued for the next sync.
+- **Saving: built in revision 66.** A save that conflicts with a newer `main` is merged onto it once: each file three-way, and `signoffs.yaml`, which only grows, keeps both sides' entries. If lines still conflict, the person keeps their version or takes the newer one. A save made offline is queued and sent at the next look at the saves or `hub sync`. Not verified on a real host: that GitLab's merge-when-pipeline-succeeds and GitHub's auto-merge stay set after the force push that moves a save.
 - **Other saves.** Light edits on the site (a feature's title, links and estimates; the wording of a story) still need a merge request by hand.
 - **GitHub: still to come (claim 5).**
   - Advisory mode on GitHub Free with private repositories is built but not run: the test organization's repositories are public.

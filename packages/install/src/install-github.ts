@@ -87,6 +87,8 @@ function newDeployKey(): { publicKey: string; privateKey: string } {
   }
 }
 
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 export async function installGitHub(a: SetupAnswers, gh: GitHub, opts: InstallOptions): Promise<InstallResult> {
   const steps: StepEvent[] = [];
   const left: string[] = [];
@@ -160,9 +162,21 @@ export async function installGitHub(a: SetupAnswers, gh: GitHub, opts: InstallOp
     }
     const sha = push(pending ? INSTALL_BRANCH : main, INSTALL_BRANCH, !pending);
     for (let i = 0; i < 30 && sha && (await gh.branch(org, name, INSTALL_BRANCH))?.commit.sha !== sha; i++) await new Promise((r) => setTimeout(r, 1000));
-    const pr = pending ?? (await gh.createPull(org, name, INSTALL_BRANCH, main, "Update SDLC Hub", "Written by setup. It merges itself when hub-guard passes."));
+    const pr = pending ?? (await gh.createPull(org, name, INSTALL_BRANCH, main, "Update SDLC Hub", "Written by setup. It merges when hub-guard passes."));
     await gh.autoMerge(pr);
-    return { text: `opened ${w.changeRequest} ${w.sign}${pr.number} with the hub files; it merges itself when hub-guard passes`, link: pr.html_url };
+    // GitHub's auto-merge left a pull request that changes .github/workflows/ open with every check passed (seen on
+    // github.com, 9 October 2026), so setup merges its own once hub-guard lets it.
+    for (let i = 0; i < 36; i++) {
+      if ((await gh.pull(org, name, pr.number)).merged) break;
+      try {
+        if ((await gh.mergePull(org, name, pr.number)).merged) break;
+      } catch {
+        /* hub-guard has not passed yet */
+      }
+      await wait(5000);
+    }
+    const merged = (await gh.pull(org, name, pr.number)).merged;
+    return { text: merged ? `merged ${w.changeRequest} ${w.sign}${pr.number} with the hub files once hub-guard passed` : `opened ${w.changeRequest} ${w.sign}${pr.number} with the hub files; merge it once hub-guard passes`, link: pr.html_url };
   });
   if (!ok1) return { ok: false, steps, left };
 

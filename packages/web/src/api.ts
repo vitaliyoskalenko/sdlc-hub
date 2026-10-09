@@ -215,12 +215,15 @@ export interface Save {
   user: string;
   paths: string[];
   at: string;
-  state: "pending" | "merged" | "refused";
+  state: "queued" | "pending" | "merged" | "refused" | "conflict";
   meta?: Record<string, string>;
   mr?: { iid: number; url: string };
   findings?: Finding[];
   /** Advisory mode: what breaks a rule; the save merges anyway. */
   warnings?: Finding[];
+  rebased?: boolean;
+  /** In state conflict: the files whose lines someone else changed first. */
+  conflict?: string[];
 }
 
 export interface PersonRow {
@@ -299,6 +302,12 @@ export const api = {
   people: () => get<{ people: PersonRow[]; release: string }>("/api/people"),
   /** Any other save: verdicts, bug, bug-edit, release. */
   act: (name: "verdicts" | "bug" | "bug-edit" | "release" | "signoff" | "estimate" | "validation" | "settings", as: string | undefined, body: unknown) => action(name, as, body),
+  /** A save in conflict: keep my version on the newest main, or drop it for the newer one. */
+  async resolve(as: string | undefined, branch: string, choice: "mine" | "newer"): Promise<{ ok: boolean; error?: string }> {
+    const r = await fetch(`/api/actions/resolve${asQuery(as)}`, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ branch, choice }) });
+    const data = (await r.json().catch(() => ({}))) as { error?: string };
+    return r.ok ? { ok: true } : { ok: false, error: data.error ?? `The server answered ${r.status}` };
+  },
   costs: (slug: string, as?: string) => get<Costs>(`/api/features/${encodeURIComponent(slug)}/costs${as ? `?as=${encodeURIComponent(as)}` : ""}`),
   script: (user: string, shell: "bash" | "powershell", as?: string) =>
     get<{ name: string; text: string; release: string }>(`/api/script?user=${encodeURIComponent(user)}&shell=${shell}${as ? `&as=${encodeURIComponent(as)}` : ""}`),

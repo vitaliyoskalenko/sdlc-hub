@@ -13,6 +13,7 @@ export interface ActionOptions {
   pushOptions?: SaverOptions["pushOptions"];
   /** Opens the request after the push where the host takes no push options (GitHub). */
   propose?: SaverOptions["propose"];
+  close?: SaverOptions["close"];
   now?: () => Date;
   /** Called after a push; the demo's stand-in for the git host uses it. */
   afterPush?: (save: Save) => void;
@@ -25,7 +26,7 @@ const iso = (d: Date) => d.toISOString().replace(/\.\d+Z$/, "Z");
 
 export function actionHandler(o: ActionOptions): ActionHandler {
   const now = o.now ?? (() => new Date());
-  const saver = (user: string) => createSaver({ root: o.root, identity: o.identity(user), now, ...(o.pushOptions ? { pushOptions: o.pushOptions } : {}), ...(o.propose ? { propose: o.propose } : {}) });
+  const saver = (user: string) => createSaver({ root: o.root, identity: o.identity(user), now, ...(o.pushOptions ? { pushOptions: o.pushOptions } : {}), ...(o.propose ? { propose: o.propose } : {}), ...(o.close ? { close: o.close } : {}) });
 
   /** A read-only validation run, for the PO and the feature's leads, when the admin turned headless runs on. Saves nothing. */
   async function validate(user: string, slug: unknown, ctx: Parameters<ActionHandler["handle"]>[4]) {
@@ -40,10 +41,27 @@ export function actionHandler(o: ActionOptions): ActionHandler {
 
   return {
     async handle(method, path, user, body, ctx) {
-      if (method === "GET" && path === "/saves") return { status: 200, body: { saves: saver(user).refresh().filter((s) => s.user === user), enabled: true } };
+      if (method === "GET" && path === "/saves") {
+        const s = saver(user);
+        await s.sendQueued();
+        return { status: 200, body: { saves: s.refresh().filter((x) => x.user === user), enabled: true } };
+      }
       if (method !== "POST") return { status: 404, body: { error: "No such action" } };
       const b = (body ?? {}) as Record<string, unknown>;
       if (path === "/validate") return validate(user, b["slug"], ctx);
+      if (path === "/resolve") {
+        const choice = b["choice"];
+        if (typeof b["branch"] !== "string" || (choice !== "mine" && choice !== "newer")) return { status: 400, body: { error: "Name the save and choose mine or newer" } };
+        if (!saver(user).list().some((x) => x.branch === b["branch"] && x.user === user)) return { status: 404, body: { error: "There is no such save of yours" } };
+        try {
+          const save = await saver(user).resolve(b["branch"], choice);
+          ctx.emit("saves");
+          if (save) o.afterPush?.(save);
+          return { status: 200, body: { save: save ?? null } };
+        } catch (e) {
+          return { status: 409, body: { error: (e as Error).message } };
+        }
+      }
       const s = saver(user);
       const at = iso(now());
       const feature = { saver: s, project: ctx.project, state: ctx.state, local: ctx.specs, user, slug: b["slug"], at };
