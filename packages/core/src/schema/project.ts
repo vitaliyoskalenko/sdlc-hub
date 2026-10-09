@@ -25,7 +25,30 @@ export const configSchema = z
       host: z.string().min(1),
       namespace: z.string().min(1),
       repo: z.string().min(1),
+      /** Requests merge by themselves when hub-guard passes; false where the host has no auto-merge (GitHub Free, private). */
+      auto_merge: z.boolean().optional(),
     }),
+    /**
+     * How strict hub-guard is. advisory: it lists what breaks a rule, on the request, in hub-state and on the site,
+     * and passes. Each check can be switched off; .hub/ and hub/ stay the admin's whatever the switches say.
+     */
+    guard: z
+      .strictObject({
+        mode: z.enum(["enforce", "advisory"]).optional(),
+        checks: z
+          .strictObject({
+            /** Who may change which files (roles.yaml). */
+            files: z.boolean().optional(),
+            /** Who signs which gate, and the QA decision. */
+            signoffs: z.boolean().optional(),
+            /** Everyone who pushed to the branch, not only its author. */
+            pushers: z.boolean().optional(),
+            /** People not in roles.yaml are refused. */
+            members: z.boolean().optional(),
+          })
+          .optional(),
+      })
+      .optional(),
     project: z.strictObject({ name: z.string().min(1) }),
     teams: z.array(team).min(1, "List at least one team repository"),
     tracker: z.strictObject({
@@ -74,6 +97,17 @@ export const configSchema = z
       ctx.addIssue({ code: "custom", path: ["assistants"], message: "Claude Code is always on" });
   });
 export type Config = z.output<typeof configSchema>;
+
+export interface GuardSettings {
+  mode: "enforce" | "advisory";
+  checks: { files: boolean; signoffs: boolean; pushers: boolean; members: boolean };
+}
+
+/** The guard settings of a project, with the defaults: enforce, every check on. */
+export function guardSettings(config: Config): GuardSettings {
+  const c = config.guard?.checks ?? {};
+  return { mode: config.guard?.mode ?? "enforce", checks: { files: c.files ?? true, signoffs: c.signoffs ?? true, pushers: c.pushers ?? true, members: c.members ?? true } };
+}
 export type Team = Config["teams"][number];
 
 export const contractTeam = (c: Config): Team | undefined => c.teams.find((t) => t.api_contract);

@@ -1,9 +1,10 @@
 // hub-guard: refuses a merge request that changes something outside the roles of its author or of anyone who
 // pushed to it, and checks every new sign-off entry. See the specification, "Guard rules".
 
+import picomatch from "picomatch";
 import { checkChange, type AccessContext, type Change } from "./access.ts";
 import { parseFeature, parseSignoffs } from "./files.ts";
-import { contractTeam, type Flow, type Person } from "./schema/project.ts";
+import { contractTeam, guardSettings, type Flow, type Person } from "./schema/project.ts";
 
 export interface GuardContext extends AccessContext {
   flow: Flow;
@@ -29,22 +30,46 @@ export interface Finding {
 const ROLE_NAME: Record<string, string> = { po: "PO", pm: "PM", designer: "the designer", dev: "Engineering", qa: "QA", ops: "Ops", admin: "the admin" };
 const SIGNOFFS = /^docs\/features\/([^/]+)\/hub\/signoffs\.yaml$/;
 
+/** The hub's own files: whatever the switches say, only the admin changes them (and each person their own key). */
+const HUBS_OWN = picomatch([".hub/**", "hub/**"], { dot: true });
+
 export function guard(input: GuardInput, ctx: GuardContext): { ok: boolean; findings: Finding[] } {
+  const { checks } = guardSettings(ctx.config);
   const findings: Finding[] = [];
-  const users = [...new Set([input.author, ...input.pushers])];
+  const users = [...new Set([input.author, ...(checks.pushers ? input.pushers : [])])];
   for (const change of input.changes) {
     for (const user of users) {
-      const r = checkChange(user, change, ctx);
-      if (!r.ok) findings.push({ user, path: change.path, reason: r.reason, ...(r.line !== undefined ? { line: r.line } : {}) });
+      const r = judge(user, change, ctx, checks);
+      if (r) findings.push({ user, path: change.path, ...r });
     }
     const m = SIGNOFFS.exec(change.path);
-    if (m && change.next !== undefined && !findings.some((f) => f.path === change.path)) findings.push(...entries(m[1]!, change, input.author, ctx));
+    if (m && change.next !== undefined && !findings.some((f) => f.path === change.path)) findings.push(...entries(m[1]!, change, input.author, ctx, checks.signoffs));
   }
   return { ok: findings.length === 0, findings };
 }
 
+/** What is wrong with one person's change, if anything, under the project's guard switches. */
+function judge(user: string, change: Change, ctx: GuardContext, checks: ReturnType<typeof guardSettings>["checks"]): { reason: string; line?: number } | undefined {
+  const member = ctx.roles.people.some((p) => p.user === user);
+  if (member && checks.files) {
+    const r = checkChange(user, change, ctx);
+    return r.ok ? undefined : { reason: r.reason, ...(r.line !== undefined ? { line: r.line } : {}) };
+  }
+  if (!member && checks.members) return { reason: `${user} is not in roles.yaml` };
+  // Files by role is off, or an outsider is let in: the hub's own files and the sign-off history still hold.
+  const paths = [change.path, ...(change.from && change.from !== change.path ? [change.from] : [])];
+  if (paths.some((p) => HUBS_OWN(p))) {
+    const r = member ? checkChange(user, change, ctx) : undefined;
+    return r?.ok ? undefined : { reason: `Only the admin changes ${paths.find((p) => HUBS_OWN(p))}, whatever the guard settings say` };
+  }
+  const admin = ctx.roles.people.find((p) => p.user === user)?.roles.includes("admin");
+  if (SIGNOFFS.test(change.path) && !admin && change.base !== undefined && (change.next === undefined || !change.next.startsWith(change.base)))
+    return { reason: "signoffs.yaml is append-only: existing entries cannot be edited or removed" };
+  return undefined;
+}
+
 /** Every new entry names the author and is at a gate (or, for confirm, a step) the author owns. */
-function entries(slug: string, change: Change, author: string, ctx: GuardContext): Finding[] {
+function entries(slug: string, change: Change, author: string, ctx: GuardContext, byRole = true): Finding[] {
   const out: Finding[] = [];
   const at = (reason: string) => out.push({ user: author, path: change.path, reason });
   const next = parseSignoffs(change.next ?? "", change.path);
@@ -53,15 +78,15 @@ function entries(slug: string, change: Change, author: string, ctx: GuardContext
     return out;
   }
   const before = change.base ? (parseSignoffs(change.base, change.path).value?.length ?? 0) : 0;
+  // Someone not in roles.yaml was refused for the file already, unless the guard lets outsiders in.
   const person = ctx.roles.people.find((p) => p.user === author);
-  if (!person) return out; // checkChange already refused the file
   const feature = parseFeature(ctx.feature(slug) ?? "", "feature.yaml").value;
   for (const e of next.value.slice(before)) {
     if (e.user !== author) {
       at(`A new entry must name the merge request author (${author}), not ${e.user}`);
       continue;
     }
-    if (person.roles.includes("admin")) continue;
+    if (!person || person.roles.includes("admin") || !byRole) continue;
     const step = ctx.flow.steps.find((s) => s.id === e.step);
     if (!step) {
       at(`There is no step ${e.step}`);

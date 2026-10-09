@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_FLOW_YAML, guard, parseConfig, parseFlow, parseRoles, type GuardContext } from "../src/index.ts";
+import { DEFAULT_FLOW_YAML, guard, guardSettings, parseConfig, parseFlow, parseRoles, type GuardContext } from "../src/index.ts";
 import { CONFIG, ROLES } from "@sdlc-hub/fixtures";
 
 const F = "docs/features/tasks-issues";
@@ -81,5 +81,50 @@ describe("hub-guard", () => {
       expect(change("bohdan.r", rel.replace("done: false", "done: true")).ok).toBe(true);
       expect(change("bohdan.r", rel + "go: { value: go, user: bohdan.r, at: 2026-10-09T09:00:00Z }\n").findings[0]?.reason).toMatch(/go/);
     });
+  });
+});
+
+describe("hub-guard settings (guard: in config.yaml)", () => {
+  const withGuard = (yaml: string): GuardContext => ({ ...ctx, config: parseConfig(`${CONFIG}${yaml}`, "c").value! });
+  const off = (...names: string[]) => withGuard(`guard:\n  checks:\n${names.map((n) => `    ${n}: false\n`).join("")}`);
+  const spec = { path: `${F}/spec.md`, base: "a\n", next: "b\n" };
+
+  it("reads the defaults when config.yaml has no guard section: enforce, every check on", () => {
+    expect(guardSettings(ctx.config)).toEqual({ mode: "enforce", checks: { files: true, signoffs: true, pushers: true, members: true } });
+    expect(guardSettings(withGuard("guard:\n  mode: advisory\n").config)).toMatchObject({ mode: "advisory", checks: { files: true } });
+  });
+
+  it("with files by role off, lets anyone in roles.yaml change any file but .hub/ and hub/", () => {
+    const c = off("files");
+    expect(guard({ author: "daria.l", pushers: ["daria.l"], changes: [spec] }, c).ok).toBe(true);
+    expect(guard({ author: "daria.l", pushers: [], changes: [{ path: ".hub/config.yaml", base: "a", next: "b" }] }, c).findings[0]?.reason).toMatch(/only the admin/i);
+    expect(guard({ author: "daria.l", pushers: [], changes: [{ path: "hub/cli.js", base: "a", next: "b" }] }, c).ok).toBe(false);
+    // The history of sign-offs stays append-only.
+    expect(guard({ author: "daria.l", pushers: [], changes: [{ path: `${F}/hub/signoffs.yaml`, base, next: "" }] }, c).findings[0]?.reason).toMatch(/append-only/);
+  });
+
+  it("with who signs a gate off, takes a sign-off from anyone in roles.yaml, still in their own name", () => {
+    const c = off("signoffs");
+    const save = (author: string, add: string) => guard({ author, pushers: [author], changes: [{ path: `${F}/hub/signoffs.yaml`, base, next: base + add }] }, c);
+    expect(save("maksym.d", entry("clarify", "maksym.d")).ok).toBe(true);
+    expect(save("olena.k", entry("qa-final", "olena.k")).ok).toBe(true);
+    expect(save("maksym.d", entry("clarify", "olena.k")).findings[0]?.reason).toMatch(/must name the merge request author/);
+  });
+
+  it("with everyone who pushed off, judges the author only", () => {
+    expect(guard({ author: "olena.k", pushers: ["olena.k", "daria.l"], changes: [spec] }, off("pushers")).ok).toBe(true);
+  });
+
+  it("with people not in roles.yaml off, lets an outsider change files but not .hub/ or hub/", () => {
+    const c = off("members");
+    expect(guard({ author: "stranger", pushers: [], changes: [spec] }, ctx).findings[0]?.reason).toMatch(/not in roles.yaml/);
+    expect(guard({ author: "stranger", pushers: [], changes: [spec] }, c).ok).toBe(true);
+    expect(guard({ author: "stranger", pushers: [], changes: [{ path: ".hub/roles.yaml", base: "a", next: "b" }] }, c).ok).toBe(false);
+  });
+
+  it("refuses an unknown mode, and ignores an unknown check with a warning", () => {
+    expect(parseConfig(`${CONFIG}guard:\n  mode: loose\n`, "c").value).toBeUndefined();
+    const r = parseConfig(`${CONFIG}guard:\n  checks:\n    reviews: false\n`, "c");
+    expect(r.issues).toMatchObject([{ level: "warning", message: 'Unknown key "reviews" is ignored' }]);
   });
 });
