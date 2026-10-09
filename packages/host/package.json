@@ -8,6 +8,9 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@sdlc-hub/core": "*"
+    "@sdlc-hub/core": "*",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
+    "@noble/ciphers": "^2.4.0"
   }
 }
