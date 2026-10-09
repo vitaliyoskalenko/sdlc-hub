@@ -368,7 +368,13 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
     );
     const pipeline = await pipelineOf(web.id, failing.id);
     expect(await waitFor("web", pipeline)).toMatchObject({ source: "ci", team: "web", result: "failed", ref: expect.stringMatching(/^feat\/bulk-order-export@/) });
-    const jobs = (await fetch(`${URL_}/api/v4/projects/${web.id}/pipelines/${pipeline}/jobs`, { headers: h }).then((r) => r.json())) as { name: string; status: string }[];
+    // The record is written while hub-tests-failed runs: wait for the jobs to finish before reading their statuses.
+    let jobs: { name: string; status: string }[] = [];
+    for (let i = 0; i < 36; i++) {
+      jobs = (await fetch(`${URL_}/api/v4/projects/${web.id}/pipelines/${pipeline}/jobs`, { headers: h }).then((r) => r.json())) as { name: string; status: string }[];
+      if (!jobs.some((j) => ["created", "pending", "running"].includes(j.status))) break;
+      await wait(5000);
+    }
     expect(Object.fromEntries(jobs.map((j) => [j.name, j.status]))).toMatchObject({ "unit-tests": "failed", "hub-tests-failed": "success", "hub-tests-passed": "skipped" });
   }, 900_000);
 
