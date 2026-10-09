@@ -22,7 +22,7 @@ import { keyStore } from "@sdlc-hub/usage";
 import { doctor, personSetup, print, remoteUrl } from "./person.ts";
 import { report, reportTests } from "./report.ts";
 import { createHubMcp, sessionContext, type ToolContext } from "@sdlc-hub/plugin";
-import { createSaver } from "@sdlc-hub/save";
+import { createSaver, flushEvents, queueEvent } from "@sdlc-hub/save";
 import { gitCredentials, setupHandler } from "./setup.ts";
 import { hostSaves } from "./host-saves.ts";
 import { WEB_ASSETS } from "./web-assets.ts";
@@ -267,6 +267,16 @@ function pluginContext(f: Record<string, string>): ToolContext {
     open: () => openProject(root),
     user: () => personOf(root, openProject(root).project?.roles),
     assistant,
+    record: (slug, e) => {
+      queueEvent(root, { slug, ...e });
+      // Pushed at once when the host answers; otherwise hub sync sends it later.
+      try {
+        const id = gitIdentity(root);
+        flushEvents(root, { url: remoteUrl(root), author: { name: id.name || "hub", email: id.email || "hub@localhost" } });
+      } catch {
+        /* queued */
+      }
+    },
     saver: () => createSaver({ root, identity: gitIdentity(root), ...(() => {
       const config = openProject(root).project?.config;
       return config ? hostSaves(config) : {};
@@ -343,7 +353,9 @@ async function guardGitHub(f: Record<string, string>) {
       const sha = execFileSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).trim();
       const at = new Date().toISOString().replace(/\.\d+Z$/, "Z");
       recordRefusal({ url: `${env["GITHUB_SERVER_URL"] ?? "https://github.com"}/${env["GITHUB_REPOSITORY"]}.git`, token, tokenUser: "x-access-token", branch, mr: number, author, sha, at, findings: r.findings, ...(r.advisory ? { advisory: true } : {}) });
-      console.log(r.advisory ? "hub-guard: recorded the warnings in hub-state" : `hub-guard: recorded the refusal in hub-state and deleted ${branch}, which closes the pull request`);
+      // Unlike GitLab, GitHub leaves the pull request open when its branch goes.
+      if (!r.advisory) await gh.closePull(...(env["GITHUB_REPOSITORY"]!.split("/") as [string, string]), number);
+      console.log(r.advisory ? "hub-guard: recorded the warnings in hub-state" : `hub-guard: recorded the refusal in hub-state, deleted ${branch} and closed the pull request`);
     } catch (e) {
       console.log(`hub-guard: could not record the ${r.advisory ? "warnings" : "refusal"}: ${(e as Error).message}`);
     }

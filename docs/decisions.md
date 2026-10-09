@@ -2,6 +2,31 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-09: Revision 65, guard settings and Settings
+
+### Advisory mode: warn, then merge
+- **Decision:**
+  - `guard.mode: advisory` makes `hub-guard` pass while it lists what breaks a rule: in the job log and, for a save from the site, in `hub-state` with `advisory: true`. The site shows "merged with warnings".
+  - Saves still merge by themselves where the host has auto-merge.
+  - On GitHub Free with private repositories, only advisory mode installs. Install adds no ruleset, writes `git.auto_merge: false`, and each pull request waits for someone to merge it.
+- **Why:** The owner wanted a looser mode for teams that do not need the restrictions, and a way to install on GitHub Free with private repositories.
+- **By:** Owner (chose "warn, then merge").
+
+### Four checks the admin can switch off
+- **Decision:** `guard.checks`: `files` (files by role), `signoffs` (who signs a gate), `pushers` (everyone who pushed), `members` (people not in `roles.yaml`). They are set at install (screen 4) and on Settings. Whatever the switches and the mode say, these stay admin-only and are refused even in advisory mode: `.hub/`, `hub/`, the assistants' files and CI files.
+- **Why:** The owner chose all four switches. The admin-only paths run on every machine (hooks, MCP servers, CI). Loosening them would let anyone run code on everyone's machine, or switch the guard itself.
+- **By:** Owner chose the switches; the admin-only limit was proposed.
+
+### Settings page
+- **Decision:** The admin changes the guard settings, the assistants allowed, headless runs and links through a save on `config.yaml`. The edit keeps the file's comments, and the file must still load. Everyone else reads the page. The project, teams and engine are shown read only and change by running setup again.
+- **Why:** These are the settings the owner asked to change after install. Teams and the engine change files beyond `config.yaml`.
+- **By:** Owner asked for Settings; scope proposed.
+
+### GitHub closes a refused pull request
+- **Decision:** On GitHub the guard closes a refused save's pull request after deleting its branch, so its workflow has `pull-requests: write`.
+- **Why:** In the test organization, refused pull requests stayed open: GitHub does not close a pull request when its branch is deleted.
+- **By:** Found in verification.
+
 ## 2026-10-09: Revision 64, the GitHub install
 
 ### GitHub install, built from the docs

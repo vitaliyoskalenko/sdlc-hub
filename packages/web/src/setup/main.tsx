@@ -519,7 +519,7 @@ function Setup() {
           <Choice group="guard" value="advisory" current={a.guard.mode} title="Advisory" sub="hub-guard lists what breaks a rule, and the change merges anyway" set={(v) => set({ guard: { ...a.guard, mode: v } })} />
         </div>
         {a.host === "github" && <p class="hint">On GitHub Free with private repositories only Advisory installs: there are no rulesets and no auto-merge, so each pull request waits for someone to merge it.</p>}
-        <p class="muted">The checks hub-guard runs. Switch off what your team does not need; you can change them later in Settings. Whatever you choose, only the admin changes <code>.hub/</code> and <code>hub/</code>.</p>
+        <p class="muted">The checks hub-guard runs. Switch off what your team does not need; you can change them later in Settings. Whatever you choose, only the admin changes <code>.hub/</code>, <code>hub/</code>, the assistants' files and CI files, because they run on every machine.</p>
         {GUARD_CHECKS.map(([k, t, s]) => (
           <label class="check" key={k}>
             <input type="checkbox" id={`f-g-${k}`} checked={a.guard.checks[k]} onChange={(e) => set({ guard: { ...a.guard, checks: { ...a.guard.checks, [k]: e.currentTarget.checked } } })} />

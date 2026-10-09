@@ -99,6 +99,8 @@ describe("hub-guard settings (guard: in config.yaml)", () => {
     expect(guard({ author: "daria.l", pushers: ["daria.l"], changes: [spec] }, c).ok).toBe(true);
     expect(guard({ author: "daria.l", pushers: [], changes: [{ path: ".hub/config.yaml", base: "a", next: "b" }] }, c).findings[0]?.reason).toMatch(/only the admin/i);
     expect(guard({ author: "daria.l", pushers: [], changes: [{ path: "hub/cli.js", base: "a", next: "b" }] }, c).ok).toBe(false);
+    for (const path of [".claude/settings.json", ".agents/skills/hub-status/SKILL.md", "CLAUDE.md", ".github/workflows/hub-guard.yml", ".gitlab-ci.yml"])
+      expect(guard({ author: "daria.l", pushers: [], changes: [{ path, base: "a", next: "b" }] }, c).findings[0]?.reason, path).toMatch(/runs on every machine/);
     // The history of sign-offs stays append-only.
     expect(guard({ author: "daria.l", pushers: [], changes: [{ path: `${F}/hub/signoffs.yaml`, base, next: "" }] }, c).findings[0]?.reason).toMatch(/append-only/);
   });

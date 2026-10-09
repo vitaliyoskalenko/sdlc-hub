@@ -1,6 +1,6 @@
 # Open items
 
-State on 9 October 2026, revision 64 of the specification. Items already fixed are not listed. Decisions that closed earlier items are in `docs/decisions.md`.
+State on 9 October 2026, revision 65 of the specification. Items already fixed are not listed. Decisions that closed earlier items are in `docs/decisions.md`.
 
 ## Specification
 
@@ -45,13 +45,14 @@ Claims 8 to 13 were found while planning phase 1, 14 to 17 while building phase 
 - **Saving offline.** A push that fails is reported, not queued for the next sync.
 - **Other saves.** Light edits on the site (a feature's title, links and estimates; the wording of a story) still need a merge request by hand.
 - **GitHub: still to come (claim 5).**
-  - Advisory mode for GitHub Free with private repositories: the specification described it, but setup refuses that case instead. Without auto-merge every request would be merged by hand, so this needs the owner's decision.
+  - Advisory mode on GitHub Free with private repositories is built but not run: the test organization's repositories are public.
   - A person whose clone uses SSH alone has no token for saving from the site. `hub doctor` does not check for that yet; the error says how to sign in (`gh auth login`, `gh auth setup-git`).
   - The setup script on GitHub: it is generated the same way, and its clone URLs and `hub setup` are not checked against GitHub.
 - **Metrics: still to come.** Stage start and finish events (for lead time and the days teams waited), `hub usage rekey` when the PM changes, usage from Codex and Cursor (phase 5), and per-step estimates in the default `flow.yaml` (the admin sets them; the hub ships none rather than guessing).
 - **QA and release: still to come.** The release `versions`, an Ops view across features, and a check at decision time that a CI result is not older than the last merge of the feature branch.
-- **Plugin: still to come.** `hub_record` and the hooks that record a stage's start and finish in `events.jsonl`, usage (phase 4), Codex and Cursor skills (phase 5), and refreshing the cached plugin copy after `hub/plugin` changes (`hub sync` should run `claude plugin marketplace update` and `claude plugin update`).
-- **People and roles: still to come.** The check that a person is a member of the group on the host (the site only says to add them), Settings, and adding a team later.
+- **Plugin: still to come.** `hub_record` and the hooks that record a stage's start and finish in `events.jsonl`. (Usage, the Codex and Cursor skills, and refreshing Claude Code's copy of the plugin in `hub sync` are built.)
+- **People and roles: still to come.** The check that a person is a member of the group on the host (the site only says to add them), and adding a team later.
+- **Settings: still to come.** The price table, the host checklist, the engine, and adding a team. Settings has the guard settings, assistants, headless runs and links (revision 65).
 - **Stale guard results** (claim 14) and **group Maintainers** (claim 15) are accepted risks for now.
 
 ## Decided in code during phase 1a

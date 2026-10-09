@@ -156,6 +156,8 @@ export class GitHub {
   openPulls = (owner: string, name: string, head: string) => this.call<GitHubPull[]>("GET", `/repos/${enc(owner)}/${enc(name)}/pulls?state=open&head=${enc(`${owner}:${head}`)}`);
   pull = (owner: string, name: string, n: number) => this.call<GitHubPull>("GET", `/repos/${enc(owner)}/${enc(name)}/pulls/${n}`);
   createPull = (owner: string, name: string, head: string, base: string, title: string, body: string) => this.call<GitHubPull>("POST", `/repos/${enc(owner)}/${enc(name)}/pulls`, { head, base, title, body });
+  /** GitHub keeps a pull request open when its branch is deleted; this closes it. */
+  closePull = (owner: string, name: string, n: number) => this.call<GitHubPull>("PATCH", `/repos/${enc(owner)}/${enc(name)}/pulls/${n}`, { state: "closed" });
 
   /** Who pushed to a branch: the repository's push and force-push activity, each with the authenticated actor. */
   async pushers(owner: string, name: string, branch: string): Promise<string[]> {

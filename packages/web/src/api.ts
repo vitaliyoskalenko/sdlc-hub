@@ -141,6 +141,9 @@ export interface FeatureState {
   blockingBugs: string[];
   warnings: string[];
   issues: { level: string; file: string; line?: number; message: string }[];
+  /** From the stage events in hub-state. */
+  times: { step: string; started: string; finished?: string; hours: number }[];
+  leadTime?: { started: string; finished?: string; days: number };
 }
 
 export interface FeatureFile {

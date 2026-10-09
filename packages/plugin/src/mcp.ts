@@ -3,7 +3,7 @@
 
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { hubBug, hubDecide, hubValidation, hubNext, hubQa, hubRelease, hubReleaseEdit, hubSignoff, hubStatus, hubTest, hubVerdicts, type ToolContext, type ToolResult } from "./tools.ts";
+import { hubBug, hubDecide, hubValidation, hubNext, hubRecord, hubQa, hubRelease, hubReleaseEdit, hubSignoff, hubStatus, hubTest, hubVerdicts, type ToolContext, type ToolResult } from "./tools.ts";
 
 const text = (r: ToolResult) => ({ content: [{ type: "text" as const, text: r.text }], ...(r.isError ? { isError: true } : {}) });
 const slug = z.string().regex(/^[a-z0-9][a-z0-9-]*$/).describe("The feature's folder name under docs/features, for example tasks-issues");
@@ -28,11 +28,22 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
     {
       title: "Your next step",
       description:
-        "Checks the gate for your next step on a feature (or a named step): that the steps before it are done and that your role owns it. Returns the engine command to run unchanged, with the hub's prompt, or what is missing. Changes nothing.",
+        "Checks the gate for your next step on a feature (or a named step): that the steps before it are done and that your role owns it. Returns the engine command to run unchanged, with the hub's prompt, or what is missing. When it hands out a stage, it records that the stage started (for the site); it changes no file.",
       inputSchema: z.object({ slug: slug.optional(), step: step.optional() }),
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async ({ slug: s, step: st }) => text(hubNext(ctx, s, st)),
+  );
+
+  server.registerTool(
+    "hub_record",
+    {
+      title: "Record that a stage finished",
+      description: "Records that the stage hub_next handed out has finished, for the site's Running status and lead time. Call it once the engine command has run to its end. It changes no file.",
+      inputSchema: z.object({ slug, step }),
+      annotations: { destructiveHint: false },
+    },
+    async ({ slug: s, step: st }) => text(hubRecord(ctx, s, st)),
   );
 
   server.registerTool(

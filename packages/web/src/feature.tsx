@@ -319,6 +319,7 @@ export function StepPanel({ detail, id }: { detail: FeatureDetail; id: string })
   const engine = s.stages.map((stage) => engineCmd(project.engine.invoke[assistant], stage, slug));
   const prompt = s.llm ? [...engine, ...(text?.hint ? ["", text.hint] : []), "", `Feature: ${detail.summary.title} (${slug}).${detail.feature?.links?.jira ? ` Jira: ${detail.feature.links.jira}.` : ""}`].join("\n").trim() : "";
   const gateOwner = s.gate && s.gate.role !== "auto" && (st.waitingOn ?? []).includes(me.user);
+  const time = detail.state.times.find((t) => t.step === id);
   return (
     <>
       <div class={`sd role-${roleOf(s.role).css}`}>
@@ -341,6 +342,15 @@ export function StepPanel({ detail, id }: { detail: FeatureDetail; id: string })
         )}
       </div>
       <div class="kv">
+        {time && (
+          <>
+            <span class="k">Time</span>
+            <span data-time={id}>
+              {duration(time.hours)}
+              {time.finished ? `, ${day(time.started)} to ${day(time.finished)}` : `, started ${day(time.started)}`}
+            </span>
+          </>
+        )}
         {st.by && (
           <>
             <span class="k">{st.status === "running" ? "Running" : st.status === "returned" ? "Returned by" : "Done by"}</span>
@@ -457,6 +467,7 @@ function Flow({ detail, params }: { detail: FeatureDetail; params: URLSearchPara
             </span>
           ))}
         </div>
+        <LeadTime detail={detail} />
       </div>
       <div class="card" id="steppanel">
         <StepPanel detail={detail} id={id} />
@@ -464,6 +475,24 @@ function Flow({ detail, params }: { detail: FeatureDetail; params: URLSearchPara
     </div>
   );
 }
+
+/** How long the feature and each step took, from the stage events the plugin records. */
+function LeadTime({ detail }: { detail: FeatureDetail }) {
+  const { leadTime, times } = detail.state;
+  if (!leadTime) return <p class="muted" id="leadtime">No stage events yet: the time per step appears once someone runs a stage with the hub's plugin.</p>;
+  return (
+    <div id="leadtime">
+      <p>
+        <span class="k">Lead time</span> <b>{leadTime.days} days</b> {leadTime.finished ? `from ${day(leadTime.started)} to the release` : `since ${day(leadTime.started)}`}
+      </p>
+      <p class="muted">{times.map((t) => `${t.step} ${duration(t.hours)}${t.finished ? "" : " so far"}`).join(" · ")}</p>
+    </div>
+  );
+}
+
+const day = (iso: string) => iso.slice(0, 10);
+/** Hours under two days, days above. */
+const duration = (hours: number) => (hours < 48 ? `${Math.round(hours * 10) / 10} h` : `${Math.round((hours / 24) * 10) / 10} days`);
 
 // --- Documents
 

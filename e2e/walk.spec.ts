@@ -174,6 +174,11 @@ test("the page shows what the files say", async ({ page }) => {
   await ready(page);
   await expect(page.locator('svg.flow [data-step="ux-flows"]')).toHaveClass(/st-skipped/);
   await expect(page.locator('svg.flow [data-step="screens"]')).toHaveClass(/st-skipped/);
+  // Lead time from the stage events the plugin recorded.
+  await page.goto("/features/order-notes-fix?as=petro.v&step=implement");
+  await ready(page);
+  await expect(page.locator("#leadtime")).toContainText("Lead time");
+  await expect(page.locator('[data-time="implement"]')).toContainText("30 h, 2026-10-02 to 2026-10-03");
   await page.goto("/features/bulk-order-export/tasks?as=maksym.d");
   await ready(page);
   await expect(page.locator(".note.bad")).toContainText("wait for another team");

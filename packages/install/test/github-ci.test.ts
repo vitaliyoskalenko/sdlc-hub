@@ -8,6 +8,8 @@ describe("the hub-guard workflow on GitHub", () => {
   it("runs on pull_request_target as a job named hub-guard, the required check's name", () => {
     expect(Object.keys(w.on)).toEqual(["pull_request_target"]);
     expect(Object.keys(w.jobs)).toEqual(["hub-guard"]);
+    // It writes hub-state and deletes a refused branch, and closes its pull request, which GitHub leaves open.
+    expect(w.permissions).toEqual({ contents: "write", "pull-requests": "write" });
   });
   it("runs the hub from the default branch and reads the pull request as data only", () => {
     expect(steps[0]!.with).toMatchObject({ path: "base" });

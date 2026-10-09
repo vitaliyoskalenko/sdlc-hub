@@ -6,6 +6,7 @@ import { contentHash } from "./content/hash.ts";
 import { parseStructure } from "./content/structure.ts";
 import type { Atom, Requirement } from "./evidence.ts";
 import { parseBugFile, parseConfig, parseEngine, parseEventsJsonl, parseFeature, parseFlow, parseRelease, parseRoles, parseSignoffs, parseTeamSnapshot, parseTestRun } from "./files.ts";
+import { featureTime, stepTimes, type StepTime } from "./times.ts";
 import { hasErrors, type Issue, type Result } from "./issues.ts";
 import { checkEngineAgainstFlow } from "./project-check.ts";
 import { buildTeamSnapshot, readRoute, readSize, readTargetSurfaces, UI_SURFACES } from "./sdd.ts";
@@ -85,6 +86,10 @@ export interface FeatureState {
   blockingBugs: string[];
   warnings: string[];
   issues: Issue[];
+  /** From the stage events: each step's first start and last finish. */
+  times: StepTime[];
+  /** From the first event to the release (the start of the watch), or to now. */
+  leadTime?: { started: string; finished?: string; days: number };
 }
 
 // --- the project
@@ -504,6 +509,7 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
       warnings.push(`sad.md declares no user interface (${surfaces.join(", ")}): set ui: false in feature.yaml so ux-flows and screens show as skipped`);
   }
 
+  const lead = featureTime(events, view.now, released ? release?.watch?.started : undefined);
   return {
     slug,
     ...(feature?.title ? { title: feature.title } : {}),
@@ -521,6 +527,8 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
     blockingBugs,
     warnings,
     issues,
+    times: stepTimes(events, view.now),
+    ...(lead ? { leadTime: lead } : {}),
   };
 
   // --- helpers that read the state above

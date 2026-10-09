@@ -16,6 +16,8 @@ export interface ToolContext {
   assistant: Assistant;
   saver: (user: string) => Saver;
   now: () => Date;
+  /** Records a stage event for hub-state (queued on the machine, pushed when it can be). */
+  record?: (slug: string, e: { step: string; event: "started" | "finished"; role: string; assistant: Assistant; at: string }) => void;
 }
 
 export interface ToolResult {
@@ -148,13 +150,44 @@ export function hubNext(ctx: ToolContext, slug?: string, step?: string): ToolRes
     const all = listFeatures(l.open.view.specs).map((x) => l.state(x)!);
     const mine = all.find((s) => s.current !== "released" && (s.steps.find((x) => x.id === s.current)?.waitingOn ?? []).includes(l.user));
     if (!mine) return { text: `Nothing waits for you right now. Name a feature to see its next step: ${all.map((s) => s.slug).join(", ")}.` };
-    return { text: planText(ctx, l, mine, nextFor(l.project, mine, l.user)) };
+    const plan = nextFor(l.project, mine, l.user);
+    started(ctx, l, mine.slug, plan);
+    return { text: planText(ctx, l, mine, plan) };
   }
   const s = featureOrList(l, slug);
   if ("text" in s) return s;
   const plan = nextFor(l.project, s, l.user, step);
+  started(ctx, l, s.slug, plan);
   const ok = plan.kind === "run" || plan.kind === "signoff";
   return { text: planText(ctx, l, s, plan), ...(ok ? {} : { isError: true }) };
+}
+
+/** A stage handed out to run starts now, unless it is running already. A failure to record never stops the work. */
+function started(ctx: ToolContext, l: Loaded, slug: string, plan: StepPlan) {
+  if (plan.kind !== "run" || plan.running || !ctx.record) return;
+  const role = l.project.flow.steps.find((x) => x.id === plan.step)?.role ?? "";
+  try {
+    ctx.record(slug, { step: plan.step, event: "started", role, assistant: ctx.assistant, at: iso(ctx.now()) });
+  } catch {
+    /* the site shows the step as ready instead of running */
+  }
+}
+
+/** The stage the person ran has finished: recorded for the Running status and lead time. */
+export function hubRecord(ctx: ToolContext, slug: string, step: string): ToolResult {
+  const l = load(ctx);
+  if (isResult(l)) return l;
+  const s = featureOrList(l, slug);
+  if ("text" in s) return s;
+  const flowStep = l.project.flow.steps.find((x) => x.id === step);
+  if (!flowStep) return fail(`There is no step ${step}.`);
+  if (!ctx.record) return fail("This assistant cannot record events here.");
+  try {
+    ctx.record(slug, { step, event: "finished", role: flowStep.role, assistant: ctx.assistant, at: iso(ctx.now()) });
+  } catch (e) {
+    return fail(`Could not record it: ${(e as Error).message}`);
+  }
+  return { text: `Recorded: ${step} of ${slug} finished.` };
 }
 
 export async function hubSignoff(ctx: ToolContext, step: string, slug: string, decision: "pass" | "return", reason?: string): Promise<ToolResult> {

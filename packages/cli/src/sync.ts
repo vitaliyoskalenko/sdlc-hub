@@ -6,7 +6,7 @@ import { existsSync, readdirSync, readFileSync, mkdirSync, writeFileSync } from 
 import { dirname, join } from "node:path";
 import { identityToRecipient } from "age-encryption";
 import { gitIdentity, openProject, personOf, refSource } from "@sdlc-hub/git";
-import { writeHubState, type Line } from "@sdlc-hub/save";
+import { flushEvents, queuedEvents, writeHubState, type Line } from "@sdlc-hub/save";
 import { decryptWith, encryptTo, keyStore, machineName, openTotals, recipientsFor, usageRecordSchema, type UsageRecord } from "@sdlc-hub/usage";
 import { remoteUrl, runCommand, type Run } from "./person.ts";
 
@@ -71,6 +71,15 @@ export async function sync(o: SyncOptions): Promise<{ ok: boolean; lines: Line[]
   const identity = keyStore(remote).load();
   const id = gitIdentity(o.root);
   const author = { name: id.name || user, email: id.email || `${user}@localhost` };
+
+  // Stage events the plugin could not push when they happened.
+  if (queuedEvents(o.root).length)
+    try {
+      const n = flushEvents(o.root, { url: remote, author });
+      say(true, `Published ${n} stage event${n === 1 ? "" : "s"} that waited on this machine`);
+    } catch (e) {
+      say(false, `Could not publish the stage events that wait on this machine: ${(e as Error).message.split("\n")[0]}`, false);
+    }
 
   // 2. This machine's usage, each month that changed since the last sync, encrypted.
   const dir = usageDir(o.root, run);

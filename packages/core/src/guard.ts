@@ -30,10 +30,14 @@ export interface Finding {
 const ROLE_NAME: Record<string, string> = { po: "PO", pm: "PM", designer: "the designer", dev: "Engineering", qa: "QA", ops: "Ops", admin: "the admin" };
 const SIGNOFFS = /^docs\/features\/([^/]+)\/hub\/signoffs\.yaml$/;
 
-/** The hub's own files: whatever the switches say, only the admin changes them (and each person their own key). */
-const HUBS_OWN = picomatch([".hub/**", "hub/**"], { dot: true });
+/**
+ * The hub's own files, the assistants' files and CI files: they run on every machine, so whatever the switches and
+ * the mode say, only the admin changes them (and each person their own key).
+ */
+export const ADMIN_ONLY = [".hub/**", "hub/**", ".claude/**", ".claude-plugin/**", ".agents/**", ".codex/**", ".cursor/**", "CLAUDE.md", "AGENTS.md", ".github/**", ".gitlab-ci.yml", "ci/**"];
+const HUBS_OWN = picomatch(ADMIN_ONLY, { dot: true });
 
-/** Whether a guard result stops the merge: in advisory mode only a finding on the hub's own files does. */
+/** Whether a guard result stops the merge: in advisory mode only a finding on an admin-only file does. */
 export function blocks(r: { ok: boolean; findings: Finding[] }, mode: "enforce" | "advisory"): boolean {
   if (r.ok) return false;
   return mode === "enforce" || r.findings.some((f) => HUBS_OWN(f.path));
@@ -66,7 +70,7 @@ function judge(user: string, change: Change, ctx: GuardContext, checks: ReturnTy
   const paths = [change.path, ...(change.from && change.from !== change.path ? [change.from] : [])];
   if (paths.some((p) => HUBS_OWN(p))) {
     const r = member ? checkChange(user, change, ctx) : undefined;
-    return r?.ok ? undefined : { reason: `Only the admin changes ${paths.find((p) => HUBS_OWN(p))}, whatever the guard settings say` };
+    return r?.ok ? undefined : { reason: `Only the admin changes ${paths.find((p) => HUBS_OWN(p))}: it runs on every machine, whatever the guard settings say` };
   }
   const admin = ctx.roles.people.find((p) => p.user === user)?.roles.includes("admin");
   if (SIGNOFFS.test(change.path) && !admin && change.base !== undefined && (change.next === undefined || !change.next.startsWith(change.base)))

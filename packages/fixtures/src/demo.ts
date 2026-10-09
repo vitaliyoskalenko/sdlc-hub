@@ -331,8 +331,12 @@ export function demoFixture(): Fixture {
         tracker: [{ id: "T1", status: "done" }],
       }),
     );
-    hubState[`features/${slug}/events.jsonl`] = '{"step":"review","event":"started","role":"dev","assistant":"cursor","at":"2026-10-07T08:30:00Z"}\n';
-    authors[`hub-state/features/${slug}/events.jsonl#L1`] = "petro.v";
+    hubState[`features/${slug}/events.jsonl`] = [
+      '{"step":"implement","event":"started","role":"dev","assistant":"cursor","at":"2026-10-02T09:00:00Z"}',
+      '{"step":"implement","event":"finished","role":"dev","assistant":"cursor","at":"2026-10-03T15:00:00Z"}',
+      '{"step":"review","event":"started","role":"dev","assistant":"cursor","at":"2026-10-07T08:30:00Z"}',
+    ].join("\n") + "\n";
+    for (const n of [1, 2, 3]) authors[`hub-state/features/${slug}/events.jsonl#L${n}`] = "petro.v";
     owners(slug, main, authors);
   }
 

@@ -109,7 +109,7 @@ export function Settings() {
             ))}
           </fieldset>
           <p class="muted">
-            Whatever these say, only the admin changes <code>.hub/</code> and <code>hub/</code>, even in advisory mode. The settings on <code>main</code> judge each change, so a {host.cr} cannot loosen its own check.
+            Whatever these say, even in advisory mode, only the admin changes <code>.hub/</code>, <code>hub/</code>, the assistants' files (<code>.claude/</code>, <code>.agents/</code>, <code>CLAUDE.md</code> and the like) and CI files: they run on every machine. The settings on <code>main</code> judge each change, so a {host.cr} cannot loosen its own check.
           </p>
           {!project.settings.autoMerge && <p class="muted">This project has no auto-merge on {host.n}: every {host.cr} waits for someone to merge it.</p>}
         </div>

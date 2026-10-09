@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 9, 2026 · @Vitaliy · revision 64
+Oct 9, 2026 · @Vitaliy · revision 65
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -441,7 +441,7 @@ There is one site for everyone; the role decides the home page and which buttons
 | Feature: Release | Go or no-go, ordered checklist, rollout, watch period | Tick checklist items, record the rollout stage |
 | Feature: Costs | Tokens and API-equivalent cost by step, role, model and assistant, against the estimate | Per-person view for admin and PM |
 | People and roles | Users, roles, teams, setup state | Add or change a person, generate a setup script, download or copy it (admin) |
-| Settings | Engine, assistants, integrations, headless switch, prices, GitLab checklist | Admin only |
+| Settings | How strict `hub-guard` is, assistants, headless switch, links; the project, teams and engine read only. Later: prices, adding a team, the host checklist | Admin only |
 | Your guide | What your role does in the assistant and on the site, and how to start next time | None |
 
 A wait on another team (a `<team-id>:<task-id>` reference to a task that is not done) is the cost the hub exists to show, so it is never only on the Tasks screen. A red marker with the number of waiting teams ("3 teams wait") stands beside the current step in the Features list, on the feature's track in the Features graph and in the Now strip. On Home, the waits are actions for the lead whose task is waited for, for the leads who wait and for the PM, and the tile "Blocked by another team" counts the waiting teams. The step itself stays running while the waiting teams still have work, for example on the mock, and turns blocked only when a team has nothing else it can do.
@@ -572,9 +572,12 @@ This project runs on self-managed GitLab, so the rest of this document uses GitL
 | Assistant access | GitLab MCP server | GitHub MCP server |
 | Plan needed | Free is enough on a self-managed server. On gitlab.com, project access tokens (for `HUB_STATE_TOKEN`) need Premium | Private repositories need Team or higher; public repositories work on Free |
 
-On GitHub Free, private repositories have no protected branches, rulesets or auto-merge. Setup's plan check fails there, and Install stays disabled. The advisory mode this document described (the guard reports a violation and cannot block it, and every request is merged by hand) is not built; see `docs/open-items.md`.
+On GitHub Free, private repositories have no protected branches, rulesets or auto-merge. Setup installs there only in advisory mode (see "Guard settings"):
+- install adds no ruleset, and writes `git.auto_merge: false`;
+- `hub-guard` only warns;
+- each pull request, a save from the site included, waits for someone to merge it.
 
-The GitHub guard never runs code from the pull request. The `hub-guard` workflow runs on `pull_request_target`, so the workflow file and `hub/cli.js` come from the default branch. It checks the pull request out into a separate folder only as data, with no credentials kept, and compares its changes with `roles.yaml` on the default branch. The author comes from the event, and the pushers from the activity API. A refusal is recorded in `hub-state` with the workflow's own token, and the branch is deleted, as on GitLab.
+The GitHub guard never runs code from the pull request. The `hub-guard` workflow runs on `pull_request_target`, so the workflow file and `hub/cli.js` come from the default branch. It checks the pull request out into a separate folder only as data, with no credentials kept, and compares its changes with `roles.yaml` on the default branch. The author comes from the event, and the pushers from the activity API. A refusal is recorded in `hub-state` with the workflow's own token and the branch is deleted, as on GitLab. GitHub leaves a pull request open when its branch is deleted, so the guard also closes it; the workflow has `contents: write` and `pull-requests: write`.
 
 GitHub Team also has push rulesets that restrict file paths. The hub does not depend on them, so both hosts behave the same.
 
@@ -612,6 +615,7 @@ Setup is a web page with five screens, and every field except the sign-in has a 
 | 4 Assistants and engine | Assistants allowed. Claude Code is always on | Claude Code, Codex | `assistants` |
 | 4 Assistants and engine | Engine: `genkovich/sdd` or a custom adapter | `genkovich/sdd` | `engine` |
 | 4 Assistants and engine | Whether the site may start the assistant | Off | `headless.enabled` |
+| 4 Assistants and engine | How strict `hub-guard` is: Enforce or Advisory, and four checks that can be switched off (see "Guard settings") | Enforce, every check on | `guard.*` |
 | 5 Review and install | Install |  | Nothing; it starts the write |
 
 The person who runs setup becomes the admin, and no second admin is asked for at this stage. Before starting, that person needs Owner rights on the group or organization, git and Node.js 22 or newer, and the repository names.
@@ -790,6 +794,34 @@ This section closes gaps found in a review of the design: what the guard checks 
   - So a renamed heading (`## Test Plan`, `## 9. Test plan`), a section moved elsewhere in the file, an edit to any other section or key, and a heading renamed to `## Test plan` to capture its body are all refused, with the line that differs.
 - Renames, deletions and symbolic links count as changes to both paths.
 - Forking of `product-specs` is turned off, and `hub-ci` has its own protected `main` that only the admin merges into.
+
+### Guard settings
+
+The admin sets how strict `hub-guard` is at install (screen 4) and later in Settings. The settings are stored in `config.yaml`:
+
+```yaml
+guard:
+  mode: enforce        # or advisory
+  checks:
+    files: true        # who may change which files (roles.yaml)
+    signoffs: true     # who signs which gate, and the QA decision
+    pushers: true      # judge everyone who pushed to the branch, not only its author
+    members: true      # refuse a change from someone who is not in roles.yaml
+```
+
+- **Advisory mode.** The guard lists what breaks a rule and passes, so the change merges by itself. The findings appear in the job log and, for a save from the site, in `hub-state` at the same path as a refusal, with `advisory: true`; the branch stays. The site shows the save as merged with warnings.
+- **Switching a check off:**
+  - `files`: anyone in `roles.yaml` may change any file.
+  - `signoffs`: anyone in `roles.yaml` may sign any gate, still in their own name.
+  - `pushers`: only the author is judged.
+  - `members`: someone outside `roles.yaml` with access to the repository may change files.
+- **Never relaxed.** Whatever the mode and the switches say, these stay admin-only, because they run on every machine:
+  - `.hub/` and `hub/`;
+  - the assistants' files: `.claude/`, `.claude-plugin/`, `.agents/`, `.codex/`, `.cursor/`, `CLAUDE.md`, `AGENTS.md`;
+  - CI files: `.github/`, `.gitlab-ci.yml`, `ci/`.
+
+  A change to them is refused even in advisory mode. `signoffs.yaml` stays append-only, and a new entry must name its author.
+- **Who decides.** The settings on `main` judge each change, so a merge request cannot loosen its own check. The site's own buttons keep following roles: switching a check off widens what the guard lets through, not who sees a Sign off button.
 
 ### Saving, conflicts and work offline
 

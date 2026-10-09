@@ -7,7 +7,7 @@ import { parseBugFile, parseSignoffs } from "@sdlc-hub/core";
 import { fixtures, materialize } from "@sdlc-hub/fixtures";
 import { openProject } from "@sdlc-hub/git";
 import { createSaver } from "@sdlc-hub/save";
-import { hubBug, hubDecide, hubNext, hubQa, hubRelease, hubReleaseEdit, hubSignoff, hubStatus, hubVerdicts, sessionContext, type ToolContext } from "../src/index.ts";
+import { hubBug, hubDecide, hubNext, hubRecord, hubQa, hubRelease, hubReleaseEdit, hubSignoff, hubStatus, hubVerdicts, sessionContext, type ToolContext } from "../src/index.ts";
 
 const temp: string[] = [];
 afterAll(() => temp.forEach((d) => rmSync(d, { recursive: true, force: true })));
@@ -69,6 +69,22 @@ describe("hub_next", () => {
   it("tells the backend lead that the gate waits for him", () => {
     const r = hubNext(demo("taras.m").ctx, "order-webhooks");
     expect(r.text).toContain("gate waits for you");
+  });
+});
+
+describe("stage events", () => {
+  it("records that a stage started when hub_next hands it out, and finished from hub_record", () => {
+    const { ctx } = demo("olena.k");
+    const events: unknown[] = [];
+    const rec = { ...ctx, record: (slug: string, e: unknown) => void events.push({ slug, ...(e as object) }) };
+    hubNext(rec, "returns-portal");
+    expect(events).toEqual([{ slug: "returns-portal", step: "clarify", event: "started", role: "po", assistant: "claude", at: "2026-10-08T10:00:00Z" }]);
+    // Not for a step that is not the person's.
+    hubNext({ ...rec, user: () => "maksym.d" }, "returns-portal");
+    expect(events).toHaveLength(1);
+    expect(hubRecord(rec, "returns-portal", "clarify").text).toBe("Recorded: clarify of returns-portal finished.");
+    expect(events.at(-1)).toMatchObject({ step: "clarify", event: "finished" });
+    expect(hubRecord(rec, "returns-portal", "nope").isError).toBe(true);
   });
 });
 

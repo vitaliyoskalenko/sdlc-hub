@@ -9,7 +9,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { parseConfig, parseSaveRefusal, parseTeamSnapshot, refusalPath } from "@sdlc-hub/core";
+import { parseConfig, parseSaveRefusal, parseTeamSnapshot, refusalPath, settingsChange } from "@sdlc-hub/core";
 import { GitHub } from "@sdlc-hub/host";
 import { createSaver, type Save, type Saver } from "@sdlc-hub/save";
 import { hostSaves } from "../../cli/src/host-saves.ts";
@@ -101,8 +101,10 @@ describe.skipIf(!enabled)("install on GitHub (Free organization, public reposito
   }, 300_000);
 
   it("changes nothing on a second run", async () => {
+    // Once the first run's pull request has merged: a run during its merge races with it.
+    for (let i = 0; i < 60 && (await owner.openPulls(ORG, SPECS, "sdlc-hub/install")).length; i++) await wait(5000);
     const r = await installGitHub(ANSWERS, owner, { hubBundle: bundle });
-    expect(r.steps.map((s) => [s.id, s.state])).toEqual(r.steps.map((s) => [s.id, "skip"]));
+    expect(r.steps.map((s) => [s.id, s.state]), JSON.stringify(r.steps)).toEqual(r.steps.map((s) => [s.id, "skip"]));
   }, 180_000);
 
   it("refuses a direct push to main, even by an owner", () => {
@@ -183,5 +185,31 @@ describe.skipIf(!enabled)("install on GitHub (Free organization, public reposito
     const record = parseSaveRefusal((await owner.file(ORG, SPECS, refusalPath(s.branch), "hub-state"))!, "r").value!;
     expect(record).toMatchObject({ sha: s.sha, author: person });
     expect(await owner.branch(ORG, SPECS, s.branch)).toBeNull();
+    expect((await owner.pull(ORG, SPECS, s.mr!.iid)).state).toBe("closed");
   }, 600_000);
+
+  it.skipIf(!person)("in advisory mode merges a change outside the person's role with warnings, and still refuses .hub/", async () => {
+    // hub/cli.js on main must be this build: the install pull request of this run merges first.
+    for (let i = 0; i < 60 && (await owner.openPulls(ORG, SPECS, "sdlc-hub/install")).length; i++) await wait(5000);
+    expect(await owner.openPulls(ORG, SPECS, "sdlc-hub/install")).toEqual([]);
+    const admin = personSaver(owner, secrets.token, login);
+    const setMode = async (mode: "enforce" | "advisory") => {
+      const s = await admin
+        .save({ user: login, label: `guard-${mode}`, title: `hub-guard ${mode}`, build: (main) => { const c = settingsChange(main.read(".hub/config.yaml")!, { guard: { mode } }); return typeof c === "string" ? [] : [c]; } })
+        .catch((e: Error) => (/nothing to save/i.test(e.message) ? undefined : Promise.reject(e)));
+      if (s) expect((await settle(admin, s.branch)).state).toBe("merged");
+    };
+    await setMode("advisory");
+    try {
+      const saver = personSaver(new GitHub(personToken!), personToken!, person!);
+      const outside = await saver.save({ user: person!, label: "outside", title: "Outside the PO role", build: () => [{ path: `notes/advisory-${Date.now()}.md`, next: "A file no role covers.\n" }] });
+      const merged = await settle(saver, outside.branch);
+      expect(merged.state).toBe("merged");
+      expect(merged.warnings?.map((f) => f.user)).toEqual([person]);
+      const hubs = await saver.save({ user: person!, label: "config", title: "Config in advisory mode", build: (main) => [{ path: ".hub/config.yaml", next: `${main.read(".hub/config.yaml")}# advisory ${Date.now()}\n` }] });
+      expect((await settle(saver, hubs.branch)).state).toBe("refused");
+    } finally {
+      await setMode("enforce");
+    }
+  }, 900_000);
 });

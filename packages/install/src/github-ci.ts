@@ -14,7 +14,7 @@ on:
     types: [opened, synchronize, reopened]
 permissions:
   contents: write
-  pull-requests: read
+  pull-requests: write
 jobs:
   hub-guard:
     runs-on: ubuntu-latest
