@@ -18,7 +18,7 @@ interface Answers {
   tracker: { type: "none" | "jira"; url: string; key: string; mirror: boolean };
   links: { confluence: string; figma: string };
   assistants: { claude: true; codex: boolean; cursor: boolean };
-  engine: "sdd" | "custom";
+  engine: "sdd" | "plain" | "custom";
   headless: boolean;
 }
 interface SignedIn {
@@ -466,12 +466,17 @@ function Setup() {
         <h3>Engine that runs the stages</h3>
         <div class="choices">
           <Choice group="engine" value="sdd" current={a.engine} title="genkovich/sdd" sub="Default. Version 2.3.x is pinned" set={(v) => set({ engine: v })} />
+          <Choice group="engine" value="plain" current={a.engine} title="Plain" sub="Ships with the hub: one prompt file per stage, no engine plugin" set={(v) => set({ engine: v })} />
           <Choice group="engine" value="custom" current={a.engine} title="Custom adapter" sub="You map each hub step to your own command" set={(v) => set({ engine: v })} />
         </div>
         <p class="hint">
           {a.engine === "sdd" ? (
             <>
               The hub passes every stage to the engine through <code>.hub/engines/sdd.yaml</code>, so it can be swapped later.
+            </>
+          ) : a.engine === "plain" ? (
+            <>
+              Setup writes <code>.hub/engines/plain.yaml</code> and one prompt per stage in <code>.hub/engines/plain/</code>. The hub's own stage command runs them in any assistant.
             </>
           ) : (
             <>

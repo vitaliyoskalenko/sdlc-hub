@@ -139,6 +139,17 @@ const SKILLS: Skill[] = [
     ].join("\n"),
   },
   {
+    name: "stage",
+    description: "Runs one stage of the plain engine for a feature: the prompt in .hub/engines/plain/<stage>.md. hub_next hands it over.",
+    hint: "<stage> <slug>",
+    allowed: ["Read(.hub/engines/plain/**)"],
+    body: [
+      'The arguments are "$ARGUMENTS": the stage, then the feature slug.',
+      "",
+      "Read `.hub/engines/plain/<stage>.md` and follow it for that feature: `<slug>` in the prompt is the feature's slug. Write only the files it names. If there is no such prompt, say so and stop.",
+    ].join("\n"),
+  },
+  {
     name: "start",
     description: "Starts the hub's local site for this repository and gives its address.",
     personOnly: true,

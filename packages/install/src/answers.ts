@@ -1,6 +1,6 @@
 // What the five setup screens collect, and the files it becomes. Nothing here talks to the host.
 
-import { DEFAULT_FLOW_YAML, DEFAULT_SDD_ENGINE_YAML, parseConfig, parseRoles, type Issue } from "@sdlc-hub/core";
+import { DEFAULT_FLOW_YAML, DEFAULT_SDD_ENGINE_YAML, DEFAULT_PLAIN_ENGINE_YAML, PLAIN_PROMPTS, parseConfig, parseRoles, type Issue } from "@sdlc-hub/core";
 
 export interface SetupAnswers {
   host: "gitlab" | "github";
@@ -16,7 +16,7 @@ export interface SetupAnswers {
   tracker: { type: "none" | "jira"; url?: string; key?: string; mirror?: boolean };
   links: { confluence?: string; figma?: string };
   assistants: { claude: true; codex: boolean; cursor: boolean };
-  engine: "sdd" | "custom";
+  engine: "sdd" | "plain" | "custom";
   headless: boolean;
 }
 
@@ -99,8 +99,10 @@ export function hubFiles(a: SetupAnswers, admin: { user: string; name: string })
     ".hub/config.yaml": configYaml(a),
     ".hub/roles.yaml": rolesYaml(admin),
     ".hub/flow.yaml": DEFAULT_FLOW_YAML,
-    [`.hub/engines/${a.engine}.yaml`]: a.engine === "sdd" ? DEFAULT_SDD_ENGINE_YAML : CUSTOM_ENGINE,
+    [`.hub/engines/${a.engine}.yaml`]: a.engine === "sdd" ? DEFAULT_SDD_ENGINE_YAML : a.engine === "plain" ? DEFAULT_PLAIN_ENGINE_YAML : CUSTOM_ENGINE,
   };
+  // The plain engine's stages are prompt files the hub's stage command runs.
+  if (a.engine === "plain") for (const [stage, text] of Object.entries(PLAIN_PROMPTS)) files[`.hub/engines/plain/${stage}.md`] = text;
   const issues = [...parseConfig(files[".hub/config.yaml"]!, ".hub/config.yaml").issues, ...parseRoles(files[".hub/roles.yaml"]!, ".hub/roles.yaml").issues];
   return { files, issues };
 }

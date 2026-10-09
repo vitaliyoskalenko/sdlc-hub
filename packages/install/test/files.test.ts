@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseConfig } from "@sdlc-hub/core";
+import { loadProject, memorySource, parseConfig } from "@sdlc-hub/core";
 import { configYaml, hubFiles, hubGuardCi, hubReportJob, problem, reportStage, teamId, withBlock, withIgnore, withInclude, type SetupAnswers } from "../src/index.ts";
 
 export const ANSWERS: SetupAnswers = {
@@ -40,6 +40,12 @@ describe("setup answers to .hub/ files", () => {
     expect(issues).toEqual([]);
     expect(Object.keys(files).sort()).toEqual([".hub/config.yaml", ".hub/engines/sdd.yaml", ".hub/flow.yaml", ".hub/roles.yaml"]);
     expect(files[".hub/roles.yaml"]).toMatch(/user: nazar.t[\s\S]*role: admin/);
+  });
+  it("write the plain engine with a prompt per stage, and the project loads with it", () => {
+    const { files, issues } = hubFiles({ ...ANSWERS, engine: "plain" }, { user: "nazar.t", name: "Nazar T." });
+    expect(issues).toEqual([]);
+    expect(Object.keys(files).filter((f) => f.startsWith(".hub/engines/"))).toContain(".hub/engines/plain/specify.md");
+    expect(loadProject(memorySource(files)).issues).toEqual([]);
   });
   it("keep a full address with its scheme for a server that is not https", () => {
     expect(parseConfig(configYaml({ ...ANSWERS, address: "http://localhost:8929" }), "c").value?.git.host).toBe("http://localhost:8929");
