@@ -251,12 +251,12 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
         return now;
       };
       try {
-        const ok = saver.save({ user: "olena.k", label: "spec", title: "Spec from the site", build: () => [{ path: "docs/features/bulk-order-export/spec.md", next: `# Bulk order export\n\nSaved from the site ${stamp}.\n` }] });
+        const ok = await saver.save({ user: "olena.k", label: "spec", title: "Spec from the site", build: () => [{ path: "docs/features/bulk-order-export/spec.md", next: `# Bulk order export\n\nSaved from the site ${stamp}.\n` }] });
         expect(ok.mr?.url).toMatch(/\/-\/merge_requests\/\d+$/);
         expect((await until(ok, "merged")).state).toBe("merged");
 
         // The site checks first; this save skips that check, as an older hub might.
-        const bad = saver.save({ user: "olena.k", label: "config", title: "Config from the site", build: (main) => [{ path: ".hub/config.yaml", next: `${main.read(".hub/config.yaml")}# site ${stamp}\n` }] });
+        const bad = await saver.save({ user: "olena.k", label: "config", title: "Config from the site", build: (main) => [{ path: ".hub/config.yaml", next: `${main.read(".hub/config.yaml")}# site ${stamp}\n` }] });
         const refused = await until(bad, "refused");
         expect(refused.state).toBe("refused");
         expect(refused.findings?.[0]).toMatchObject({ path: ".hub/config.yaml", reason: expect.stringMatching(/No role of olena.k/) });

@@ -73,34 +73,34 @@ describe("hub_next", () => {
 });
 
 describe("hub_signoff, hub_return and hub_bug", () => {
-  it("saves the PO's sign-off as a branch", () => {
+  it("saves the PO's sign-off as a branch", async () => {
     const { ctx, remote } = demo("olena.k");
-    const r = hubSignoff(ctx, "clarify", "returns-portal", "pass");
+    const r = await hubSignoff(ctx, "clarify", "returns-portal", "pass");
     expect(r.text).toMatch(/saved as branch hub\/olena\.k\/signoff-clarify-returns-portal-/);
     const branch = git(remote, "branch", "--list", "hub/*").replace("*", "").trim();
     expect(parseSignoffs(git(remote, "show", `${branch}:docs/features/returns-portal/hub/signoffs.yaml`), "s").value!.at(-1)).toMatchObject({ step: "clarify", user: "olena.k" });
   });
-  it("explains a refusal without pushing", () => {
+  it("explains a refusal without pushing", async () => {
     const { ctx, remote } = demo("maksym.d");
-    const r = hubSignoff(ctx, "clarify", "returns-portal", "pass");
+    const r = await hubSignoff(ctx, "clarify", "returns-portal", "pass");
     expect(r.isError).toBe(true);
     expect(r.text).toMatch(/clarify is signed by PO/);
     expect(git(remote, "branch", "--list", "hub/*")).toBe("");
   });
-  it("needs a reason to return", () => {
-    expect(hubSignoff(demo("olena.k").ctx, "clarify", "returns-portal", "return", " ").text).toBe("A return needs a reason");
+  it("needs a reason to return", async () => {
+    expect((await hubSignoff(demo("olena.k").ctx, "clarify", "returns-portal", "return", " ")).text).toBe("A return needs a reason");
   });
-  it("files QA's bug with the next number, found in verify", () => {
+  it("files QA's bug with the next number, found in verify", async () => {
     const { ctx, remote } = demo("iryna.s");
-    const r = hubBug(ctx, { slug: "tasks-issues", title: "Counter stays after closing a task", team: "web", severity: "medium", ac: "AC-05", platforms: ["web"] });
+    const r = await hubBug(ctx, { slug: "tasks-issues", title: "Counter stays after closing a task", team: "web", severity: "medium", ac: "AC-05", platforms: ["web"] });
     expect(r.isError).toBeUndefined();
     const branch = git(remote, "branch", "--list", "hub/*").replace("*", "").trim();
     const files = git(remote, "diff", "--name-only", `main...${branch}`);
     expect(files).toMatch(/^docs\/features\/tasks-issues\/hub\/bugs\/BUG-\d{4}\.md$/);
     expect(parseBugFile(git(remote, "show", `${branch}:${files}`), files).value!.front).toMatchObject({ status: "open", found_by: "iryna.s", found_in: "verify" });
   });
-  it("refuses a bug from someone who may not file one", () => {
-    const r = hubBug(demo("olena.k").ctx, { slug: "tasks-issues", title: "x", team: "web", severity: "low" });
+  it("refuses a bug from someone who may not file one", async () => {
+    const r = await hubBug(demo("olena.k").ctx, { slug: "tasks-issues", title: "x", team: "web", severity: "low" });
     expect(r.isError).toBe(true);
     expect(r.text).toMatch(/No role of olena\.k/);
   });
@@ -125,16 +125,16 @@ describe("QA and release from the assistant", () => {
     expect(text).toContain("BUG-0012 high retest (backend, AC-04)");
     expect(text).toContain("Final decisions: return by iryna.s 2026-10-05 (BUG-0012 reproduces on all three clients)");
   });
-  it("records QA's verdicts and refuses the final decision before autotests and verify", () => {
+  it("records QA's verdicts and refuses the final decision before autotests and verify", async () => {
     const { ctx, remote } = demo("iryna.s");
-    expect(hubVerdicts(ctx, "tasks-issues", [{ ac: "AC-04", platform: "web", verdict: "pass" }]).text).toMatch(/saved as branch hub\/iryna\.s\/verdicts-tasks-issues/);
+    expect((await hubVerdicts(ctx, "tasks-issues", [{ ac: "AC-04", platform: "web", verdict: "pass" }])).text).toMatch(/saved as branch hub\/iryna\.s\/verdicts-tasks-issues/);
     expect(git(remote, "branch", "--list", "hub/*")).toContain("verdicts-tasks-issues");
-    expect(hubDecide(ctx, "tasks-issues", "pass").text).toMatch(/does not wait for a sign-off now/);
+    expect((await hubDecide(ctx, "tasks-issues", "pass")).text).toMatch(/does not wait for a sign-off now/);
   });
-  it("shows Ops the release and records the smoke check", () => {
+  it("shows Ops the release and records the smoke check", async () => {
     const { ctx } = demo("bohdan.r");
     expect(hubRelease(ctx, "tasks-issues").text).toContain("1. [ ] Every team's production deploy is done");
-    expect(hubReleaseEdit(ctx, "returns-portal", { kind: "smoke", value: "passed" }).isError).toBeUndefined();
-    expect(hubReleaseEdit(demo("iryna.s").ctx, "returns-portal", { kind: "go", value: "go" }).text).toMatch(/hub-guard would refuse this/);
+    expect((await hubReleaseEdit(ctx, "returns-portal", { kind: "smoke", value: "passed" })).isError).toBeUndefined();
+    expect((await hubReleaseEdit(demo("iryna.s").ctx, "returns-portal", { kind: "go", value: "go" })).text).toMatch(/hub-guard would refuse this/);
   });
 });

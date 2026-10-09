@@ -43,7 +43,7 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
       inputSchema: z.object({ step, slug }),
       annotations: { destructiveHint: false },
     },
-    async ({ step: st, slug: s }) => text(hubSignoff(ctx, st, s, "pass")),
+    async ({ step: st, slug: s }) => text(await hubSignoff(ctx, st, s, "pass")),
   );
 
   server.registerTool(
@@ -54,7 +54,7 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
       inputSchema: z.object({ step, slug, reason: z.string().min(1).describe("What has to change, in the person's words") }),
       annotations: { destructiveHint: false },
     },
-    async ({ step: st, slug: s, reason }) => text(hubSignoff(ctx, st, s, "return", reason)),
+    async ({ step: st, slug: s, reason }) => text(await hubSignoff(ctx, st, s, "return", reason)),
   );
 
   server.registerTool(
@@ -73,7 +73,7 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
       }),
       annotations: { destructiveHint: false },
     },
-    async (a) => text(hubBug(ctx, a)),
+    async (a) => text(await hubBug(ctx, a)),
   );
 
   server.registerTool(
@@ -84,7 +84,7 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
       inputSchema: z.object({ slug }),
       annotations: { readOnlyHint: true },
     },
-    async ({ slug: s }) => text(hubQa(ctx, s)),
+    async ({ slug: s }) => text(await hubQa(ctx, s)),
   );
 
   const verdict = z.object({
@@ -101,7 +101,7 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
       inputSchema: z.object({ slug, verdicts: z.array(verdict).min(1) }),
       annotations: { destructiveHint: false },
     },
-    async ({ slug: s, verdicts }) => text(hubVerdicts(ctx, s, verdicts)),
+    async ({ slug: s, verdicts }) => text(await hubVerdicts(ctx, s, verdicts)),
   );
 
   server.registerTool(
@@ -112,7 +112,7 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
       inputSchema: z.object({ slug, decision: z.enum(["pass", "return"]), reason: z.string().optional(), bugs: z.array(z.string().regex(/^BUG-\d{4,}$/)).optional() }),
       annotations: { destructiveHint: false },
     },
-    async ({ slug: s, decision, reason, bugs }) => text(hubDecide(ctx, s, decision, reason, bugs)),
+    async ({ slug: s, decision, reason, bugs }) => text(await hubDecide(ctx, s, decision, reason, bugs)),
   );
 
   server.registerTool(
@@ -123,7 +123,7 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
       inputSchema: z.object({ slug }),
       annotations: { readOnlyHint: true },
     },
-    async ({ slug: s }) => text(hubRelease(ctx, s)),
+    async ({ slug: s }) => text(await hubRelease(ctx, s)),
   );
 
   server.registerTool(
@@ -144,7 +144,7 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
       }),
       annotations: { destructiveHint: false },
     },
-    async ({ slug: s, edit }) => text(hubReleaseEdit(ctx, s, edit)),
+    async ({ slug: s, edit }) => text(await hubReleaseEdit(ctx, s, edit)),
   );
 
   server.registerTool(
@@ -166,7 +166,7 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
       inputSchema: z.object({ slug, report: z.string().min(1).describe("The report in Markdown: a heading per document, then Consistent or the conflicts with a proposed fix") }),
       annotations: { destructiveHint: false },
     },
-    async ({ slug: s, report }) => text(hubValidation(ctx, s, report)),
+    async ({ slug: s, report }) => text(await hubValidation(ctx, s, report)),
   );
 
   return server;

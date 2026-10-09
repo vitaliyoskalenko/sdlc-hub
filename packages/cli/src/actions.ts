@@ -11,6 +11,8 @@ export interface ActionOptions {
   /** The git identity a person's commits carry. */
   identity: (user: string) => { name: string; email: string };
   pushOptions?: SaverOptions["pushOptions"];
+  /** Opens the request after the push where the host takes no push options (GitHub). */
+  propose?: SaverOptions["propose"];
   now?: () => Date;
   /** Called after a push; the demo's stand-in for the git host uses it. */
   afterPush?: (save: Save) => void;
@@ -23,7 +25,7 @@ const iso = (d: Date) => d.toISOString().replace(/\.\d+Z$/, "Z");
 
 export function actionHandler(o: ActionOptions): ActionHandler {
   const now = o.now ?? (() => new Date());
-  const saver = (user: string) => createSaver({ root: o.root, identity: o.identity(user), now, ...(o.pushOptions ? { pushOptions: o.pushOptions } : {}) });
+  const saver = (user: string) => createSaver({ root: o.root, identity: o.identity(user), now, ...(o.pushOptions ? { pushOptions: o.pushOptions } : {}), ...(o.propose ? { propose: o.propose } : {}) });
 
   /** A read-only validation run, for the PO and the feature's leads, when the admin turned headless runs on. Saves nothing. */
   async function validate(user: string, slug: unknown, ctx: Parameters<ActionHandler["handle"]>[4]) {
@@ -45,7 +47,7 @@ export function actionHandler(o: ActionOptions): ActionHandler {
       const s = saver(user);
       const at = iso(now());
       const feature = { saver: s, project: ctx.project, state: ctx.state, local: ctx.specs, user, slug: b["slug"], at };
-      const actions: Record<string, () => SaveOutcome> = {
+      const actions: Record<string, () => Promise<SaveOutcome>> = {
         "/signoff": () => saveSignoff({ ...feature, step: b["step"], decision: b["decision"], reason: b["reason"], bugs: b["bugs"] }),
         "/person": () => savePeople({ saver: s, project: ctx.project, local: ctx.specs, user, edit: b }),
         "/verdicts": () => saveVerdicts({ ...feature, verdicts: b["verdicts"] }),
@@ -61,7 +63,7 @@ export function actionHandler(o: ActionOptions): ActionHandler {
       };
       const act = actions[path];
       if (!act) return { status: 404, body: { error: "No such action" } };
-      const r = act();
+      const r = await act();
       if (!r.ok) return { status: STATUS[r.code], body: { error: r.error, ...(r.findings ? { findings: r.findings } : {}) } };
       ctx.emit("saves");
       o.afterPush?.(r.save);

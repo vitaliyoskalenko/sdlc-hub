@@ -33,7 +33,7 @@ class Refused extends Error {
 
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 
-export function saveSignoff(i: SignoffInput): SaveOutcome {
+export async function saveSignoff(i: SignoffInput): Promise<SaveOutcome> {
   if (typeof i.slug !== "string" || !SLUG.test(i.slug) || typeof i.step !== "string" || (i.decision !== "pass" && i.decision !== "return"))
     return { ok: false, code: "bad-input", error: "Give slug, step and decision (pass or return)" };
   const reason = typeof i.reason === "string" ? i.reason.trim() : "";
@@ -74,7 +74,7 @@ export interface BugSaveInput {
 }
 
 /** Files a bug: `hub/bugs/BUG-NNNN.md` in the feature, through a merge request. */
-export function saveBug(i: BugSaveInput): SaveOutcome {
+export async function saveBug(i: BugSaveInput): Promise<SaveOutcome> {
   if (typeof i.slug !== "string" || !SLUG.test(i.slug)) return { ok: false, code: "bad-input", error: "Give the feature's slug" };
   const b = i.bug;
   if (typeof b.title !== "string" || typeof b.team !== "string" || typeof b.severity !== "string") return { ok: false, code: "bad-input", error: "A bug needs a title, a team and a severity" };
@@ -133,7 +133,7 @@ function peopleEdit(x: unknown): PeopleEdit | string {
 }
 
 /** Adds, changes or removes a person in .hub/roles.yaml. Only the admin passes the guard. */
-export function savePeople(i: PeopleSaveInput): SaveOutcome {
+export async function savePeople(i: PeopleSaveInput): Promise<SaveOutcome> {
   const edit = peopleEdit(i.edit);
   if (typeof edit === "string") return { ok: false, code: "bad-input", error: edit };
   try {
@@ -172,7 +172,7 @@ function feature(i: FeatureSaveInput): { slug: string; state: FeatureState } | S
 const isOutcome = (x: unknown): x is SaveOutcome => typeof x === "object" && x !== null && "ok" in x;
 
 /** QA's verdicts at verify, appended to hub/verification.yaml. */
-export function saveVerdicts(i: FeatureSaveInput & { verdicts: unknown }): SaveOutcome {
+export async function saveVerdicts(i: FeatureSaveInput & { verdicts: unknown }): Promise<SaveOutcome> {
   const f = feature(i);
   if (isOutcome(f)) return f;
   if (!Array.isArray(i.verdicts) || !i.verdicts.every((v) => v && typeof v === "object")) return { ok: false, code: "bad-input", error: "Give the verdicts" };
@@ -193,7 +193,7 @@ export function saveVerdicts(i: FeatureSaveInput & { verdicts: unknown }): SaveO
 }
 
 /** A bug's status, severity, team or title. */
-export function saveBugEdit(i: FeatureSaveInput & { id: unknown; edit: unknown }): SaveOutcome {
+export async function saveBugEdit(i: FeatureSaveInput & { id: unknown; edit: unknown }): Promise<SaveOutcome> {
   const f = feature(i);
   if (isOutcome(f)) return f;
   if (typeof i.id !== "string" || !/^BUG-\d{4,}$/.test(i.id)) return { ok: false, code: "bad-input", error: "Name the bug as BUG-NNNN" };
@@ -217,7 +217,7 @@ export function saveBugEdit(i: FeatureSaveInput & { id: unknown; edit: unknown }
 }
 
 /** A field of release.yaml: the smoke check, the checklist and the rollout (Ops), the go or no-go (PM). */
-export function saveRelease(i: FeatureSaveInput & { edit: unknown }): SaveOutcome {
+export async function saveRelease(i: FeatureSaveInput & { edit: unknown }): Promise<SaveOutcome> {
   const f = feature(i);
   if (isOutcome(f)) return f;
   const e = (i.edit ?? {}) as Record<string, unknown>;
@@ -245,7 +245,7 @@ export function saveRelease(i: FeatureSaveInput & { edit: unknown }): SaveOutcom
 }
 
 /** The PM's token estimate of a feature, low and high, in millions. */
-export function saveEstimate(i: FeatureSaveInput & { tokensM: unknown }): SaveOutcome {
+export async function saveEstimate(i: FeatureSaveInput & { tokensM: unknown }): Promise<SaveOutcome> {
   const f = feature(i);
   if (isOutcome(f)) return f;
   const t = i.tokensM;
@@ -266,7 +266,7 @@ export function saveEstimate(i: FeatureSaveInput & { tokensM: unknown }): SaveOu
 }
 
 /** A validation report, saved as a new file in hub/validation/. */
-export function saveValidation(i: FeatureSaveInput & { report: unknown }): SaveOutcome {
+export async function saveValidation(i: FeatureSaveInput & { report: unknown }): Promise<SaveOutcome> {
   const f = feature(i);
   if (isOutcome(f)) return f;
   if (typeof i.report !== "string" || !i.report.trim()) return { ok: false, code: "bad-input", error: "The report is empty" };
@@ -281,9 +281,9 @@ export function saveValidation(i: FeatureSaveInput & { report: unknown }): SaveO
 }
 
 /** Builds one change from main of the remote, checks it with the guard as the author, and pushes it. */
-function checkedSave(saver: Saver, user: string, o: { label: string; title: string; meta: Record<string, string>; build: (main: FileSource, p: Project) => Change; fallback: Project }): SaveOutcome {
+async function checkedSave(saver: Saver, user: string, o: { label: string; title: string; meta: Record<string, string>; build: (main: FileSource, p: Project) => Change; fallback: Project }): Promise<SaveOutcome> {
   try {
-    const save = saver.save({
+    const save = await saver.save({
       user,
       label: o.label,
       title: o.title,

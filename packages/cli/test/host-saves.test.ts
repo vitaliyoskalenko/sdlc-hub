@@ -1,0 +1,33 @@
+import { describe, expect, it } from "vitest";
+import type { Config } from "@sdlc-hub/core";
+import { hostSaves } from "../src/host-saves.ts";
+
+const config = (provider: "gitlab" | "github", host: string) => ({ git: { provider, host, namespace: "shop", repo: "product-specs" } }) as Config;
+
+describe("how a save opens its request", () => {
+  it("leaves GitLab to its push options", () => {
+    expect(hostSaves(config("gitlab", "gitlab.example.com"))).toEqual({});
+  });
+
+  it("opens a GitHub pull request with the person's own token and sets it to merge itself", async () => {
+    const calls: { url: string; auth: string; body: unknown }[] = [];
+    const fetcher = (async (url: string, init?: RequestInit) => {
+      calls.push({ url: String(url), auth: new Headers(init?.headers).get("authorization") ?? "", body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const answer = String(url).endsWith("/pulls") ? { number: 12, node_id: "PR_12", html_url: "https://github.com/shop/product-specs/pull/12" } : { data: {} };
+      return new Response(JSON.stringify(answer), { status: 200 });
+    }) as typeof fetch;
+    const asked: string[] = [];
+    const o = hostSaves(config("github", "github.com"), { fill: (web) => (asked.push(web), "ghp_person"), fetcher });
+    expect(o.pushOptions!("t", "main")).toEqual([]);
+    expect(await o.propose!({ branch: "hub/olena.k/x-1", title: "Sign off clarify", target: "main" })).toEqual({ iid: 12, url: "https://github.com/shop/product-specs/pull/12" });
+    expect(asked).toEqual(["https://github.com"]);
+    expect(calls.map((c) => c.url)).toEqual(["https://api.github.com/repos/shop/product-specs/pulls", "https://api.github.com/graphql"]);
+    expect(calls[0]!.body).toMatchObject({ head: "hub/olena.k/x-1", base: "main", title: "Sign off clarify" });
+    expect(calls.every((c) => c.auth.includes("ghp_person"))).toBe(true);
+  });
+
+  it("says how to sign in when git has no token for GitHub", async () => {
+    const o = hostSaves(config("github", "github.example.com"), { fill: () => undefined });
+    await expect(o.propose!({ branch: "b", title: "t", target: "main" })).rejects.toThrow(/no token for github\.example\.com.*gh auth login/);
+  });
+});

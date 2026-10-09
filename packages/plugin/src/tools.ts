@@ -157,10 +157,10 @@ export function hubNext(ctx: ToolContext, slug?: string, step?: string): ToolRes
   return { text: planText(ctx, l, s, plan), ...(ok ? {} : { isError: true }) };
 }
 
-export function hubSignoff(ctx: ToolContext, step: string, slug: string, decision: "pass" | "return", reason?: string): ToolResult {
+export async function hubSignoff(ctx: ToolContext, step: string, slug: string, decision: "pass" | "return", reason?: string): Promise<ToolResult> {
   const l = load(ctx);
   if (isResult(l)) return l;
-  const r = saveSignoff({ saver: ctx.saver(l.user), project: l.project, state: l.state, user: l.user, slug, step, decision, reason, at: iso(ctx.now()) });
+  const r = await saveSignoff({ saver: ctx.saver(l.user), project: l.project, state: l.state, user: l.user, slug, step, decision, reason, at: iso(ctx.now()) });
   return outcomeText(r, decision === "pass" ? `Your sign-off of ${step}` : `Your return of ${step}`);
 }
 
@@ -174,13 +174,13 @@ export interface BugArgs {
   body?: string;
 }
 
-export function hubBug(ctx: ToolContext, a: BugArgs): ToolResult {
+export async function hubBug(ctx: ToolContext, a: BugArgs): Promise<ToolResult> {
   const l = load(ctx);
   if (isResult(l)) return l;
   const s = l.state(a.slug);
   if (!s) return featureOrList(l, a.slug) as ToolResult;
   const foundIn = ["verify", "qa-final", "autotests"].includes(s.current) ? s.current : undefined;
-  const r = saveBug({ saver: ctx.saver(l.user), project: l.project, user: l.user, slug: a.slug, bug: a, ...(foundIn ? { foundIn } : {}) });
+  const r = await saveBug({ saver: ctx.saver(l.user), project: l.project, user: l.user, slug: a.slug, bug: a, ...(foundIn ? { foundIn } : {}) });
   return outcomeText(r, `The bug "${a.title}"`);
 }
 
@@ -230,18 +230,18 @@ export function hubQa(ctx: ToolContext, slug: string): ToolResult {
   };
 }
 
-export function hubVerdicts(ctx: ToolContext, slug: string, verdicts: { ac: string; platform: string; verdict: "pass" | "fail" | "na"; bugs?: string[] }[]): ToolResult {
+export async function hubVerdicts(ctx: ToolContext, slug: string, verdicts: { ac: string; platform: string; verdict: "pass" | "fail" | "na"; bugs?: string[] }[]): Promise<ToolResult> {
   const l = load(ctx);
   if (isResult(l)) return l;
-  const r = saveVerdicts({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, verdicts, at: iso(ctx.now()) });
+  const r = await saveVerdicts({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, verdicts, at: iso(ctx.now()) });
   return outcomeText(r, `${verdicts.length} verdict${verdicts.length === 1 ? "" : "s"} for ${slug}`);
 }
 
 /** The QA decision at the final check: pass to release, or return to verify with the reason and the bugs. */
-export function hubDecide(ctx: ToolContext, slug: string, decision: "pass" | "return", reason?: string, bugs?: string[]): ToolResult {
+export async function hubDecide(ctx: ToolContext, slug: string, decision: "pass" | "return", reason?: string, bugs?: string[]): Promise<ToolResult> {
   const l = load(ctx);
   if (isResult(l)) return l;
-  const r = saveSignoff({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, step: "qa-final", decision, reason, ...(bugs?.length ? { bugs } : {}), at: iso(ctx.now()) });
+  const r = await saveSignoff({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, step: "qa-final", decision, reason, ...(bugs?.length ? { bugs } : {}), at: iso(ctx.now()) });
   return outcomeText(r, decision === "pass" ? `Your decision to pass ${slug} to release` : `Your return of ${slug} to verify`);
 }
 
@@ -271,10 +271,10 @@ export type ReleaseEditArgs =
   | { kind: "add-item"; item: string }
   | { kind: "rollout"; stage: number };
 
-export function hubReleaseEdit(ctx: ToolContext, slug: string, edit: ReleaseEditArgs): ToolResult {
+export async function hubReleaseEdit(ctx: ToolContext, slug: string, edit: ReleaseEditArgs): Promise<ToolResult> {
   const l = load(ctx);
   if (isResult(l)) return l;
-  const r = saveRelease({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, edit, at: iso(ctx.now()) });
+  const r = await saveRelease({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, edit, at: iso(ctx.now()) });
   return outcomeText(r, `The release change for ${slug}`);
 }
 
@@ -286,9 +286,9 @@ export function hubTest(ctx: ToolContext, slug: string, team?: string): ToolResu
 }
 
 /** Saves a validation report as a new file in the feature's hub/validation/. */
-export function hubValidation(ctx: ToolContext, slug: string, report: string): ToolResult {
+export async function hubValidation(ctx: ToolContext, slug: string, report: string): Promise<ToolResult> {
   const l = load(ctx);
   if (isResult(l)) return l;
-  const r = saveValidation({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, report, at: iso(ctx.now()) });
+  const r = await saveValidation({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, report, at: iso(ctx.now()) });
   return outcomeText(r, `The validation report of ${slug}`);
 }

@@ -1,6 +1,7 @@
 // Saves from the site. The server commits in its own git worktree, never in the checkout the assistant works in,
 // and pushes a branch `hub/<user>/<label>-<time>`. On GitLab, push options open the merge request and set it to merge
-// itself when hub-guard passes, so git alone is enough, over HTTPS or SSH. A save stays pending until main has it;
+// itself when hub-guard passes, so git alone is enough, over HTTPS or SSH. GitHub has no such options: there the
+// saver opens the pull request and sets it to merge itself through the API, with the person's own token. A save stays pending until main has it;
 // when hub-guard refuses it, the reason is in hub-state. Records live in the git directory, not in the repository.
 
 import { execFileSync, spawnSync } from "node:child_process";
@@ -50,6 +51,11 @@ export interface SaverOptions {
   target?: string;
   /** Push options that open the merge request; GitLab's by default. */
   pushOptions?: (title: string, target: string) => string[];
+  /**
+   * Opens the request after the push where push options cannot: on GitHub, a pull request set to merge itself. When
+   * it fails, the pushed branch is deleted and the save fails.
+   */
+  propose?: (p: { branch: string; title: string; target: string }) => Promise<{ iid: number; url: string }>;
   now?: () => Date;
   env?: NodeJS.ProcessEnv;
 }
@@ -114,7 +120,7 @@ export function createSaver(o: SaverOptions) {
   return {
     list: read,
 
-    save(req: SaveRequest): Save {
+    async save(req: SaveRequest): Promise<Save> {
       fetch(target);
       const changes = req.build(refSource(o.root, mainRef));
       const touched = new Set(changes.flatMap((c) => (c.from ? [c.from, c.path] : [c.path])));
@@ -145,7 +151,15 @@ export function createSaver(o: SaverOptions) {
       if (push.status !== 0) throw new Error(`The push failed: ${(push.stderr || push.error?.message || "").trim()}`);
       // GitLab answers with the merge request's address.
       const link = /(https?:\/\/\S+\/-\/merge_requests\/(\d+))/.exec(push.stderr ?? "");
-      const s: Save = { branch, title: req.title, user: req.user, paths, at: at.toISOString().replace(/\.\d+Z$/, "Z"), sha, blobs, state: "pending", ...(req.meta ? { meta: req.meta } : {}), ...(link ? { mr: { iid: Number(link[2]), url: link[1]! } } : {}) };
+      let mr = link ? { iid: Number(link[2]), url: link[1]! } : undefined;
+      if (o.propose)
+        try {
+          mr = await o.propose({ branch, title: req.title, target });
+        } catch (e) {
+          spawnSync("git", ["push", "-q", remote, "--delete", branch], { cwd: o.root, env: baseEnv });
+          throw new Error(`The change was pushed but no pull request opened, so it was taken back: ${(e as Error).message}`);
+        }
+      const s: Save = { branch, title: req.title, user: req.user, paths, at: at.toISOString().replace(/\.\d+Z$/, "Z"), sha, blobs, state: "pending", ...(req.meta ? { meta: req.meta } : {}), ...(mr ? { mr } : {}) };
       write([s, ...read()]);
       return s;
     },

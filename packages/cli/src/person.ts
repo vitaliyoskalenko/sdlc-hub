@@ -10,6 +10,7 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { personStatePath, type Person } from "@sdlc-hub/core";
 import { gitIdentity, openProject, personOf } from "@sdlc-hub/git";
 import { claudeSetupCommands, MARKETPLACE, PLUGIN } from "@sdlc-hub/plugin/files";
+import { hostSaves } from "./host-saves.ts";
 import { createSaver, writeHubState, type Line, type SaverOptions } from "@sdlc-hub/save";
 import { identityToRecipient } from "age-encryption";
 import { keyPath, keyStore, keysOf, machineName, newKeyPair } from "@sdlc-hub/usage";
@@ -100,7 +101,7 @@ export async function personSetup(o: SetupOptions): Promise<{ ok: boolean; lines
       let machine = machineName();
       for (let n = 2; opened.view.specs.read(keyPath(o.user, machine)) !== undefined; n++) machine = `${machineName()}-${n}`;
       const path = keyPath(o.user, machine);
-      createSaver({ root: o.root, identity: { name: id.name || o.user, email: id.email || `${o.user}@localhost` }, ...(o.pushOptions ? { pushOptions: o.pushOptions } : {}) }).save({
+      await createSaver({ root: o.root, identity: { name: id.name || o.user, email: id.email || `${o.user}@localhost` }, ...(o.pushOptions ? { pushOptions: o.pushOptions } : hostSaves(opened.project.config)) }).save({
         user: o.user,
         label: `key-${machine}`,
         title: `Usage key of ${o.user} on ${machine}`,

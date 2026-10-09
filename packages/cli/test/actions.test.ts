@@ -186,7 +186,7 @@ describe("the demo's stand-in for the git host", () => {
     const host = demoHost({ root, remote, delayMs: 0, now: () => "2026-10-08T10:01:00Z" });
     // A save that skipped the site's own check, as an older hub might push.
     const saver = createSaver({ root, identity: { name: "olena.k", email: "olena.k@example.com" }, pushOptions: () => [] });
-    host.afterPush(saver.save({ user: "olena.k", label: "config", title: "Change config", build: (main) => [{ path: ".hub/config.yaml", next: `${main.read(".hub/config.yaml")}# edit\n` }] }));
+    host.afterPush(await saver.save({ user: "olena.k", label: "config", title: "Change config", build: (main) => [{ path: ".hub/config.yaml", next: `${main.read(".hub/config.yaml")}# edit\n` }] }));
     await host.idle();
     expect(saver.refresh()[0]).toMatchObject({ state: "refused", findings: [{ path: ".hub/config.yaml", reason: expect.stringMatching(/No role of olena.k/) }] });
     expect(git(remote, "branch", "--list", "hub/*")).toBe("");

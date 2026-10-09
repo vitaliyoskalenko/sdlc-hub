@@ -24,6 +24,7 @@ import { report, reportTests } from "./report.ts";
 import { createHubMcp, sessionContext, type ToolContext } from "@sdlc-hub/plugin";
 import { createSaver } from "@sdlc-hub/save";
 import { gitCredentials, setupHandler } from "./setup.ts";
+import { hostSaves } from "./host-saves.ts";
 import { WEB_ASSETS } from "./web-assets.ts";
 
 const HELP = `SDLC Hub
@@ -131,7 +132,7 @@ async function serve(f: Record<string, string>) {
     hasRemote = false;
   }
   // Headless validation starts the person's own Claude Code, read-only; only when the admin turned it on.
-  const actions = hasRemote ? actionHandler({ root, identity: () => gitIdentity(root), headless: claudeHeadless() }) : undefined;
+  const actions = hasRemote ? actionHandler({ root, identity: () => gitIdentity(root), headless: claudeHeadless(), ...hostSaves(first.project.config) }) : undefined;
   // The per-person costs the admin and the PM may see are decrypted with this machine's usage key.
   const usageKey = () => {
     try {
@@ -266,7 +267,10 @@ function pluginContext(f: Record<string, string>): ToolContext {
     open: () => openProject(root),
     user: () => personOf(root, openProject(root).project?.roles),
     assistant,
-    saver: () => createSaver({ root, identity: gitIdentity(root) }),
+    saver: () => createSaver({ root, identity: gitIdentity(root), ...(() => {
+      const config = openProject(root).project?.config;
+      return config ? hostSaves(config) : {};
+    })() }),
     now: () => new Date(),
   };
 }
