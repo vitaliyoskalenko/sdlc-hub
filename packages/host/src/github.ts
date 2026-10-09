@@ -90,12 +90,23 @@ export class GitHub {
   }
 
   private async call<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const res = await this.fetcher(`${this.api}${path}`, {
-      method,
-      signal: AbortSignal.timeout(60_000),
-      headers: { authorization: `Bearer ${this.token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28", ...(body === undefined ? {} : { "content-type": "application/json" }) },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    // A request that failed on the way (a reset connection, a timeout) is tried twice more. GitHub answers a repeated
+    // pull request that did reach it with 422, which the caller handles.
+    let res: Response | undefined;
+    for (let attempt = 1; !res; attempt++) {
+      try {
+        res = await this.fetcher(`${this.api}${path}`, {
+          method,
+          signal: AbortSignal.timeout(60_000),
+          headers: { authorization: `Bearer ${this.token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28", ...(body === undefined ? {} : { "content-type": "application/json" }) },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        });
+      } catch (e) {
+        const cause = (e as { cause?: { code?: string; message?: string } }).cause;
+        if (attempt >= 3) throw new Error(`Could not reach GitHub for ${method} ${path}: ${(e as Error).message}${cause ? ` (${cause.code ?? cause.message})` : ""}`);
+        await new Promise((r) => setTimeout(r, attempt * 1500));
+      }
+    }
     const text = await res.text();
     const data = text ? (JSON.parse(text) as unknown) : undefined;
     if (!res.ok) {

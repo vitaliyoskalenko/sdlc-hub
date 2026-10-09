@@ -47,3 +47,18 @@ describe("the GitHub client", () => {
     expect(r.rules[1]!.parameters).toMatchObject({ required_status_checks: [{ context: "hub-guard", integration_id: 15368 }] });
   });
 });
+
+describe("a request that fails on the way", () => {
+  it("is tried again, and the error names the cause after three tries", async () => {
+    let n = 0;
+    const flaky = (async () => {
+      if (++n < 3) throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNRESET" } });
+      return new Response(JSON.stringify({ login: "nazar.t" }), { status: 200 });
+    }) as unknown as typeof fetch;
+    expect((await new GitHub("t", undefined, flaky).me()).login).toBe("nazar.t");
+    const down = (async () => {
+      throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ENOTFOUND" } });
+    }) as unknown as typeof fetch;
+    await expect(new GitHub("t", undefined, down).me()).rejects.toThrow("Could not reach GitHub for GET /user: fetch failed (ENOTFOUND)");
+  }, 20_000);
+});

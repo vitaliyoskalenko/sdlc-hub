@@ -4,7 +4,7 @@
 
 import { execFileSync } from "node:child_process";
 import type { Config } from "@sdlc-hub/core";
-import { GitHub } from "@sdlc-hub/host";
+import { GitHub, HostError } from "@sdlc-hub/host";
 import { githubApi, githubWeb } from "@sdlc-hub/install";
 import { gitlabPushOptions, type Save, type SaverOptions } from "@sdlc-hub/save";
 
@@ -57,7 +57,13 @@ export function hostSaves(config: Config, o: HostSaveOptions = {}): Pick<SaverOp
     },
     async propose({ branch, title, target }) {
       const gh = client();
-      const pr = await gh.createPull(config.git.namespace, config.git.repo, branch, target, title, autoMerge ? "Saved from SDLC Hub. It merges itself when hub-guard passes." : "Saved from SDLC Hub. Merge it when hub-guard has run.");
+      const body = autoMerge ? "Saved from SDLC Hub. It merges itself when hub-guard passes." : "Saved from SDLC Hub. Merge it when hub-guard has run.";
+      // A retried request that had reached GitHub finds its pull request already open.
+      const pr = await gh.createPull(config.git.namespace, config.git.repo, branch, target, title, body).catch(async (e: unknown) => {
+        const open = e instanceof HostError && e.status === 422 ? (await gh.openPulls(config.git.namespace, config.git.repo, branch))[0] : undefined;
+        if (!open) throw e;
+        return open;
+      });
       if (autoMerge) await gh.autoMerge(pr);
       return { iid: pr.number, url: pr.html_url };
     },
