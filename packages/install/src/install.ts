@@ -213,7 +213,9 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
       return { state: "skip" as const, text: `the hub files wait in ${w.changeRequest} ${w.sign}${pending.iid}, which merges itself when hub-guard passes`, link: pending.web_url };
     }
     // The install branch is the hub's own: without an open merge request it starts again from main.
-    push(pending ? INSTALL_BRANCH : main, INSTALL_BRANCH, !pending);
+    const sha = push(pending ? INSTALL_BRANCH : main, INSTALL_BRANCH, !pending);
+    // GitLab takes in a push in the background: wait until it shows the branch before opening the merge request.
+    for (let i = 0; i < 30 && sha && (await gl.branch(p.id, INSTALL_BRANCH))?.commit.id !== sha; i++) await new Promise((r) => setTimeout(r, 1000));
     const mr = pending ?? (await gl.createMergeRequest(p.id, INSTALL_BRANCH, main, "Update SDLC Hub", "Written by setup. It merges itself when hub-guard passes."));
     await gl.autoMerge(p.id, mr.iid);
     return { text: `opened ${w.changeRequest} ${w.sign}${mr.iid} with the hub files; it merges itself when hub-guard passes`, link: mr.web_url };
