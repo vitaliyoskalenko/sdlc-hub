@@ -266,7 +266,7 @@ function Setup() {
                 </p>
                 <ul class="perms" id="github-perms">
                   <li>
-                    Repository: <code>Administration</code>, <code>Contents</code>, <code>Pull requests</code>, <code>Workflows</code> and <code>Secrets</code>, read and write
+                    Repository: <code>Administration</code>, <code>Contents</code>, <code>Pull requests</code>, <code>Workflows</code> and <code>Secrets</code>, read and write; <code>Actions</code> read
                   </li>
                   <li>
                     Organization: <code>Members</code> read; <code>Administration</code> read and write
