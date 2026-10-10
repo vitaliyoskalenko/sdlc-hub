@@ -168,5 +168,9 @@ export const teamSnapshotSchema = z.strictObject({
     .nullable(),
   pipeline: z.strictObject({ status: z.enum(["success", "failed", "running", "pending", "canceled"]), url: z.string().optional(), at: isoTime.optional() }).nullable(),
   warnings: z.array(z.string()),
+  /** Tasks blocked on another team now, since when: carried from one snapshot to the next by hub-report. */
+  waits: z.array(z.strictObject({ task: z.string(), on: z.array(z.string()), since: isoTime })).optional(),
+  /** Waits that ended, for the days a team waited. */
+  waited: z.array(z.strictObject({ task: z.string(), on: z.array(z.string()), from: isoTime, to: isoTime })).optional(),
 });
 export type TeamSnapshot = z.output<typeof teamSnapshotSchema>;

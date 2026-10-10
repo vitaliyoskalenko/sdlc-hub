@@ -10,7 +10,7 @@ import { QA } from "./qa.tsx";
 import { ValidateCard } from "./validate.tsx";
 import { Release } from "./release.tsx";
 import { PendingList, SignoffBox, useAction, usePending } from "./saves.tsx";
-import { Cmd, CopyButton, Link, names, Pill, personName, RoleChip, StatusPill, useApp, WaitMark, waitText } from "./ui.tsx";
+import { Cmd, CopyButton, Link, names, Pill, personName, RoleChip, StatusPill, teamName, useApp, WaitMark, waitText } from "./ui.tsx";
 
 
 /** Steps recorded on the QA or Release screen. */
@@ -531,14 +531,29 @@ function DetailsForm({ slug, title, links, close }: { slug: string; title: strin
 
 /** How long the feature and each step took, from the stage events the plugin records. */
 function LeadTime({ detail }: { detail: FeatureDetail }) {
+  const { project } = useApp();
   const { leadTime, times } = detail.state;
-  if (!leadTime) return <p class="muted" id="leadtime">No stage events yet: the time per step appears once someone runs a stage with the hub's plugin.</p>;
+  const waited =
+    detail.state.waited.length > 0 && detail.state.contractTeam ? (
+      <p id="waited">
+        <span class="k">Waited for {teamName(project, detail.state.contractTeam)}</span>{" "}
+        {detail.state.waited.map((w) => `${teamName(project, w.team)} ${w.days} day${w.days === 1 ? "" : "s"}${w.waiting ? ", still waiting" : ""}`).join(" · ")}
+      </p>
+    ) : null;
+  if (!leadTime)
+    return (
+      <div id="leadtime">
+        <p class="muted">No stage events yet: the time per step appears once someone runs a stage with the hub's plugin.</p>
+        {waited}
+      </div>
+    );
   return (
     <div id="leadtime">
       <p>
         <span class="k">Lead time</span> <b>{leadTime.days} days</b> {leadTime.finished ? `from ${day(leadTime.started)} to the release` : `since ${day(leadTime.started)}`}
       </p>
       <p class="muted">{times.map((t) => `${t.step} ${duration(t.hours)}${t.finished ? "" : " so far"}`).join(" · ")}</p>
+      {waited}
     </div>
   );
 }

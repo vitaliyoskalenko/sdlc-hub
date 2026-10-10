@@ -179,6 +179,10 @@ test("the page shows what the files say", async ({ page }) => {
   await ready(page);
   await expect(page.locator("#leadtime")).toContainText("Lead time");
   await expect(page.locator('[data-time="implement"]')).toContainText("30 h, 2026-10-02 to 2026-10-03");
+  // The days the web team waited for the backend team, from the waits hub-report keeps.
+  await page.goto("/features/bulk-order-export?as=maksym.d");
+  await ready(page);
+  await expect(page.locator("#waited")).toContainText(/Waited for Backend.*Web \d+(\.\d)? days, still waiting/);
   await page.goto("/features/bulk-order-export/tasks?as=maksym.d");
   await ready(page);
   await expect(page.locator(".note.bad")).toContainText("wait for another team");

@@ -281,6 +281,9 @@ export function demoFixture(): Fixture {
         files: ["tasks.json", "tasks/tracker.md"],
         tasks: BULK_TASKS.web,
         tracker: [{ id: "T1", status: "done" }, { id: "T2", status: "in_progress", blocked_by: ["T1"] }, { id: "T3", status: "blocked", blocked_by: ["T2", "backend:T2"] }],
+        // hub-report keeps when a wait on another team started, and the waits that ended.
+        waits: [{ task: "T3", on: ["backend:T2"], since: "2026-10-05T09:00:00Z" }],
+        waited: [{ task: "T1", on: ["backend:T1"], from: "2026-10-01T09:00:00Z", to: "2026-10-02T09:00:00Z" }],
       }),
       snapshot(slug, "ios", {
         files: ["tasks.json", "tasks/tracker.md"],

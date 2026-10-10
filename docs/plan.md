@@ -25,7 +25,7 @@ Agreed with the owner on 10 October 2026. Phases 0 to 5 of the delivery plan are
 
 | # | What | Size | Status |
 |---|---|---|---|
-| 10 | Days client teams waited for the contract team | M | To do |
+| 10 | Days client teams waited for the contract team | M | Done: hub-report keeps the waits; the Flow tab shows the days |
 | 11 | An Ops view across features in release, and a check that a CI result is not older than the last merge | M | Done: the Releases page; a warning on the QA tab |
 | 12 | The price table and a host checklist in Settings | S–M | Done: checked against both hosts |
 | 13 | Re-run open merge requests when `roles.yaml` changes (claim 14) | M | To do |

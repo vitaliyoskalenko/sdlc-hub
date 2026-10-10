@@ -158,6 +158,8 @@ export interface SnapshotParts {
   tracker?: { id: string; status: string; blocked_by?: string[] }[];
   review?: "PASS" | "CHANGES REQUESTED";
   mr?: { iid: number; state: "opened" | "merged" | "closed"; author?: string };
+  waits?: { task: string; on: string[]; since: string }[];
+  waited?: { task: string; on: string[]; from: string; to: string }[];
 }
 
 /** A team snapshot on hub-state, as hub-report writes it. */
@@ -175,6 +177,8 @@ export function snapshot(slug: string, team: string, p: SnapshotParts): Files {
     mr: p.mr ?? null,
     pipeline: null,
     warnings: [],
+    ...(p.waits ? { waits: p.waits } : {}),
+    ...(p.waited ? { waited: p.waited } : {}),
   };
   return { [`features/${slug}/teams/${team}.json`]: JSON.stringify(json, null, 2) };
 }

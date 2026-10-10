@@ -3,7 +3,7 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { buildTeamSnapshot, parseTeamSnapshot, type TeamSnapshot } from "@sdlc-hub/core";
+import { buildTeamSnapshot, parseTeamSnapshot, type TeamSnapshot, carryWaits } from "@sdlc-hub/core";
 import { workingTreeSource } from "@sdlc-hub/git";
 import { writeHubState } from "@sdlc-hub/save";
 
@@ -68,8 +68,11 @@ export function report(o: ReportOptions): ReportResult {
     author: { name: o.env.GITLAB_USER_NAME ?? "hub-report", email: o.env.GITLAB_USER_EMAIL ?? "hub-report@localhost" },
     edit(dir) {
       let changed = false;
-      for (const s of snapshots) {
-        const path = join(dir, "features", s.slug, "teams", `${o.team}.json`);
+      for (const fresh of snapshots) {
+        const path = join(dir, "features", fresh.slug, "teams", `${o.team}.json`);
+        // The waits on other teams keep their start from the snapshot before this one.
+        const prev = existsSync(path) ? parseTeamSnapshot(readFileSync(path, "utf8"), path).value : undefined;
+        const s = carryWaits(prev, fresh, o.now);
         const text = JSON.stringify(s, null, 2) + "\n";
         if (existsSync(path) && withoutTime(readFileSync(path, "utf8")) === withoutTime(text)) continue;
         mkdirSync(dirname(path), { recursive: true });

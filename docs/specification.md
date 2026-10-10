@@ -711,7 +711,7 @@ Each record is tagged with the feature and step of the last `hub` command in tha
 
 - Tokens and API-equivalent cost per step, feature, role, team, model and assistant.
 - Estimate against actual per step. Estimates start from `flow.yaml`, and the PM can adjust them per feature.
-- Lead time per step and per feature from the event log. A step runs from its first start to its last finish, or to now while it runs. The feature runs from its first event to the release (the start of the watch period), or to now. The Flow tab shows both. Not built yet: the days teams waited for the team that publishes the API contract.
+- Lead time per step and per feature from the event log. A step runs from its first start to its last finish, or to now while it runs. The feature runs from its first event to the release (the start of the watch period), or to now. The Flow tab shows both. The days each client team waited for the team that publishes the API contract: a task waits on another team when the tracker says blocked and its Blocked by names that team's task (`backend:T2`). `hub-report` keeps when each wait started, in the snapshot's `waits`, and moves it to `waited` with its end when the task is no longer blocked. The Flow tab shows the days per team.
 - Bugs per feature by severity and by the step that found them, autotest pass rate, and criteria covered.
 
 On Team seats the work is not billed per step. The cost shows what the same work would cost at API list prices.

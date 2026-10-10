@@ -65,6 +65,23 @@ describe("hub report", () => {
   });
 });
 
+describe("hub report and waits on other teams", () => {
+  it("keeps a wait's start from report to report, and records it when it ends", () => {
+    const { specs, team } = repos();
+    const opts = { team: "web", cwd: team, specsUrl: specs, push: true, env: { CI_COMMIT_REF_NAME: "main", CI_COMMIT_SHA: "abc123" } };
+    report({ ...opts, now: "2026-10-08T10:00:00Z" });
+    report({ ...opts, now: "2026-10-09T10:00:00Z" });
+    const path = "features/bulk-order-export/teams/web.json";
+    expect(parseTeamSnapshot(read(specs, path), "web.json").value?.waits).toEqual([{ task: "T1", on: ["backend:T2"], since: "2026-10-08T10:00:00Z" }]);
+    writeFileSync(join(team, "docs/features/bulk-order-export/tasks/tracker.md"), "| # | Task | Layer | Owner | Estimate | Blocked by | Status |\n|---|---|---|---|---|---|---|\n| T1 | ui: export dialog | ui | p | S | backend:T2 | in_progress |\n");
+    git(team, "commit", "-qam", "unblocked");
+    report({ ...opts, now: "2026-10-10T16:00:00Z" });
+    const snap = parseTeamSnapshot(read(specs, path), "web.json").value!;
+    expect(snap.waits).toEqual([]);
+    expect(snap.waited).toEqual([{ task: "T1", on: ["backend:T2"], from: "2026-10-08T10:00:00Z", to: "2026-10-10T16:00:00Z" }]);
+  });
+});
+
 describe("hub report --tests", () => {
   it("records the pipeline's result for each feature, labelled ci, with its address and commit", () => {
     const { specs, team } = repos();

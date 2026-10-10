@@ -152,6 +152,7 @@ export interface FeatureState {
   /** From the stage events in hub-state. */
   times: { step: string; started: string; finished?: string; hours: number }[];
   leadTime?: { started: string; finished?: string; days: number };
+  waited: { team: string; days: number; waiting: boolean }[];
 }
 
 export interface FeatureFile {

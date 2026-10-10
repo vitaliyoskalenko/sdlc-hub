@@ -7,6 +7,7 @@ import { parseStructure } from "./content/structure.ts";
 import type { Atom, Requirement } from "./evidence.ts";
 import { parseBugFile, parseConfig, parseEngine, parseEventsJsonl, parseFeature, parseFlow, parseRelease, parseRoles, parseSignoffs, parseTeamSnapshot, parseTestRun } from "./files.ts";
 import { featureTime, stepTimes, type StepTime } from "./times.ts";
+import { waitedFor } from "./waits.ts";
 import { hasErrors, type Issue, type Result } from "./issues.ts";
 import { checkEngineAgainstFlow } from "./project-check.ts";
 import { buildTeamSnapshot, readRoute, readSize, readTargetSurfaces, UI_SURFACES } from "./sdd.ts";
@@ -90,6 +91,8 @@ export interface FeatureState {
   times: StepTime[];
   /** From the first event to the release (the start of the watch), or to now. */
   leadTime?: { started: string; finished?: string; days: number };
+  /** Days each client team waited for the contract team, from the waits hub-report keeps. */
+  waited: { team: string; days: number; waiting: boolean }[];
 }
 
 // --- the project
@@ -542,6 +545,7 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
     warnings,
     issues,
     times: stepTimes(events, view.now),
+    waited: contractId ? waitedFor(teams, contractId, view.now) : [],
     ...(lead ? { leadTime: lead } : {}),
   };
 

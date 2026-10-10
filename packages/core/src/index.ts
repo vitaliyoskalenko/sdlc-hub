@@ -35,3 +35,4 @@ export * from "./times.ts";
 export * from "./validate.ts";
 export * from "./version.ts";
 export * from "./fanout.ts";
+export * from "./waits.ts";
