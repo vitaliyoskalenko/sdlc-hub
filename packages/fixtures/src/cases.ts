@@ -126,7 +126,7 @@ fixtures["clarify-signoff"] = {
     teams: {
       web: teamFiles(slug, {
         "sad.md": "# SAD\n",
-        "adr/0001-keep-line-breaks.md": "# ADR\n",
+        "adr/0001-keep-line-breaks.md": "# ADR\n", "_sequences-log.md": "# Sequences\n",
         "tasks.json": tasksJson(slug, ["T1"]),
         "tasks/tracker.md": tracker([["T1", "done"]]),
         "_review/review-2026-10-06.md": "**Gate result:** CHANGES REQUESTED\n",
@@ -176,7 +176,7 @@ function routeFeature(slug: string, route: string, main: Record<string, string>)
   const main = base();
   routeFeature("on-standard", "standard", main);
   routeFeature("on-full", "full", main);
-  const backendFiles = (slug: string) => teamFiles(slug, { "sad.md": "# SAD\n", "adr/0001-x.md": "# ADR\n" });
+  const backendFiles = (slug: string) => teamFiles(slug, { "sad.md": "# SAD\n", "adr/0001-x.md": "# ADR\n", "_sequences-log.md": "# Sequences\n" });
   fixtures["skipped-or-missed"] = {
     description: "No ux-flows.md while tech-design has evidence: skipped on standard, missed with a warning on full.",
     now: NOW,
@@ -201,6 +201,36 @@ function routeFeature(slug: string, route: string, main: Record<string, string>)
   };
 }
 
+// --- sequences: SDD's second tech-design stage leaves only _sequences-log.md
+
+{
+  const main = base();
+  routeFeature("design-only", "standard", main);
+  routeFeature("quick-design", "quick", main);
+  const designed = (slug: string) => teamFiles(slug, { "sad.md": "# SAD\n", "adr/0001-x.md": "# ADR\n" });
+  fixtures["sequences-pending"] = {
+    description: "sad.md and adr/ exist but sequences has not run: tech-design is still running, except on the quick route, where it is not required.",
+    now: NOW,
+    main,
+    teams: { backend: { ...designed("design-only"), ...designed("quick-design") } },
+    features: ["design-only", "quick-design"],
+    expected: {
+      "design-only": {
+        current: "tech-design",
+        steps: { specify: "done", clarify: "done", epic: "done", "ux-flows": "skipped", "tech-design": "running" },
+        onlyWarnings: true,
+        warnings: [],
+      },
+      "quick-design": {
+        current: "tech-design",
+        steps: { specify: "done", clarify: "done", epic: "done", "ux-flows": "skipped", "tech-design": "signoff" },
+        onlyWarnings: true,
+        warnings: [],
+      },
+    },
+  };
+}
+
 // --- a feature with no user interface
 
 {
@@ -213,7 +243,7 @@ function routeFeature(slug: string, route: string, main: Record<string, string>)
   backendOnly("api-only", false);
   backendOnly("api-unmarked", undefined);
   const sad = "---\nstatus: Draft\nfeature_size: M\ntarget_surfaces: [backend-service]\n---\n\n# SAD\n";
-  const files = (slug: string) => teamFiles(slug, { "sad.md": sad, "adr/0001-x.md": "# ADR\n" });
+  const files = (slug: string) => teamFiles(slug, { "sad.md": sad, "adr/0001-x.md": "# ADR\n", "_sequences-log.md": "# Sequences\n" });
   fixtures["no-user-interface"] = {
     description: "ui: false in feature.yaml skips ux-flows and screens on every route. Without it, a sad.md that declares no UI surface gives a warning.",
     now: NOW,
@@ -319,7 +349,7 @@ function routeFeature(slug: string, route: string, main: Record<string, string>)
     main,
     hubState: {
       ...snapshot(slug, "backend", {
-        files: ["sad.md", "adr/0001-x.md", "data-model.md", "contracts/openapi.yaml", "tasks.json", "tasks/tracker.md"],
+        files: ["sad.md", "adr/0001-x.md", "_sequences-log.md", "data-model.md", "contracts/openapi.yaml", "tasks.json", "tasks/tracker.md"],
         tasks: ["T1", "T2"],
         tracker: [{ id: "T1", status: "done" }, { id: "T2", status: "in_progress" }],
       }),
@@ -611,7 +641,7 @@ const QA_PASSED = [
     now: NOW,
     main,
     teams: {
-      app: teamFiles(slug, { "sad.md": "# SAD\n", "adr/0001-x.md": "# ADR\n", "tasks.json": tasksJson(slug, ["T1"]), "tasks/tracker.md": tracker([["T1", "todo"]]) }),
+      app: teamFiles(slug, { "sad.md": "# SAD\n", "adr/0001-x.md": "# ADR\n", "_sequences-log.md": "# Sequences\n", "tasks.json": tasksJson(slug, ["T1"]), "tasks/tracker.md": tracker([["T1", "todo"]]) }),
     },
     expected: {
       [slug]: {

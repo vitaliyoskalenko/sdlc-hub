@@ -203,7 +203,7 @@ function shippedSnapshots(slug: string, leads: Record<string, string>, contract:
   for (const [team, lead] of Object.entries(leads)) {
     const list = tasks[team] ?? [];
     const parts: SnapshotParts = {
-      files: [...(team === contract ? ["sad.md", "adr/0001-tasks-in-orders.md", "data-model.md", "contracts/openapi.yaml"] : []), "tasks.json", "tasks/tracker.md", "_review/review-2026-10-01.md"],
+      files: [...(team === contract ? ["sad.md", "adr/0001-tasks-in-orders.md", "_sequences-log.md", "data-model.md", "contracts/openapi.yaml"] : []), "tasks.json", "tasks/tracker.md", "_review/review-2026-10-01.md"],
       tasks: list,
       tracker: list.map((t) => ({ id: typeof t === "string" ? t : t.id, status: "done" })),
       review: "PASS",
@@ -273,7 +273,7 @@ export function demoFixture(): Fixture {
     Object.assign(
       hubState,
       snapshot(slug, "backend", {
-        files: ["sad.md", "adr/0001-export-jobs-in-the-worker.md", "data-model.md", "contracts/openapi.yaml", "tasks.json", "tasks/tracker.md"],
+        files: ["sad.md", "adr/0001-export-jobs-in-the-worker.md", "_sequences-log.md", "data-model.md", "contracts/openapi.yaml", "tasks.json", "tasks/tracker.md"],
         tasks: BULK_TASKS.backend,
         tracker: [{ id: "T1", status: "done" }, { id: "T2", status: "in_progress", blocked_by: ["T1"] }, { id: "T3", status: "todo", blocked_by: ["T2"] }, { id: "T4", status: "todo", blocked_by: ["T3"] }],
       }),
@@ -326,7 +326,7 @@ export function demoFixture(): Fixture {
     Object.assign(
       hubState,
       snapshot(slug, "web", {
-        files: ["sad.md", "adr/0001-keep-line-breaks.md", "tasks.json", "tasks/tracker.md"],
+        files: ["sad.md", "adr/0001-keep-line-breaks.md", "_sequences-log.md", "tasks.json", "tasks/tracker.md"],
         tasks: [{ id: "T1", title: "keep line breaks when saving and rendering a note", layer: "ui", acs: ["AC-01"] }],
         tracker: [{ id: "T1", status: "done" }],
       }),
@@ -391,7 +391,7 @@ export function demoFixture(): Fixture {
     );
     Object.assign(main, prefixed(slug, { "spec.md": s, ".size": "S\n", ".route": "standard\n", "hub/feature.yaml": featureYaml("Webhooks for order status", "SHOP-445", leads, 5, "ui: false\n") }));
     Object.assign(main, signoffs(slug, sign(["clarify", "epic"], leads, "backend", "2026-10-03T09:00:00Z"), main));
-    Object.assign(hubState, snapshot(slug, "backend", { files: ["sad.md", "adr/0001-outbox-for-webhooks.md"] }));
+    Object.assign(hubState, snapshot(slug, "backend", { files: ["sad.md", "adr/0001-outbox-for-webhooks.md", "_sequences-log.md"] }));
     owners(slug, main, authors);
   }
 

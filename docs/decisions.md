@@ -2,6 +2,18 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-10: Revision 67, tech-design waits for sequences; fan-out tokens
+
+### tech-design waits for sequences, except on the quick route
+- **Decision:** The SDD adapter's `tech-design` needs `_sequences-log.md` besides `sad.md` and `adr/`, unless the feature is on the quick route. The evidence language gains `route:<route>`.
+- **Why:** The real SDD run showed that `sequences` leaves only its log, so `tech-design` showed done before `sequences` ran.
+- **By:** Owner.
+
+### hub-fanout uses one token per team repository
+- **Decision:** On GitLab, install creates a project access token on each team repository and stores it as a masked variable of product-specs. The fan-out job uses it to open the merge request with the shared files there.
+- **Why:** The specification's design. `HUB_STATE_TOKEN` belongs to product-specs and cannot open merge requests in team repositories, and a group access token needs Premium on gitlab.com.
+- **By:** Owner.
+
 ## 2026-10-09: GitHub saves are nudged; release versions
 
 ### The person's server merges a slow GitHub save

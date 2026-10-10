@@ -200,7 +200,7 @@ export function shippedWebFeature(slug: string, extra: Entry[] = []): { main: Fi
     ),
   );
   const hubState = snapshot(slug, "web", {
-    files: ["sad.md", "adr/0001-keep-it-small.md", "tasks.json", "tasks/tracker.md", "_review/review-2026-10-05.md"],
+    files: ["sad.md", "adr/0001-keep-it-small.md", "_sequences-log.md", "tasks.json", "tasks/tracker.md", "_review/review-2026-10-05.md"],
     tasks: ["T1"],
     tracker: [{ id: "T1", status: "done" }],
     review: "PASS",
