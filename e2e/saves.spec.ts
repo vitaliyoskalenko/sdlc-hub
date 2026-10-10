@@ -143,4 +143,15 @@ test.describe.serial("saves from the site", () => {
     await page.locator("#other-roles button").click();
     await expect(page.locator("#workas")).toHaveValue("pm");
   });
+
+  test("the admin overrides a model's price on Settings; it merges and shows as an override", async ({ page }) => {
+    await page.goto(`${DEMO}/settings?as=nazar.t`);
+    await page.waitForSelector("#set-prices");
+    const row = page.locator('#set-prices tr[data-model="claude-opus-5-5"]');
+    await row.locator("[data-edit-price]").click();
+    await row.locator('input[aria-label="claude-opus-5-5 output"]').fill("18");
+    await row.locator("[data-save-price]").click();
+    await expect(row).toContainText("override", { timeout: 20_000 });
+    await expect(row).toContainText("$18");
+  });
 });

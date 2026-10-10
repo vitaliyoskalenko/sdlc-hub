@@ -2,7 +2,7 @@
 // request on config.yaml that only the admin role passes. Repositories, teams and the engine are set at install.
 
 import { useState } from "preact/hooks";
-import type { GuardCheck, ProjectInfo } from "./api.ts";
+import type { GuardCheck, Price, ProjectInfo } from "./api.ts";
 import { GuidesCard } from "./guides.tsx";
 import { PendingList, useAction } from "./saves.tsx";
 import { roleOf } from "./text.ts";
@@ -102,6 +102,93 @@ function AddTeam({ host }: { host: { n: string; cr: string } }) {
         <button type="button" class="btn" onClick={() => setOpen(false)}>
           Cancel
         </button>
+      </div>
+      {problem}
+    </div>
+  );
+}
+
+const PRICE_COLS: [keyof Price, string][] = [
+  ["input", "Input"],
+  ["cache_write_5m", "Cache write 5 min"],
+  ["cache_write_1h", "Cache write 1 h"],
+  ["cache_read", "Cache read"],
+  ["output", "Output"],
+];
+
+/** The prices the hub uses for API-equivalent cost: its own table, and the project's overrides in config.yaml. */
+function Prices() {
+  const { me, project, savesEnabled } = useApp();
+  const { run, busy, problem } = useAction();
+  const admin = me.roles.includes("admin");
+  const { asOf, defaults, overrides } = project.settings.prices;
+  const models = [...new Set([...Object.keys(defaults), ...Object.keys(overrides)])].sort();
+  const [editing, setEditing] = useState<{ model: string; p: Price } | null>(null);
+  const save = (model: string, p: Price | null) => void run("settings", { edit: { prices: { [model]: p } } }).then((ok) => ok && setEditing(null));
+  return (
+    <div class="card" id="set-prices">
+      <h3>Prices, USD per million tokens</h3>
+      <p class="muted">
+        The hub's table is from the provider's price list as read on {asOf}. Costs are what the same work would cost at these prices; on seats it is not billed per token. An override in <code>config.yaml</code> wins for that model and every model id it starts.
+      </p>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Model</th>
+              {PRICE_COLS.map(([, l]) => (
+                <th key={l} class="num">
+                  {l}
+                </th>
+              ))}
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {models.map((m) => {
+              const p = overrides[m] ?? defaults[m]!;
+              const mine = editing?.model === m;
+              return (
+                <tr key={m} data-model={m}>
+                  <td class="nw">
+                    <code>{m}</code> {overrides[m] && <Pill kind="info">override</Pill>}
+                  </td>
+                  {PRICE_COLS.map(([k]) => (
+                    <td key={k} class="num">
+                      {mine ? (
+                        <input type="number" min="0" step="0.01" class="price" aria-label={`${m} ${k}`} value={editing!.p[k]} onInput={(e) => setEditing({ model: m, p: { ...editing!.p, [k]: Number((e.target as HTMLInputElement).value) } })} />
+                      ) : (
+                        `$${p[k]}`
+                      )}
+                    </td>
+                  ))}
+                  <td class="nw">
+                    {admin && !mine && (
+                      <button type="button" class="btn sm" data-edit-price={m} disabled={!savesEnabled || busy} onClick={() => setEditing({ model: m, p: { ...p } })}>
+                        Edit
+                      </button>
+                    )}
+                    {mine && (
+                      <>
+                        <button type="button" class="btn sm pri" data-save-price={m} disabled={busy} onClick={() => save(m, editing!.p)}>
+                          Save
+                        </button>{" "}
+                        <button type="button" class="btn sm" onClick={() => setEditing(null)}>
+                          Cancel
+                        </button>
+                      </>
+                    )}
+                    {admin && !mine && overrides[m] && defaults[m] && (
+                      <button type="button" class="btn sm" data-reset-price={m} disabled={!savesEnabled || busy} onClick={() => save(m, null)}>
+                        Use the hub's
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
       {problem}
     </div>
@@ -220,6 +307,7 @@ export function Settings() {
       </div>
       {problem}
       <PendingList saves={pending} />
+      <Prices />
       <GuidesCard />
       <div class="card" id="set-project">
         <h3>Project</h3>

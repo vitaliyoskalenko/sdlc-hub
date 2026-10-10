@@ -13,6 +13,13 @@ export interface Person {
 }
 
 export type GuardCheck = "files" | "signoffs" | "pushers" | "members";
+export interface Price {
+  input: number;
+  cache_write_5m: number;
+  cache_write_1h: number;
+  cache_read: number;
+  output: number;
+}
 
 export interface Session {
   me: (Person & { assistant: Assistant }) | null;
@@ -52,6 +59,7 @@ export interface ProjectInfo {
     guard: { mode: "enforce" | "advisory"; checks: Record<GuardCheck, boolean> };
     autoMerge: boolean;
     engine: string;
+    prices: { asOf: string; defaults: Record<string, Price>; overrides: Record<string, Price> };
   };
   rules: { roles: Record<string, string[]>; lead: string[]; contractLead: string[] };
 }

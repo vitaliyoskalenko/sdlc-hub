@@ -34,6 +34,18 @@ describe("Settings: edits to .hub/config.yaml", () => {
     expect(settingsEdit({ addTeam: { name: "X", repo: "x", kind: "spaceship" } })).toMatch(/kind/);
   });
 
+  it("overrides a model's prices, and removes the override", () => {
+    const price = { input: 3, cache_write_5m: 3.75, cache_write_1h: 6, cache_read: 0.3, output: 15 };
+    const c = settingsChange(CONFIG, { prices: { "claude-opus-5-5": price } });
+    if (typeof c === "string") throw new Error(c);
+    expect(parseConfig(c.next!, "c").value!.prices).toEqual({ "claude-opus-5-5": price });
+    const back = settingsChange(c.next!, { prices: { "claude-opus-5-5": null } });
+    if (typeof back === "string") throw new Error(back);
+    expect(parseConfig(back.next!, "c").value!.prices).toBeUndefined();
+    expect(settingsEdit({ prices: { "claude-opus-5-5": { ...price, output: -1 } } })).toMatch(/price/);
+    expect(settingsEdit({ prices: { "Bad Model": price } })).toMatch(/model/);
+  });
+
   it("says when nothing changes, and refuses what is not a setting", () => {
     expect(settingsChange(CONFIG, { headless: parseConfig(CONFIG, "c").value!.headless.enabled })).toBe("Nothing to change");
     expect(settingsEdit({ guard: { mode: "loose" } })).toMatch(/mode/);

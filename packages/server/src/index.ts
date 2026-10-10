@@ -4,7 +4,7 @@
 // See the specification, "Architecture" and "Security".
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { costOf, decryptWith, PRICES_AS_OF, usageRecordSchema, type TotalRow, type Tokens } from "@sdlc-hub/usage";
+import { costOf, decryptWith, DEFAULT_PRICES, PRICES_AS_OF, usageRecordSchema, type TotalRow, type Tokens } from "@sdlc-hub/usage";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { extname, resolve, sep } from "node:path";
@@ -218,7 +218,7 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
         tracker: config.tracker,
         headless: config.headless.enabled,
         // What Settings shows and the admin changes.
-        settings: { assistants: config.assistants, links: config.links ?? {}, guard: guardSettings(config), autoMerge: config.git.auto_merge !== false, engine: config.engine },
+        settings: { assistants: config.assistants, links: config.links ?? {}, guard: guardSettings(config), autoMerge: config.git.auto_merge !== false, engine: config.engine, prices: { asOf: PRICES_AS_OF, defaults: DEFAULT_PRICES, overrides: config.prices ?? {} } },
         // What each role may write, for Your guide: the same rules the guard applies.
         rules: { roles: { ...DEFAULT_ROLE_RULES, ...Object.fromEntries(Object.entries(roles.roles ?? {}).map(([r, v]) => [r, v.write])) }, lead: LEAD_RULES, contractLead: CONTRACT_LEAD_RULES },
         issues: opened.issues,
