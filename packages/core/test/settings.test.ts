@@ -46,6 +46,23 @@ describe("Settings: edits to .hub/config.yaml", () => {
     expect(settingsEdit({ prices: { "Bad Model": price } })).toMatch(/model/);
   });
 
+  it("edits a team, keeps its id, and moves the API contract to it", () => {
+    const c = settingsChange(CONFIG, { editTeam: { id: "web", name: "Web admin", repo: "admin-web", kind: "web", test: "npm test", api_contract: true } });
+    if (typeof c === "string") throw new Error(c);
+    const teams = parseConfig(c.next!, "c").value!.teams;
+    expect(teams.find((t) => t.id === "web")).toEqual({ id: "web", name: "Web admin", repo: "shop/admin-web", kind: "web", test: "npm test", api_contract: true });
+    expect(teams.find((t) => t.id === "backend")?.api_contract).toBeUndefined();
+    expect(settingsChange(CONFIG, { editTeam: { id: "nope", name: "X" } })).toMatch(/no team nope/);
+  });
+
+  it("removes a team, but not the last one", () => {
+    const c = settingsChange(CONFIG, { removeTeam: "ios" });
+    if (typeof c === "string") throw new Error(c);
+    expect(parseConfig(c.next!, "c").value!.teams.map((t) => t.id)).toEqual(["backend", "web", "android"]);
+    const one = `schema_version: 1\ngit: { provider: gitlab, host: g, namespace: shop, repo: product-specs }\nproject: { name: P }\nteams:\n  - { id: app, name: App, repo: shop/app, kind: other }\ntracker: { type: none }\nassistants: [claude]\nengine: sdd\nheadless: { enabled: false }\n`;
+    expect(settingsChange(one, { removeTeam: "app" })).toMatch(/at least one team/);
+  });
+
   it("says when nothing changes, and refuses what is not a setting", () => {
     expect(settingsChange(CONFIG, { headless: parseConfig(CONFIG, "c").value!.headless.enabled })).toBe("Nothing to change");
     expect(settingsEdit({ guard: { mode: "loose" } })).toMatch(/mode/);

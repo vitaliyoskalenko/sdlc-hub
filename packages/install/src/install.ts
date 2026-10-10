@@ -377,7 +377,7 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
   if (opened.length) left.push(`${a.teams.length === 1 ? "The team lead merges" : "Each team lead merges"} the ${w.changeRequest} that adds the hub-report job: ${opened.join(", ")}`);
   if (!/gitlab\.com$/.test(new URL(hostUrl(a.address)).hostname)) left.push("Optional: install the pre-receive server hook. It needs access to the GitLab server");
   if (a.engine === "custom") left.push("Fill in .hub/engines/custom.yaml: one command per stage");
-  left.push("Add each person on People and roles, then send them their setup script: it clones their repositories and sets up their assistant and the hub plugin");
+  left.push("Add each person on the Team page, then send them their setup script: it clones their repositories and sets up their assistant and the hub plugin");
   left.push(`Keep the people of the hub at the Developer role in ${group.full_path}: a Maintainer can change ${ciPath} and the protection of main`);
   return { ok: steps.every((s) => s.state !== "fail"), steps, left };
 }

@@ -1,4 +1,4 @@
-// People and roles, and the setup script for one person. Everyone reads; only the admin changes people, through a
+// Team, and the setup script for one person. Everyone reads; only the admin changes people, through a
 // merge request on .hub/roles.yaml that only the admin role passes. A script carries nothing secret.
 
 import { useEffect, useState } from "preact/hooks";
@@ -181,7 +181,7 @@ export function People() {
     <>
       <div class="ph">
         <div>
-          <h1>People and roles</h1>
+          <h1>Team</h1>
           <p class="sub">
             Stored in <code>.hub/roles.yaml</code>. Saving opens a merge request that only the admin role can pass. <Link to="/guides/people">How adding a person works</Link>
           </p>
@@ -354,7 +354,7 @@ export function SetupScript({ user, params }: { user: string; params: URLSearchP
     <>
       <nav class="crumb" aria-label="Breadcrumb">
         <button type="button" onClick={() => go("/people")}>
-          People and roles
+          Team
         </button>
         <span aria-hidden="true">›</span>
         <span>Setup script for {p?.name ?? user}</span>

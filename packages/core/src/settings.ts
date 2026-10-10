@@ -18,6 +18,10 @@ export interface SettingsEdit {
   prices?: Record<string, { input: number; cache_write_5m: number; cache_write_1h: number; cache_read: number; output: number } | null>;
   /** A team repository added after install, in the same group or organization. */
   addTeam?: { name: string; repo: string; kind: string };
+  /** A team's name, repository, kind, test command or API contract; its id stays, as features refer to it. */
+  editTeam?: { id: string; name?: string; repo?: string; kind?: string; test?: string; api_contract?: boolean };
+  /** A team removed by its id. */
+  removeTeam?: string;
 }
 
 /** A team id from its name, as setup makes it: "Desktop App" is desktop-app. */
@@ -38,7 +42,19 @@ const bools = (x: unknown, keys: readonly string[], what: string): string | unde
 /** Checks an edit that came from the site; the error says what is wrong. */
 export function settingsEdit(x: unknown): SettingsEdit | string {
   if (!isObj(x)) return "Send the settings to change";
-  for (const k of Object.keys(x)) if (!["headless", "assistants", "links", "guard", "addTeam", "prices"].includes(k)) return `${k} is not changed in Settings`;
+  for (const k of Object.keys(x)) if (!["headless", "assistants", "links", "guard", "addTeam", "editTeam", "removeTeam", "prices"].includes(k)) return `${k} is not changed in Settings`;
+  if (x["removeTeam"] !== undefined && typeof x["removeTeam"] !== "string") return "Name the team to remove by its id";
+  if (x["editTeam"] !== undefined) {
+    const t = x["editTeam"];
+    if (!isObj(t) || typeof t["id"] !== "string") return "Name the team to change by its id";
+    for (const [k, v] of Object.entries(t)) {
+      if (!["id", "name", "repo", "kind", "test", "api_contract"].includes(k)) return `A team has no ${k}`;
+      if (k === "api_contract" ? typeof v !== "boolean" : typeof v !== "string") return `The team's ${k} is not valid`;
+    }
+    if (typeof t["kind"] === "string" && !(TEAM_KINDS as readonly string[]).includes(t["kind"])) return `A team's kind is one of ${TEAM_KINDS.join(", ")}`;
+    if (typeof t["repo"] === "string" && !/^[A-Za-z0-9._-]+$/.test(t["repo"].trim())) return "The repository is its name in the group, such as web-admin";
+    if (typeof t["name"] === "string" && !t["name"].trim()) return "A team needs a name";
+  }
   if (x["prices"] !== undefined) {
     if (!isObj(x["prices"])) return "prices must name models";
     for (const [model, p] of Object.entries(x["prices"])) {
@@ -109,6 +125,28 @@ export function settingsChange(base: string, edit: SettingsEdit): Change | strin
   }
   const prices = doc.get("prices");
   if (isMap(prices) && !prices.items.length) doc.delete("prices");
+  if (edit.editTeam || edit.removeTeam) {
+    const teams = doc.get("teams");
+    const id = edit.editTeam?.id ?? edit.removeTeam!;
+    const at = isSeq(teams) ? teams.items.findIndex((x) => isMap(x) && x.get("id") === id) : -1;
+    if (!isSeq(teams) || at < 0) return `There is no team ${id}`;
+    if (edit.removeTeam) {
+      if (teams.items.length === 1) return "A project needs at least one team";
+      teams.items.splice(at, 1);
+    } else {
+      const e = edit.editTeam!;
+      const item = teams.items[at] as import("yaml").YAMLMap;
+      if (e.name !== undefined) item.set("name", e.name.trim());
+      if (e.repo !== undefined) item.set("repo", `${before.git.namespace}/${e.repo.trim()}`);
+      if (e.kind !== undefined) item.set("kind", e.kind);
+      if (e.test !== undefined) e.test.trim() ? item.set("test", e.test.trim()) : item.delete("test");
+      if (e.api_contract !== undefined) {
+        // One team publishes the API contract.
+        if (e.api_contract) for (const other of teams.items) if (isMap(other)) other.delete("api_contract");
+        e.api_contract ? item.set("api_contract", true) : item.delete("api_contract");
+      }
+    }
+  }
   if (edit.addTeam) {
     const team = doc.createNode({ id: teamIdOf(edit.addTeam.name), name: edit.addTeam.name.trim(), repo: `${before.git.namespace}/${edit.addTeam.repo.trim()}`, kind: edit.addTeam.kind });
     const teams = doc.get("teams");

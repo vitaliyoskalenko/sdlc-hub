@@ -790,7 +790,7 @@ function Install({ a, log, result, failure, again }: { a: Answers; log: Step[]; 
                   <li>
                     Clone <code>{`${a.namespace}/${a.repo}`}</code> and run <code>node hub/cli.js serve</code> in it. You are its admin.
                   </li>
-                  <li>Add people with a role and a team in .hub/roles.yaml; People and roles on the site arrives in phase 2.</li>
+                  <li>Add people with a role and a team in .hub/roles.yaml; the Team page of the site adds people.</li>
                 </ol>
               ) : (
                 <p>Fix what the log names, then run setup again: it continues from the first step that did not finish.</p>

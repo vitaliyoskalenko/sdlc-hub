@@ -76,7 +76,7 @@ const HELP = `SDLC Hub
       hub/, the plugin and the assistants' files of that version as one merge request. .hub/ stays as it is.
 
   hub script --user <username> [--shell bash|powershell]
-      Prints a person's setup script, as People and roles gives it. It carries no secret.
+      Prints a person's setup script, as the Team page gives it. It carries no secret.
 
   hub uninstall
       Run by the admin: proposes the removal of hub/, .hub/ and the assistants' hub files as one merge request.
@@ -216,7 +216,7 @@ async function demo(f: Record<string, string>) {
         { ok: false, text: "HUB_FANOUT_TOKEN_IOS expires on 2026-10-30, in 21 days: renew it. Without it, iOS gets no shared files." },
       ],
     }),
-    // The demo's group: everyone in roles.yaml but sofiia.h, so People and roles shows the warning.
+    // The demo's group: everyone in roles.yaml but sofiia.h, so the Team page shows the warning.
     members: async () => ({ users: (openProject(root).project?.roles.people ?? []).map((p) => p.user).filter((u) => u !== "sofiia.h") }),
   });
   // The demo project has a month of made-up usage, encrypted with a key made now, for the Costs screen.
@@ -457,7 +457,7 @@ async function connectTeamsCommand() {
   if (!r.ok) process.exit(1);
 }
 
-/** hub script --user <u> [--shell bash|powershell]: a person's setup script, as People and roles gives it. */
+/** hub script --user <u> [--shell bash|powershell]: a person's setup script, as the Team page gives it. */
 async function scriptCommand(f: Record<string, string>) {
   const root = topLevel(process.cwd());
   if (!root) throw new Error("Run hub script in your clone of product-specs.");

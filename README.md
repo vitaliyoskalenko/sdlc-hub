@@ -34,7 +34,7 @@ Step-by-step guides, with the tokens and permissions each host needs:
 | [People](docs/guides/people.md) | The admin adds a person and sends a setup script; the person runs it. What each machine needs, and the everyday commands. |
 | [Settings](docs/guides/settings.md) | How strict `hub-guard` is (enforce or advisory, and the checks that can be switched off), assistants, headless runs, links, and `hub usage rekey`. |
 
-The same guides are built into the hub: Settings links to them, so the admin reads them on the site.
+The same guides are built into the hub, on its Help page, with what each role does.
 
 From this repository, before the package is published:
 
@@ -47,7 +47,7 @@ node packages/cli/dist/cli.mjs init        # npx sdlc-hub init once the package 
 
 Install writes the `hub` plugin into `hub/plugin/` and enables it in `.claude/settings.json`; the setup script registers it on each machine. Then `/hub:status`, `/hub:next <slug>`, `/hub:signoff <step> <slug>`, `/hub:return <step> <slug> <reason>`, `/hub:bug <slug>`, `/hub:verify <slug>`, `/hub:test <slug>`, `/hub:decide <slug>`, `/hub:release <slug>` and `/hub:start` work in Claude Code (`$hub-x` in Codex, `/hub-x` in Cursor). For `/hub:test`, the admin sets each team's test command as `test:` under `teams` in `.hub/config.yaml`. To try the plugin without installing it: `claude --plugin-dir hub/plugin`.
 
-In the demo, try People as `nazar.t`: People and roles, Add a person, then Setup script.
+In the demo, try People as `nazar.t`: Team, Add a person, then Setup script.
 
 ## Testing against real hosts
 

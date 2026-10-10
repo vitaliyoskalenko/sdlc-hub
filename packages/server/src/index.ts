@@ -201,7 +201,7 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
         me: p ? { user: p.user, name: p.name, roles: p.roles, team: p.team ?? null, lead: !!p.lead, assistant: p.assistant ?? "claude" } : null,
         demo: !!opts.demo,
         people: opts.demo ? people : [],
-        ...(p ? {} : { problem: `${user} is not in roles.yaml. Ask the admin to add you on People and roles.` }),
+        ...(p ? {} : { problem: `${user} is not in roles.yaml. Ask the admin to add you on the Team page.` }),
       });
     }
 
@@ -241,7 +241,7 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
     }
 
     if (parts[0] === "people" && parts.length === 1) {
-      // Each person with what hub setup reported from their machine, for People and roles.
+      // Each person with what hub setup reported from their machine, for the Team page.
       const people = project.roles.people.map((p) => {
         const text = opened.view.hubState?.read(personStatePath(p.user));
         return { user: p.user, name: p.name, roles: p.roles, team: p.team ?? null, lead: !!p.lead, os: p.os ?? null, assistant: p.assistant ?? "claude", setup: text ? (parsePersonState(text, personStatePath(p.user)).value ?? null) : null };

@@ -7,14 +7,14 @@ For the admin who adds people to the hub, and for each person who sets it up on 
 1. Make sure the person can reach the repositories:
    - **GitLab:** member of the group with the Developer role.
    - **GitHub:** member of the organization with write access to `product-specs` and to their team's repository.
-2. Open the hub's site, **People and roles**, then **Add a person**:
+2. Open the hub's site, **Team**, then **Add a person**:
    - the username on the git host;
    - the name;
    - the roles (PO, PM, designer, Engineering, QA, Ops, admin);
    - for Engineering, the team, and whether they lead it;
    - the assistant they use (Claude Code, Codex or Cursor);
    - their system (macOS, Linux or Windows).
-3. **Save.** The change is a merge request on `.hub/roles.yaml` that only the admin role passes; it merges by itself. The admin's view of People and roles marks anyone who is not in the group or organization on the host, asked with the admin's own git credential.
+3. **Save.** The change is a merge request on `.hub/roles.yaml` that only the admin role passes; it merges by itself. The admin's view of the Team page marks anyone who is not in the group or organization on the host, asked with the admin's own git credential.
 4. Open the person's **Setup script** on the same page and send it to them: a bash script for macOS and Linux, a PowerShell script for Windows. It contains no token, key or password, so it is safe to send by chat or email.
 
 After a change of PM or admin, run `node hub/cli.js usage rekey` on your machine, so the new readers can read everyone's usage records (see [Settings](settings.md)).
@@ -27,7 +27,7 @@ What the machine needs first:
   - [GitLab](gitlab.md#what-each-person-needs-on-gitlab);
   - [GitHub](github.md#what-each-person-needs-on-github).
 - **Node.js 22** or newer.
-- **The assistant** named on People and roles: Claude Code, Codex or Cursor's CLI.
+- **The assistant** named on the Team page: Claude Code, Codex or Cursor's CLI.
 
 Then run the script:
 

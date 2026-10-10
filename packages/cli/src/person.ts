@@ -66,7 +66,7 @@ export async function personSetup(o: SetupOptions): Promise<{ ok: boolean; lines
   const { project } = opened;
   const person = project.roles.people.find((p) => p.user === o.user);
   if (!person) {
-    say(false, `${o.user} is not in .hub/roles.yaml on main. Ask the admin to add you on People and roles, then run the script again.`);
+    say(false, `${o.user} is not in .hub/roles.yaml on main. Ask the admin to add you on the Team page, then run the script again.`);
     return done();
   }
   const want = [...o.roles].sort().join(" ");
@@ -132,7 +132,7 @@ export async function personSetup(o: SetupOptions): Promise<{ ok: boolean; lines
   else if (o.assistant === "cursor")
     say(true, `Cursor reads the hub's commands from .agents/skills. Open ${o.root} in Cursor and trust the workspace, then turn on the hub MCP server when Cursor asks (in the CLI: agent mcp enable hub).`);
 
-  // Tell the admin's People and roles that this person is set up.
+  // Tell the admin's Team page that this person is set up.
   const at = (o.now ?? (() => new Date()))().toISOString().replace(/\.\d+Z$/, "Z");
   const record = { user: o.user, setup_at: at, release: here, assistant: o.assistant, platform: process.platform };
   try {

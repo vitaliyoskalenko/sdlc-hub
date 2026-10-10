@@ -146,7 +146,7 @@ export async function savePeople(i: PeopleSaveInput): Promise<SaveOutcome> {
   const verb = edit.kind === "remove" ? "Remove" : isNew ? "Add" : "Change";
   return checkedSave(i.saver, i.user, {
     label: `people-${verb.toLowerCase()}-${who}`,
-    title: `${verb} ${who} on People and roles`,
+    title: `${verb} ${who} on the Team page`,
     meta: { kind: "person", person: who, action: verb.toLowerCase() },
     build: (main, p) => peopleChange(main, p.config, edit),
     fallback: i.project,

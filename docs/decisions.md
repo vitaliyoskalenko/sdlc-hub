@@ -2,6 +2,25 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-10: Revision 71, the owner's review of the site
+
+### Navigation and names
+- **Decision:**
+  - People and roles is now **Team**.
+  - A **Help** page after Settings holds the guides, by who needs them, and what each role does in the assistant and on the site. Settings no longer lists the guides.
+  - The top bar shows the project name, a live dot, the demo controls when they apply, Working as, and **Your guide** at its end. The repository path, the host and the live text are in tooltips.
+- **By:** Owner.
+
+### Home
+- **Decision:**
+  - The statistics are two cards, "Where features are" (in progress, released, average progress) and "What needs attention" (waiting for a sign-off, blocked or missed, blocked by another team, blocking bugs).
+  - In the features table, the current step shows its name, its number and a status pill for every state. "Who is next" names each person with their role and what they need to do, and the waits between teams below.
+- **By:** Owner.
+
+### Teams on Settings
+- **Decision:** The admin edits a team's name, repository, kind, test command and API contract, and removes a team. The id stays. Removing a team people are still in is refused by `hub-guard`'s check that `.hub/` gains no new problem.
+- **By:** Owner.
+
 ## 2026-10-10: Revision 70, teams added later, membership, the working role
 
 ### Adding a team: a save, then hub connect-teams

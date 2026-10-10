@@ -100,7 +100,7 @@ Install can be run again at any time. Each step checks first, so a second run sk
 
 - **Each team lead merges** the pull request that adds the hub workflows to their repository, and later the `hub/fanout` pull requests with the shared files of their features. The copies are read-only there: they change in `product-specs`.
 - If the organization's policy forbids workflows to open pull requests, allow it for the team repositories (organization **Settings → Actions → General**). Setup says so when it cannot.
-- **Add each person** on People and roles, then send them their setup script (see [People](people.md)). Each person must be a member of the organization with **write** access to `product-specs` and to their team's repository.
+- **Add each person** on the Team page, then send them their setup script (see [People](people.md)). Each person must be a member of the organization with **write** access to `product-specs` and to their team's repository.
 - **A new team repository later** needs the `HUB_STATE_KEY` secret too. Run setup again: it makes a new deploy key for all team repositories. Remove older `sdlc-hub hub-state` keys from `product-specs` once team CI uses the newest.
 - Nothing expires on its own: the deploy key and the secrets have no end date.
 

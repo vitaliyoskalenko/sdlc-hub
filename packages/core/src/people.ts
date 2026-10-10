@@ -1,4 +1,4 @@
-// People on People and roles: one person added, changed or removed in .hub/roles.yaml, as a change the guard checks
+// People on the Team page: one person added, changed or removed in .hub/roles.yaml, as a change the guard checks
 // (only the admin passes). The file keeps its comments and its style; a new entry follows the style of the others.
 
 import { isMap, isSeq, parseDocument, type YAMLMap } from "yaml";
@@ -70,7 +70,7 @@ export function peopleChange(main: FileSource, config: Config, edit: PeopleEdit)
   return { path: ROLES_FILE, base, next };
 }
 
-/** hub-state `people/<user>.json`: written by `hub setup` on the person's machine, shown on People and roles. */
+/** hub-state `people/<user>.json`: written by `hub setup` on the person's machine, shown on the Team page. */
 export const personStateSchema = z.strictObject({
   user: z.string().min(1),
   setup_at: isoTime,

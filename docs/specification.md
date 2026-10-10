@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 10, 2026 · @Vitaliy · revision 70
+Oct 10, 2026 · @Vitaliy · revision 71
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -442,7 +442,7 @@ There is one site for everyone; the role decides the home page and which buttons
 | Feature: QA | Criterion by platform matrix, bugs, test runs, the final decision | Add a bug, change its status, record the decision |
 | Feature: Release | Go or no-go, ordered checklist, rollout, watch period | Tick checklist items, record the rollout stage |
 | Feature: Costs | Tokens and API-equivalent cost by step, role, model and assistant, against the estimate | Per-person view for admin and PM |
-| People and roles | Users, roles, teams, setup state | Add or change a person, generate a setup script, download or copy it (admin) |
+| Team | Users, roles, teams, setup state | Add or change a person, generate a setup script, download or copy it (admin) |
 | Settings | How strict `hub-guard` is, assistants, headless switch, links, prices, adding a team, and the host checklist (what install set up, read on the host with the admin's credential); the project and engine read only | Admin only |
 | Your guide | What your role does in the assistant and on the site, and how to start next time | None |
 
@@ -452,7 +452,7 @@ The actions on Home are derived from the detected state of every feature: what w
 
 Every feature header carries buttons to its Jira epic, Confluence page, Figma file, merge requests and staging address. A button appears only when its address is configured.
 
-The side menu has two items for everyone, Home and Features, and an Admin group with People and roles and Settings, which other roles see as read only. Your guide is a button in the top bar. The first install is the separate setup site and has no menu item in the hub. A feature opens from Features and a setup script from People and roles, and both show a breadcrumb back.
+The side menu has Home, Features and Releases for everyone, an Admin group with Team and Settings, which other roles see as read only, and Help: the guides by who needs them and what each role does. The top bar shows the project, a live dot, Working as for a person with several roles, and Your guide at its end. Your guide is a button in the top bar. The first install is the separate setup site and has no menu item in the hub. A feature opens from Features and a setup script from Team, and both show a breadcrumb back.
 
 An action on Home opens as a task page over the current screen. It shows the feature and its current step, the detail the action needs (open bugs and test runs, team tasks, the step with its sign-off, or the estimate against actuals), the command for the assistant and the button for the site.
 
@@ -684,7 +684,7 @@ WORK="${HUB_WORK:-$HOME/work/shop}"
    - It confirms on `main` that the username has exactly the roles named in the script, and stops if not.
    - It records who the checkout belongs to as `git config hub.user`, so the site and the plugin know the person whatever their git e-mail says.
    - It writes the local files for the assistant: path rules in `.claude/settings.local.json`, kept out of commits through `.git/info/exclude`. Then it runs `claude plugin marketplace add <the clone> --scope local` and `claude plugin install hub@product-specs --scope local`, and installs the engine's plugin.
-   - It tells the admin by writing `people/<user>.json` to `hub-state`, which People and roles shows as "set up".
+   - It tells the admin by writing `people/<user>.json` to `hub-state`, which Team shows as "set up".
 5. Runs `hub doctor`, which checks Node, `.hub/`, who the person is, the git host and `hub-state`, and the assistant's plugin.
 6. Starts the site and opens Your guide. `HUB_NO_START=1` skips this step, and `HUB_WORK` sets another work folder.
 
@@ -834,7 +834,7 @@ guard:
 - Before it pushes, the server runs the same guard on the change against `main` of the remote. A change the guard would refuse is not pushed, and the site shows the path and the rule at once.
 - A save is pending until its merge request merges: until `main` has its commit, or the same contents after a squash. The site shows it as pending with a link.
 - If `hub-guard` refuses the change at merge, the job writes the reason to `hub-state` at `saves/<user>/<label>-<time>.json` and deletes the branch with `HUB_STATE_TOKEN`, which closes the merge request. The person's site reads the record and shows the path and the rule. Only `hub/<user>/…` branches are closed this way; a refused merge request opened by hand just fails its pipeline.
-- The site saves sign-offs and returns, People and roles, QA's verdicts, bugs (QA files and edits them, the owning team changes the status), the QA decision, and the release fields of each role. The plugin saves the same through its tools.
+- The site saves sign-offs and returns, Team, QA's verdicts, bugs (QA files and edits them, the owning team changes the status), the QA decision, and the release fields of each role. The plugin saves the same through its tools.
 - One change per file at a time: while a person's save of a file waits to merge, a second save of that file is refused with the reason, because it would conflict with the first. The site's controls wait and say so.
 - If the change conflicts with a newer `main` (`git merge-tree`, git 2.38 or later), the server moves it onto `main` once:
   - each file is merged three-way;
@@ -859,7 +859,7 @@ guard:
 
 | Event | What happens |
 | --- | --- |
-| A person is added | The admin adds them on People and roles and to the group on the host. The admin's People and roles marks a person who is not a member, asked with the admin's own git credential and kept for ten minutes |
+| A person is added | The admin adds them on Team and to the group on the host. The admin's Team marks a person who is not a member, asked with the admin's own git credential and kept for ten minutes |
 | A role changes | The admin edits the role and the person runs the setup script again, so the local path rules match. Open merge requests are judged by the new role |
 | A person leaves | The admin removes them from `roles.yaml` and from the group. Their sign-offs stay as history |
 | A second machine | The same setup script. A new key pair is added beside the first |
@@ -867,7 +867,7 @@ guard:
 | A team is added later | Settings, Add a team: a save adds it to `config.yaml`. Then the admin runs `hub connect-teams`, which runs install's team steps with the admin's setup token: the `hub-report` merge request and the fan-out token on GitLab; the deploy key's secret and the workflows on GitHub. Teams already connected are skipped. Features already running are not changed |
 | The hub is upgraded | The admin runs the newer hub's `hub upgrade` in their clone. It proposes `hub/cli.js`, `hub/package.json` with the version, the plugin, the assistants' files and, on GitHub, the `hub-guard` workflow, as one merge request in the admin's name; `.hub/` stays as it is. It never goes back to an older version. A site whose hub is older than the one in the checkout or on `main` turns read only and says to sync and start it again. A change of `schema_version` comes with a migration in the release that needs it; none does yet |
 | Uninstall | The admin's `hub uninstall` proposes one merge request that removes `hub/`, `.hub/`, the plugin marketplace, the hub's skills, Codex and Cursor files and workflows, the hub's section of `CLAUDE.md` and `AGENTS.md`, and its plugin in `.claude/settings.json`. The documents stay. It then lists what install set up on the host, for the admin to lift by hand: protection, CI configuration, tokens, secrets, `hub-ci`, and the team repositories' jobs |
-| The admin is unavailable | A second admin is the only protection. Add one on People and roles soon after the first install |
+| The admin is unavailable | A second admin is the only protection. Add one on Team soon after the first install |
 
 ### Claims to check during the build
 

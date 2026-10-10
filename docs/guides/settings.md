@@ -66,6 +66,13 @@ It only reads. What it marks "to do" says what to do: renew a token, run setup o
 
 Costs are API-equivalent: what the same work would cost at the provider's list prices. On seats, work is not billed per token. Settings shows the hub's table, with the day it was read, and the project's overrides. The admin changes a model's prices with **Edit**, saved under `prices` in `config.yaml`, and goes back to the hub's with **Use the hub's**. An override applies to that model and to every model id it starts.
 
+## Teams
+
+The project's teams are listed on Settings. The admin:
+
+- **Edits** a team's name, repository, kind and test command, and chooses which team publishes the API contract (one at most). A team's id stays: features refer to it.
+- **Removes** a team. A team that people are still in is refused, with the reason: move them to another team on the Team page first. The removal leaves the team's repository and its jobs as they are.
+
 ## Add a team after install
 
 On Settings, **Add a team** with its name, its repository in the group or organization, and its kind. That is a save on `config.yaml`. When it has merged, run this in your clone of `product-specs`:

@@ -42,7 +42,9 @@ export function href(path: string, params: Record<string, string | undefined> = 
   for (const k of KEEP) if (now.get(k)) q.set(k, now.get(k)!);
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") q.set(k, v);
   const s = q.toString();
-  return path + (s ? `?${s}` : "");
+  // The query comes before a #section, or the browser reads it as part of the section.
+  const [page, hash] = path.split("#");
+  return page + (s ? `?${s}` : "") + (hash ? `#${hash}` : "");
 }
 
 export function Link(props: { to: string; params?: Record<string, string | undefined>; class?: string; children: ComponentChildren; label?: string }) {

@@ -18,7 +18,7 @@ export interface ActionOptions {
   now?: () => Date;
   /** Called after a push; the demo's stand-in for the git host uses it. */
   afterPush?: (save: Save) => void;
-  /** Who is in the group or organization on the host, for People and roles. */
+  /** Who is in the group or organization on the host, for the Team page. */
   members?: () => Promise<{ users: string[] } | { error: string }>;
   /** What install set up, as the host has it now, for Settings. */
   checklist?: () => Promise<{ items: { ok: boolean; text: string }[] } | { error: string }>;

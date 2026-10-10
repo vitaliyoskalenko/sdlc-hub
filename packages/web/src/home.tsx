@@ -2,8 +2,8 @@
 
 import type { Person, ProjectInfo, Summary } from "./api.ts";
 import { YourSaves } from "./saves.tsx";
-import { STEP } from "./text.ts";
-import { Kpi, Link, listOf, names, Pill, Progress, RoleChip, roleLabel, StatusPill, taskLabel, teamName, useApp, WaitMark, waitingTeams, waitText } from "./ui.tsx";
+import { roleOf, STEP } from "./text.ts";
+import { Kpi, Link, listOf, names, personName, Pill, Progress, RoleChip, roleLabel, StatusPill, taskLabel, teamName, useApp, WaitMark, waitingTeams, waitText } from "./ui.tsx";
 
 export interface Action {
   slug: string;
@@ -101,8 +101,40 @@ function numbersFor(me: Person, role: string, features: Summary[]): [string, str
   }
 }
 
+/** What the current step waits for, and from whom: each person with their role, then any wait on another team. */
+function NextMove({ f }: { f: Summary }) {
+  const { project } = useApp();
+  const doing: Partial<Record<string, string>> = { signoff: "to sign off", returned: "to rework it", ready: "to start it", running: "working on it", blocked: "blocked", missed: "missed" };
+  const people = f.waitingOn.length ? f.waitingOn : f.status === "running" && f.by ? [f.by] : [];
+  return (
+    <div class="nextmove">
+      {people.length ? (
+        people.map((u) => {
+          const p = project.people.find((x) => x.user === u);
+          return (
+            <span class="who" key={u}>
+              <b>{personName(project, u)}</b>
+              {p && <RoleChip role={p.roles[0]!} />}
+              <span class="muted">{doing[f.status] ?? ""}</span>
+            </span>
+          );
+        })
+      ) : (
+        <span class="muted">{f.reason ?? (f.status === "running" && f.role ? `${roleOf(f.role).n} working on it` : "nobody yet")}</span>
+      )}
+      {f.reason && people.length > 0 && <span class="muted">{f.reason}</span>}
+      {f.crossWaits.map((w) => (
+        <span key={w.on} class="waitline">
+          {waitText(project, w)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function FeatureTable({ list }: { list: Summary[] }) {
   const { project, go } = useApp();
+  const total = project.flow.steps.length;
   return (
     <div class="scroll">
       <table class="ftbl">
@@ -112,7 +144,7 @@ export function FeatureTable({ list }: { list: Summary[] }) {
             <th>Size</th>
             <th>Current step</th>
             <th>Progress</th>
-            <th>Waiting on</th>
+            <th>Who is next</th>
           </tr>
         </thead>
         <tbody>
@@ -130,27 +162,25 @@ export function FeatureTable({ list }: { list: Summary[] }) {
                 <td class="nw">
                   {f.size ?? "?"} · {f.route}
                 </td>
-                <td class="nw">
+                <td>
                   {f.released || !step ? (
                     <Pill kind="ok">Released</Pill>
                   ) : (
-                    <>
-                      <RoleChip role={step.role} /> {f.index} · {f.current}{" "}
-                      {["blocked", "signoff", "returned", "missed"].includes(f.status) && <StatusPill status={f.status} />} <WaitMark project={project} f={f} />
-                    </>
+                    <div class="stepcell">
+                      <b>{STEP[f.current]?.title ?? f.current}</b>
+                      <span class="muted">
+                        Step {f.index} of {total} · <code>{f.current}</code>
+                      </span>
+                      <span class="row">
+                        <StatusPill status={f.status} /> <WaitMark project={project} f={f} />
+                      </span>
+                    </div>
                   )}
                 </td>
                 <td>
                   <Progress value={f.progress} />
                 </td>
-                <td>
-                  {f.released ? "" : f.waitingOn.length ? names(project, f.waitingOn) : (f.reason ?? (f.by ? `with ${names(project, [f.by])}` : ""))}
-                  {f.crossWaits.map((w) => (
-                    <div key={w.on} class="waitline">
-                      {waitText(project, w)}
-                    </div>
-                  ))}
-                </td>
+                <td>{f.released ? null : <NextMove f={f} />}</td>
               </tr>
             );
           })}
@@ -185,15 +215,27 @@ export function Home() {
       <YourSaves />
       <section>
         <h2>Project statistics</h2>
-        <div class="kpis four">
-          <Kpi value={String(open.length)} label="Features in progress" onClick={() => go("/features", { filter: "progress" })} />
-          <Kpi value={`${avg}%`} label="Average progress" />
-          <Kpi value={String(sign)} label="Waiting for a sign-off" tone={sign ? "warn" : ""} />
-          <Kpi value={String(stuck)} label="Blocked or missed" tone={stuck ? "bad" : "ok"} />
-          <Kpi value={String(bugs)} label="Blocking bugs" tone={bugs ? "bad" : "ok"} />
-          <Kpi value={String(waiting)} label="Blocked by another team" tone={waiting ? "bad" : "ok"} onClick={() => go("/features", { filter: "waiting" })} />
-          <Kpi value={String(features.length - open.length)} label="Released" onClick={() => go("/features", { filter: "released" })} />
-          <Kpi value={String(features.length)} label="Features" onClick={() => go("/features")} />
+        <div class="statgroups">
+          <div class="card statgroup" id="stats-where">
+            <h3>Where features are</h3>
+            <div class="kpis two">
+              <Kpi value={String(open.length)} label="In progress" onClick={() => go("/features", { filter: "progress" })} />
+              <Kpi value={String(features.length - open.length)} label="Released" onClick={() => go("/features", { filter: "released" })} />
+            </div>
+            <div class="avgbar">
+              <span class="muted">Average progress of the features in progress</span>
+              <Progress value={avg} />
+            </div>
+          </div>
+          <div class="card statgroup" id="stats-attention">
+            <h3>What needs attention</h3>
+            <div class="kpis two">
+              <Kpi value={String(sign)} label="Waiting for a sign-off" tone={sign ? "warn" : "ok"} />
+              <Kpi value={String(stuck)} label="Blocked or missed" tone={stuck ? "bad" : "ok"} />
+              <Kpi value={String(waiting)} label="Blocked by another team" tone={waiting ? "bad" : "ok"} onClick={() => go("/features", { filter: "waiting" })} />
+              <Kpi value={String(bugs)} label="Blocking bugs" tone={bugs ? "bad" : "ok"} />
+            </div>
+          </div>
         </div>
       </section>
       <div class="homegrid">

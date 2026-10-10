@@ -4,7 +4,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { api } from "./api.ts";
 import type { GuardCheck, Price, ProjectInfo } from "./api.ts";
-import { GuidesCard } from "./guides.tsx";
 import { PendingList, useAction } from "./saves.tsx";
 import { roleOf } from "./text.ts";
 import { Pill, useApp } from "./ui.tsx";
@@ -76,6 +75,109 @@ function HostChecklist({ host }: { host: { n: string; cr: string } }) {
         </ul>
       )}
     </div>
+  );
+}
+
+/** The teams: the admin changes a team's name, repository, kind, test command or API contract, or removes it. */
+function Teams() {
+  const { me, project, savesEnabled } = useApp();
+  const { run, busy, problem } = useAction();
+  const admin = me.roles.includes("admin");
+  const [editing, setEditing] = useState<{ id: string; name: string; repo: string; kind: string; test: string; api_contract: boolean } | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const ns = `${project.project.namespace}/`;
+  const save = (edit: Record<string, unknown>) => void run("settings", { edit }).then((ok) => ok && (setEditing(null), setRemoving(null)));
+  return (
+    <>
+      <div class="scroll">
+        <table id="teams">
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th>Repository</th>
+              <th>Kind</th>
+              <th>Tests</th>
+              {admin && <th />}
+            </tr>
+          </thead>
+          <tbody>
+            {project.teams.map((t) =>
+              editing?.id === t.id ? (
+                <tr key={t.id} data-team-row={t.id}>
+                  <td>
+                    <input type="text" aria-label="Team name" value={editing.name} onInput={(e) => setEditing({ ...editing, name: (e.target as HTMLInputElement).value })} />
+                    <label class="check-inline">
+                      <input type="checkbox" checked={editing.api_contract} onChange={(e) => setEditing({ ...editing, api_contract: (e.target as HTMLInputElement).checked })} /> publishes the API contract
+                    </label>
+                  </td>
+                  <td>
+                    <input type="text" aria-label="Repository" value={editing.repo} onInput={(e) => setEditing({ ...editing, repo: (e.target as HTMLInputElement).value })} />
+                  </td>
+                  <td>
+                    <select aria-label="Kind" value={editing.kind} onChange={(e) => setEditing({ ...editing, kind: (e.target as HTMLSelectElement).value })}>
+                      {KINDS.map((k) => (
+                        <option key={k} value={k}>
+                          {k}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input type="text" aria-label="Test command" value={editing.test} placeholder="npm test" onInput={(e) => setEditing({ ...editing, test: (e.target as HTMLInputElement).value })} />
+                  </td>
+                  <td class="nw">
+                    <button type="button" class="btn sm pri" data-save-team={t.id} disabled={busy || !editing.name.trim() || !editing.repo.trim()} onClick={() => save({ editTeam: { ...editing, name: editing.name.trim(), repo: editing.repo.trim(), test: editing.test.trim() } })}>
+                      Save
+                    </button>{" "}
+                    <button type="button" class="btn sm" onClick={() => setEditing(null)}>
+                      Cancel
+                    </button>
+                  </td>
+                </tr>
+              ) : (
+                <tr key={t.id} data-team-row={t.id}>
+                  <td class="nw">
+                    {t.name}
+                    {t.api_contract ? <Pill kind="info">API contract</Pill> : null}
+                  </td>
+                  <td class="nw">
+                    <code>{t.repo}</code>
+                  </td>
+                  <td class="nw">{t.kind}</td>
+                  <td class="nw">{t.test ? <code>{t.test}</code> : <span class="muted">not set</span>}</td>
+                  {admin && (
+                    <td class="nw">
+                      {removing === t.id ? (
+                        <>
+                          <span class="reason">Remove {t.name}?</span>{" "}
+                          <button type="button" class="btn sm bad" data-confirm-remove={t.id} disabled={busy} onClick={() => save({ removeTeam: t.id })}>
+                            Remove
+                          </button>{" "}
+                          <button type="button" class="btn sm" onClick={() => setRemoving(null)}>
+                            Keep
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button type="button" class="btn sm" data-edit-team={t.id} disabled={!savesEnabled || busy} onClick={() => setEditing({ id: t.id, name: t.name, repo: t.repo.startsWith(ns) ? t.repo.slice(ns.length) : t.repo, kind: t.kind, test: t.test ?? "", api_contract: !!t.api_contract })}>
+                            Edit
+                          </button>{" "}
+                          <button type="button" class="btn sm" data-remove-team={t.id} disabled={!savesEnabled || busy || project.teams.length === 1} title={project.teams.length === 1 ? "A project needs at least one team" : undefined} onClick={() => setRemoving(t.id)}>
+                            Remove
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              ),
+            )}
+          </tbody>
+        </table>
+      </div>
+      {problem}
+      {admin && <p class="muted">A team's id stays when you change it: features refer to it. Before removing a team, move its people to another team on the Team page; the removal leaves the team's repository and its jobs as they are.</p>}
+    </>
   );
 }
 
@@ -340,7 +442,6 @@ export function Settings() {
       <PendingList saves={pending} />
       <HostChecklist host={host} />
       <Prices />
-      <GuidesCard />
       <div class="card" id="set-project">
         <h3>Project</h3>
         <div class="kv">
@@ -360,31 +461,7 @@ export function Settings() {
             <code>{project.engine.id}</code> {project.engine.version}
           </span>
         </div>
-        <div class="scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Team</th>
-                <th>Repository</th>
-                <th>Kind</th>
-              </tr>
-            </thead>
-            <tbody>
-              {project.teams.map((t) => (
-                <tr key={t.id}>
-                  <td class="nw">
-                    {t.name}
-                    {t.api_contract ? " · API contract" : ""}
-                  </td>
-                  <td class="nw">
-                    <code>{t.repo}</code>
-                  </td>
-                  <td class="nw">{t.kind}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Teams />
         <AddTeam host={host} />
       </div>
     </>

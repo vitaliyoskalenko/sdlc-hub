@@ -79,7 +79,7 @@ The setup page lists what is left for people:
   To renew, create a new project access token with the same name, role and scopes on `product-specs` (**Settings → Access tokens**), and replace the variable's value: the group's **Settings → CI/CD → Variables** for `HUB_STATE_TOKEN`, the project's for `HUB_GUARD_TOKEN`. Running setup again also creates a missing token.
 - **Keep the people of the hub at the Developer role** in the group. On GitLab Free a protected branch cannot be limited to the Owner, so a Maintainer could change `hub-ci` or the protection of `main`.
 - **Optional, self-managed only:** a pre-receive server hook, which needs access to the GitLab server.
-- **Add each person** on People and roles, then send them their setup script (see [People](people.md)).
+- **Add each person** on the Team page, then send them their setup script (see [People](people.md)).
 
 ## Upgrade the hub
 

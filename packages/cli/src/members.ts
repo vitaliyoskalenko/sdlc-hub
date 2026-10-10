@@ -1,4 +1,4 @@
-// Who is in the group (GitLab) or the organization (GitHub), for People and roles: a person in roles.yaml who is not
+// Who is in the group (GitLab) or the organization (GitHub), for the Team page: a person in roles.yaml who is not
 // a member cannot clone or save. It asks the host with this machine's own git credential, and keeps the answer for ten
 // minutes. Without a credential that may list members, it says so instead.
 

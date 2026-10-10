@@ -84,9 +84,9 @@ for (const vp of VIEWPORTS) {
       await check(`${person} guide`);
       await openHelp(`${person} guide`);
 
-      // People and roles, and a setup script in both shells.
+      // Team, and a setup script in both shells.
       await page.click('.nb[data-page="people"]');
-      await expect(page.locator("h1")).toHaveText("People and roles");
+      await expect(page.locator("h1")).toHaveText("Team");
       await expect(page.locator("#people tbody tr")).toHaveCount(10);
       await check(`${person} people`);
       if (person === "nazar.t") {
@@ -189,7 +189,7 @@ test("the page shows what the files say", async ({ page }) => {
   await expect(page.locator(".srcnote")).toContainText("Android from your local copy");
 });
 
-test("People and roles marks a person who is not in the group, for the admin", async ({ page }) => {
+test("The Team page marks a person who is not in the group, for the admin", async ({ page }) => {
   await page.goto("/people?as=nazar.t");
   await ready(page);
   await expect(page.locator('#people tr[data-user="sofiia.h"]')).toContainText("not in the group");
@@ -217,11 +217,23 @@ test("Settings shows the admin what install set up on the host, and what to do",
   await expect(page.locator("#set-host")).toHaveCount(0);
 });
 
-test("the guides open from Settings, with the tokens and permissions, and link to each other", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/settings?as=nazar.t");
+test("Help lists the guides by who needs them and each role's work, and opens the guides", async ({ page }) => {
+  await page.goto("/?as=iryna.s");
   await ready(page);
-  await page.click('#set-guides a[href*="/guides/github"]');
+  await page.click('.nb[data-page="help"]');
+  await expect(page.locator("h1")).toHaveText("Help");
+  await expect(page.locator("#help-roles [data-role-help]").first()).toContainText("QA");
+  await expect(page.locator('#help-roles [data-role-help="qa"]')).toContainText("you");
+  await page.click('#help-everyone a[href*="/guides/people"]');
+  await expect(page.locator("#guide h1")).toHaveText("Add people and set up their machines");
+  await expect(page.locator(".crumb")).toContainText("Help");
+});
+
+test("the guides open from Help, with the tokens and permissions, and link to each other", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/help?as=nazar.t");
+  await ready(page);
+  await page.click('#help-admin a[href*="/guides/github"]');
   await expect(page.locator("#guide h1")).toHaveText("Install SDLC Hub on GitHub");
   await expect(page.locator("#guide")).toContainText("Secrets");
   await expect(page.locator("#guide [id=\"2-create-your-fine-grained-token\"]")).toBeVisible();

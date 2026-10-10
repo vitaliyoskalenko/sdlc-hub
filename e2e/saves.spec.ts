@@ -42,7 +42,7 @@ test.describe.serial("saves from the site", () => {
     await expect(page.locator('[data-save="pending"], [data-save="refused"]')).toHaveCount(0);
   });
 
-  test("the admin adds a person on People and roles; it merges and the person gets a script", async ({ page }) => {
+  test("the admin adds a person on the Team page; it merges and the person gets a script", async ({ page }) => {
     await page.goto(`${DEMO}/people?as=nazar.t`);
     await page.waitForSelector("#people");
     await page.click("#add-person");
@@ -53,7 +53,7 @@ test.describe.serial("saves from the site", () => {
     await page.click('[data-role="qa"]');
     await page.selectOption("#pf-os", "windows");
     await page.click("#pf-save");
-    await expect(page.locator("#people-saves")).toContainText("Add anna.b on People and roles");
+    await expect(page.locator("#people-saves")).toContainText("Add anna.b on the Team page");
     await expect(page.locator('#people tr[data-user="anna.b"]')).toBeVisible({ timeout: 20_000 });
     await page.locator('[data-script="anna.b"]').click();
     await expect(page.locator('[data-shell="powershell"]')).toHaveAttribute("aria-pressed", "true"); // her system
@@ -153,5 +153,19 @@ test.describe.serial("saves from the site", () => {
     await row.locator("[data-save-price]").click();
     await expect(row).toContainText("override", { timeout: 20_000 });
     await expect(row).toContainText("$18");
+  });
+
+  test("the admin edits a team on Settings, and cannot remove one people are still in", async ({ page }) => {
+    await page.goto(`${DEMO}/settings?as=nazar.t`);
+    await page.waitForSelector("#teams");
+    const web = page.locator('#teams tr[data-team-row="web"]');
+    await web.locator("[data-edit-team]").click();
+    await web.locator('input[aria-label="Test command"]').fill("npm run test:web");
+    await web.locator("[data-save-team]").click();
+    await expect(web).toContainText("npm run test:web", { timeout: 20_000 });
+    // Petro is in the web team: removing it is refused, with the reason, before anything is pushed.
+    await web.locator("[data-remove-team]").click();
+    await web.locator("[data-confirm-remove]").click();
+    await expect(page.locator("#set-project .problem")).toContainText("petro.v is in team web");
   });
 });

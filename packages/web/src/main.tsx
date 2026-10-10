@@ -11,7 +11,7 @@ import { actionsFor, Home, type Action } from "./home.tsx";
 import { People, SetupScript } from "./people.tsx";
 import { Settings } from "./settings.tsx";
 import { Releases } from "./releases.tsx";
-import { GuideDoc } from "./guides.tsx";
+import { GuideDoc, Help } from "./guides.tsx";
 import { TaskPage } from "./task.tsx";
 import "./styles.css";
 import { ASSISTANTS, roleOf } from "./text.ts";
@@ -25,6 +25,7 @@ type Route =
   | { page: "people" }
   | { page: "settings" }
   | { page: "releases" }
+  | { page: "help" }
   | { page: "guide-doc"; name: string }
   | { page: "script"; user: string }
   | { page: "missing" };
@@ -36,6 +37,7 @@ function route(path: string): Route {
   if (path === "/people") return { page: "people" };
   if (path === "/settings") return { page: "settings" };
   if (path === "/releases") return { page: "releases" };
+  if (path === "/help") return { page: "help" };
   const gd = /^\/guides\/([a-z]+)\/?$/.exec(path);
   if (gd) return { page: "guide-doc", name: gd[1]! };
   const sc = /^\/people\/([A-Za-z0-9][A-Za-z0-9._-]*)\/script\/?$/.exec(path);
@@ -45,7 +47,7 @@ function route(path: string): Route {
   return { page: "missing" };
 }
 
-const TITLE: Record<Route["page"], string> = { home: "Home", features: "Features", feature: "Feature", guide: "Your guide", people: "People and roles", settings: "Settings", releases: "Releases", "guide-doc": "Guides", script: "Setup script", missing: "Not found" };
+const TITLE: Record<Route["page"], string> = { home: "Home", features: "Features", feature: "Feature", guide: "Your guide", people: "Team", settings: "Settings", releases: "Releases", help: "Help", "guide-doc": "Help", script: "Setup script", missing: "Not found" };
 
 function Root() {
   const [loc, setLoc] = useState(location.pathname + location.search);
@@ -137,7 +139,8 @@ function Root() {
     };
   }, [viewer, version, saves.list.some((x) => x.state === "pending" || x.state === "queued")]);
 
-  const r = route(loc.split("?")[0]!);
+  // A #section part names a heading of the page, not a page.
+  const r = route(loc.split("?")[0]!.split("#")[0]!);
   useEffect(() => {
     document.title = `SDLC Hub · ${r.page === "feature" ? r.slug : TITLE[r.page]}`;
   }, [loc]);
@@ -218,17 +221,28 @@ function Root() {
       <div class="app" inert={help !== null || task !== null}>
         <header class="top">
           <div class="brand">
+            <span class="live" role="status" title={live ? "Live: the site updates when main or hub-state changes" : "Reconnecting to the local server"} aria-label={live ? "Live" : "Reconnecting"}>
+              <i class={`dot${live ? "" : " off"}`} />
+            </span>
             <b>SDLC Hub</b>
-            {session.demo && <span class="proto">Demo · fixture repository</span>}
-            <span class="proj">
-              {project.project.name} · <code>{`${project.project.namespace}/${project.project.repo}`}</code> <span class="tag">{host}</span>
+            <span class="proj" title={`${project.project.namespace}/${project.project.repo} on ${host}`}>
+              {project.project.name}
             </span>
           </div>
           <div class="ctl">
-            <span class="live" title={live ? "The site updates when the files change" : "Not connected to the local server"}>
-              <i class={`dot${live ? "" : " off"}`} />
-              {live ? "live: main and hub-state" : "reconnecting"}
-            </span>
+            {session.demo && (
+              <span class="protoctl" title="Demo: a sample project. Choose who you are and which assistant you use.">
+                <span class="pk">Demo</span>
+                <PersonPicker session={session} current={me.user} pick={(u) => setParam("as", u)} />
+                <select id="asst" aria-label="Assistant" value={assistant} onChange={(e) => setParam("asst", e.currentTarget.value)}>
+                  {ASSISTANTS.map(([a, n]) => (
+                    <option key={a} value={a}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </span>
+            )}
             {me.roles.length > 1 && (
               <label class="workas">
                 <span>Working as</span>
@@ -247,22 +261,6 @@ function Root() {
               </span>{" "}
               Your guide
             </button>
-            {session.demo && (
-              <span class="protoctl">
-                <span class="pk">Demo</span>
-                <PersonPicker session={session} current={me.user} pick={(u) => setParam("as", u)} />
-                <label for="asst">
-                  assistant{" "}
-                  <select id="asst" value={assistant} onChange={(e) => setParam("asst", e.currentTarget.value)}>
-                    {ASSISTANTS.map(([a, n]) => (
-                      <option key={a} value={a}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </span>
-            )}
           </div>
         </header>
         <div class="shell">
@@ -275,10 +273,13 @@ function Root() {
             ))}
             <div class="grp">Admin{me.roles.includes("admin") ? "" : " · read only"}</div>
             <a class="nb" data-page="people" href={href("/people")} aria-current={r.page === "people" || r.page === "script" ? "page" : undefined} onClick={(e) => (e.preventDefault(), go("/people"))}>
-              <span>People and roles</span>
+              <span>Team</span>
             </a>
-            <a class="nb" data-page="settings" href={href("/settings")} aria-current={r.page === "settings" || r.page === "guide-doc" ? "page" : undefined} onClick={(e) => (e.preventDefault(), go("/settings"))}>
+            <a class="nb" data-page="settings" href={href("/settings")} aria-current={r.page === "settings" ? "page" : undefined} onClick={(e) => (e.preventDefault(), go("/settings"))}>
               <span>Settings</span>
+            </a>
+            <a class="nb after" data-page="help" href={href("/help")} aria-current={r.page === "help" || r.page === "guide-doc" ? "page" : undefined} onClick={(e) => (e.preventDefault(), go("/help"))}>
+              <span>Help</span>
             </a>
           </nav>
           <main id="main">
@@ -294,6 +295,7 @@ function Root() {
             {r.page === "people" && <People />}
             {r.page === "settings" && <Settings />}
             {r.page === "releases" && <Releases />}
+            {r.page === "help" && <Help />}
             {r.page === "guide-doc" && <GuideDoc name={r.name} />}
             {r.page === "script" && <SetupScript user={r.user} params={params} />}
             {r.page === "missing" && (
@@ -319,8 +321,8 @@ function Root() {
 
 function PersonPicker({ session, current, pick }: { session: Session; current: string; pick: (user: string) => void }) {
   return (
-    <label for="persona">
-      view as{" "}
+    <label for="persona" class="persona">
+      <span class="sr">View as</span>
       <select id="persona" value={current} onChange={(e) => pick(e.currentTarget.value)}>
         {!current && <option value="">Choose a person</option>}
         {session.people.map((p) => (

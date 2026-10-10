@@ -43,6 +43,8 @@ export interface Team {
   repo: string;
   kind: string;
   api_contract?: boolean;
+  /** The command for the team's autotests, for a local run. */
+  test?: string;
 }
 
 export interface ProjectInfo {

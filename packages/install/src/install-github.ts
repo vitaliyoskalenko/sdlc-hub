@@ -259,7 +259,7 @@ export async function installGitHub(a: SetupAnswers, gh: GitHub, opts: InstallOp
     });
   }
   if (opened.length) left.push(`${a.teams.length === 1 ? "The team lead merges" : "Each team lead merges"} the ${w.changeRequest} that adds the hub workflows: ${opened.join(", ")}`);
-  left.push("Add each person on People and roles, then send them their setup script");
+  left.push("Add each person on the Team page, then send them their setup script");
   return { ok: steps.every((s) => s.state !== "fail"), steps, left };
 }
 
