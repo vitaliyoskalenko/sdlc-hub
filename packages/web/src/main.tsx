@@ -148,8 +148,11 @@ function Root() {
   const go = (path: string, p: Record<string, string | undefined> = {}) => {
     const url = href(path, p);
     history.pushState(null, "", url);
-    setLoc(url);
-    scrollTo(0, 0);
+    // The #section stays in the address bar, not in the page's location: the query must not carry it.
+    const [page, hash] = url.split("#");
+    setLoc(page!);
+    if (hash) setTimeout(() => document.getElementById(decodeURIComponent(hash))?.scrollIntoView(), 50);
+    else scrollTo(0, 0);
   };
   const setParam = (key: string, value: string) => {
     const q = new URLSearchParams(location.search);

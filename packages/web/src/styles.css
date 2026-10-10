@@ -423,3 +423,6 @@ input.price{width:5.5em}
 .cmdlist{list-style:none;padding:0;margin:4px 0 10px;display:flex;flex-direction:column;gap:5px}
 .cmdlist li{overflow-wrap:anywhere}
 .cmdlist code{white-space:nowrap}
+.rolepick{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:4px 0 12px}
+.rolepick .k{margin-right:4px}
+.statusline{flex-direction:row !important;align-items:baseline;gap:10px !important}

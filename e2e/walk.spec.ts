@@ -229,6 +229,42 @@ test("Help lists the guides by who needs them and each role's work, and opens th
   await expect(page.locator(".crumb")).toContainText("Help");
 });
 
+test("Help's links open the guide at their section, as the same person", async ({ page }) => {
+  for (const [link, heading] of [["Set up your machine", "the-person-runs-the-script"], ["Every day", "every-day"]] as const) {
+    await page.goto("/help?as=iryna.s");
+    await ready(page);
+    await page.locator("#help-everyone a", { hasText: link }).click();
+    await expect(page.locator("#guide h1")).toHaveText("Add people and set up their machines");
+    await expect(page.locator(`#guide [id="${heading}"]`)).toBeInViewport();
+    await expect(page.locator("#persona")).toHaveValue("iryna.s");
+  }
+});
+
+test("Your guide opens the guide of any role", async ({ page }) => {
+  await page.goto("/guide?as=olena.k");
+  await ready(page);
+  await expect(page.locator("h1")).toHaveText("Your guide");
+  await page.click('[data-guide-role="qa"]');
+  await expect(page.locator("h1")).toHaveText("Guide for QA");
+  await expect(page.locator("#main")).toContainText("/hub:verify");
+  await page.click('[data-guide-role="po"]');
+  await expect(page.locator("h1")).toHaveText("Your guide");
+});
+
+test("Help shows the flow, every command, the statuses, the words and what to do when something goes wrong", async ({ page }) => {
+  await page.goto("/help?as=taras.m");
+  await ready(page);
+  await expect(page.locator("#help-flow [data-flow-step]")).toHaveCount(20);
+  await expect(page.locator('#help-flow [data-flow-step="clarify"]')).toContainText("PO");
+  await page.locator('#help-commands [data-command="signoff"] button').click();
+  await expect(page.locator("dialog[open], .dialog, [role=dialog]").first()).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#help-statuses")).toContainText("Waiting for sign-off");
+  await expect(page.locator("#help-trouble")).toContainText("My save was refused");
+  await page.locator('#help-roles [data-role-help="qa"] a').click();
+  await expect(page.locator("h1")).toHaveText("Guide for QA");
+});
+
 test("the guides open from Help, with the tokens and permissions, and link to each other", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/help?as=nazar.t");
