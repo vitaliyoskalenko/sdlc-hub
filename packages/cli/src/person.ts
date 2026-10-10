@@ -10,7 +10,8 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { personStatePath, type Person } from "@sdlc-hub/core";
 import { gitIdentity, openProject, personOf } from "@sdlc-hub/git";
 import { claudeSetupCommands, MARKETPLACE, PLUGIN } from "@sdlc-hub/plugin/files";
-import { hostSaves } from "./host-saves.ts";
+import { credentialFill, hostSaves } from "./host-saves.ts";
+import { githubWeb } from "@sdlc-hub/install";
 import { createSaver, writeHubState, type Line, type SaverOptions } from "@sdlc-hub/save";
 import { identityToRecipient } from "age-encryption";
 import { keyPath, keyStore, keysOf, machineName, newKeyPair } from "@sdlc-hub/usage";
@@ -171,7 +172,7 @@ export function remoteUrl(root: string, run: Run = runCommand): string {
   return /^[a-z][a-z0-9+.-]*:\/\//.test(url) || /^[^/]+@[^:]+:/.test(url) || isAbsolute(url) ? url : resolve(root, url);
 }
 
-export function doctor(root: string, run: Run = runCommand): { ok: boolean; lines: Line[] } {
+export function doctor(root: string, run: Run = runCommand, fill: (web: string) => string | undefined = credentialFill): { ok: boolean; lines: Line[] } {
   const lines: Line[] = [];
   const say = (ok: boolean, text: string, blocking = true) => lines.push({ ok, text, blocking });
   const major = Number(process.versions.node.split(".")[0]);
@@ -188,6 +189,13 @@ export function doctor(root: string, run: Run = runCommand): { ok: boolean; line
   const remote = run("git", ["ls-remote", "--heads", "origin", "main", "hub-state"], root);
   say(remote.status === 0, remote.status === 0 ? "The git host answers" : `The git host does not answer: ${remote.out.split("\n").at(-1)}`);
   if (remote.status === 0) say(/refs\/heads\/hub-state/.test(remote.out), /refs\/heads\/hub-state/.test(remote.out) ? "hub-state exists" : "There is no hub-state branch: ask the admin to run setup again", false);
+  // GitHub opens no pull request from a plain push: the site needs a token from git's credential helper to save.
+  const git = opened.project.config.git;
+  if (git.provider === "github") {
+    const web = githubWeb(git.host);
+    const has = !!fill(web);
+    say(has, has ? `git has a token for ${new URL(web).host}, so the site can open pull requests for your saves` : `git has no token for ${new URL(web).host}, so the site cannot open pull requests for your saves (SSH alone is not enough): run gh auth login, then gh auth setup-git`, false);
+  }
   const assistant = person?.assistant ?? "claude";
   if (assistant === "codex" || assistant === "cursor") {
     const config = assistant === "codex" ? ".codex/config.toml" : ".cursor/mcp.json";

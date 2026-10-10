@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -74,6 +74,14 @@ describe("hub setup", () => {
 });
 
 describe("hub doctor", () => {
+  it("on GitHub, warns when git has no token for saving from the site", () => {
+    const { root, run } = clone();
+    const config = join(root, ".hub/config.yaml");
+    writeFileSync(config, readFileSync(config, "utf8").replace("provider: gitlab, host: gitlab.example.com", "provider: github, host: github.com"));
+    expect(print(doctor(root, run, () => undefined).lines)).toContain("! git has no token for github.com, so the site cannot open pull requests for your saves");
+    expect(print(doctor(root, run, () => "t").lines)).toContain("✓ git has a token for github.com");
+  });
+
   it("passes after setup and says what is wrong before it", async () => {
     const { root, run } = clone();
     const before = doctor(root, run);
