@@ -10,6 +10,7 @@ import { CommandHelp } from "./help.tsx";
 import { actionsFor, Home, type Action } from "./home.tsx";
 import { People, SetupScript } from "./people.tsx";
 import { Settings } from "./settings.tsx";
+import { GuideDoc } from "./guides.tsx";
 import { TaskPage } from "./task.tsx";
 import "./styles.css";
 import { ASSISTANTS } from "./text.ts";
@@ -22,6 +23,7 @@ type Route =
   | { page: "guide" }
   | { page: "people" }
   | { page: "settings" }
+  | { page: "guide-doc"; name: string }
   | { page: "script"; user: string }
   | { page: "missing" };
 
@@ -31,6 +33,8 @@ function route(path: string): Route {
   if (path === "/guide") return { page: "guide" };
   if (path === "/people") return { page: "people" };
   if (path === "/settings") return { page: "settings" };
+  const gd = /^\/guides\/([a-z]+)\/?$/.exec(path);
+  if (gd) return { page: "guide-doc", name: gd[1]! };
   const sc = /^\/people\/([A-Za-z0-9][A-Za-z0-9._-]*)\/script\/?$/.exec(path);
   if (sc) return { page: "script", user: sc[1]! };
   const m = /^\/features\/([a-z0-9][a-z0-9-]*)(?:\/(documents|tasks|qa|release|costs))?\/?$/.exec(path);
@@ -38,7 +42,7 @@ function route(path: string): Route {
   return { page: "missing" };
 }
 
-const TITLE: Record<Route["page"], string> = { home: "Home", features: "Features", feature: "Feature", guide: "Your guide", people: "People and roles", settings: "Settings", script: "Setup script", missing: "Not found" };
+const TITLE: Record<Route["page"], string> = { home: "Home", features: "Features", feature: "Feature", guide: "Your guide", people: "People and roles", settings: "Settings", "guide-doc": "Guides", script: "Setup script", missing: "Not found" };
 
 function Root() {
   const [loc, setLoc] = useState(location.pathname + location.search);
@@ -235,7 +239,7 @@ function Root() {
             <a class="nb" data-page="people" href={href("/people")} aria-current={r.page === "people" || r.page === "script" ? "page" : undefined} onClick={(e) => (e.preventDefault(), go("/people"))}>
               <span>People and roles</span>
             </a>
-            <a class="nb" data-page="settings" href={href("/settings")} aria-current={r.page === "settings" ? "page" : undefined} onClick={(e) => (e.preventDefault(), go("/settings"))}>
+            <a class="nb" data-page="settings" href={href("/settings")} aria-current={r.page === "settings" || r.page === "guide-doc" ? "page" : undefined} onClick={(e) => (e.preventDefault(), go("/settings"))}>
               <span>Settings</span>
             </a>
           </nav>
@@ -246,6 +250,7 @@ function Root() {
             {r.page === "guide" && <Guide />}
             {r.page === "people" && <People />}
             {r.page === "settings" && <Settings />}
+            {r.page === "guide-doc" && <GuideDoc name={r.name} />}
             {r.page === "script" && <SetupScript user={r.user} params={params} />}
             {r.page === "missing" && (
               <div class="lockbox">

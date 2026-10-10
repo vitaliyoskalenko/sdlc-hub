@@ -3,6 +3,7 @@
 
 import { useState } from "preact/hooks";
 import type { GuardCheck, ProjectInfo } from "./api.ts";
+import { GuidesCard } from "./guides.tsx";
 import { PendingList, useAction } from "./saves.tsx";
 import { roleOf } from "./text.ts";
 import { Pill, useApp } from "./ui.tsx";
@@ -159,6 +160,7 @@ export function Settings() {
       </div>
       {problem}
       <PendingList saves={pending} />
+      <GuidesCard />
       <div class="card" id="set-project">
         <h3>Project</h3>
         <div class="kv">

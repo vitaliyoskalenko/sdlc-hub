@@ -5,7 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import { api, type Finding, type PersonInput, type PersonRow } from "./api.ts";
 import { SaveState } from "./saves.tsx";
 import { roleOf } from "./text.ts";
-import { CopyButton, Pill, RoleChip, teamName, useApp } from "./ui.tsx";
+import { CopyButton, Link, Pill, RoleChip, teamName, useApp } from "./ui.tsx";
 
 const ASSISTANTS: Record<string, string> = { claude: "Claude Code", codex: "Codex", cursor: "Cursor" };
 const SYSTEMS: Record<string, string> = { macos: "macOS", linux: "Linux", windows: "Windows" };
@@ -175,7 +175,7 @@ export function People() {
         <div>
           <h1>People and roles</h1>
           <p class="sub">
-            Stored in <code>.hub/roles.yaml</code>. Saving opens a merge request that only the admin role can pass.
+            Stored in <code>.hub/roles.yaml</code>. Saving opens a merge request that only the admin role can pass. <Link to="/guides/people">How adding a person works</Link>
           </p>
         </div>
         {!form && (

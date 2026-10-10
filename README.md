@@ -23,26 +23,37 @@ Other fixtures: `npm run demo -- --fixture <name>`, for example `quick-route`, `
 
 On a real `product-specs` checkout: `npm run build`, then from inside the checkout `node <this repo>/packages/cli/dist/cli.mjs serve`. You are the person in `.hub/roles.yaml` that matches your git identity, or `--as <user>`.
 
-## People and setup scripts
+## Install and use
 
-The admin adds each person on People and roles (`/people`); saving opens a merge request on `.hub/roles.yaml` that merges itself. Setup script, on the same page, gives one script per person for bash or PowerShell, with no secrets in it. The person runs it: it checks git, Node and the assistant, clones the repositories of their role, runs `node hub/cli.js setup` (confirms the role on `main`, sets up Claude Code and the hub plugin, tells the admin) and `node hub/cli.js doctor`, and opens Your guide.
+Step-by-step guides, with the tokens and permissions each host needs:
 
-In the demo, try it as `nazar.t`: People and roles, Add a person, then Setup script.
+| Guide | For |
+|---|---|
+| [Install on GitLab](docs/guides/gitlab.md) | The admin: the personal access token (`api` scope), the Owner role, a runner, what Install creates (`HUB_STATE_TOKEN`, `hub-ci`, `HUB_GUARD_TOKEN`, protected `main`) and when to renew the tokens. |
+| [Install on GitHub](docs/guides/github.md) | The admin: the organization settings, the fine-grained token and its permissions, the plan, what Install creates (the deploy key and `HUB_STATE_KEY`, the ruleset, the workflows). |
+| [People](docs/guides/people.md) | The admin adds a person and sends a setup script; the person runs it. What each machine needs, and the everyday commands. |
+| [Settings](docs/guides/settings.md) | How strict `hub-guard` is (enforce or advisory, and the checks that can be switched off), assistants, headless runs, links, and `hub usage rekey`. |
 
-## The Claude Code plugin
+The same guides are built into the hub: Settings links to them, so the admin reads them on the site.
 
-Install writes the `hub` plugin into `hub/plugin/` and enables it in `.claude/settings.json`; the setup script registers it on each machine. Then `/hub:status`, `/hub:next <slug>`, `/hub:signoff <step> <slug>`, `/hub:return <step> <slug> <reason>`, `/hub:bug <slug>`, `/hub:verify <slug>`, `/hub:test <slug>`, `/hub:decide <slug>`, `/hub:release <slug>` and `/hub:start` work in Claude Code. For `/hub:test`, the admin sets each team's test command as `test:` under `teams` in `.hub/config.yaml`. To try the plugin without installing it: `claude --plugin-dir hub/plugin`.
-
-## First install on GitLab
+From this repository, before the package is published:
 
 ```
 npm run build
 node packages/cli/dist/cli.mjs init        # npx sdlc-hub init once the package is published
 ```
 
-The setup site opens at `http://127.0.0.1:4173/setup`. Paste a personal access token of a group Owner with the `api` scope. Install writes the hub into the specifications repository, creates `hub-state`, stores `HUB_STATE_TOKEN` and opens one hub-report merge request per team repository. It also creates `hub-ci` with the hub-guard job, stores `HUB_GUARD_TOKEN`, turns on "Pipelines must succeed" and protects `main`. Run it again after an upgrade; once `main` is protected its changes arrive as a merge request that merges itself. Then clone the repository and run `node hub/cli.js serve` in it.
+## The Claude Code plugin
 
-To try it on a local GitLab CE in Docker (about 4 GB of memory, 10 minutes for the first start):
+Install writes the `hub` plugin into `hub/plugin/` and enables it in `.claude/settings.json`; the setup script registers it on each machine. Then `/hub:status`, `/hub:next <slug>`, `/hub:signoff <step> <slug>`, `/hub:return <step> <slug> <reason>`, `/hub:bug <slug>`, `/hub:verify <slug>`, `/hub:test <slug>`, `/hub:decide <slug>`, `/hub:release <slug>` and `/hub:start` work in Claude Code (`$hub-x` in Codex, `/hub-x` in Cursor). For `/hub:test`, the admin sets each team's test command as `test:` under `teams` in `.hub/config.yaml`. To try the plugin without installing it: `claude --plugin-dir hub/plugin`.
+
+In the demo, try People as `nazar.t`: People and roles, Add a person, then Setup script.
+
+## Testing against real hosts
+
+For developers of the hub. Secrets go only in `~/.sdlc-hub-test/` (mode 600), never into the repository.
+
+A local GitLab CE in Docker (about 4 GB of memory, 10 minutes for the first start):
 
 ```
 docker run -d --name sdlc-hub-gitlab -p 8929:8929 -e GITLAB_OMNIBUS_CONFIG="external_url 'http://localhost:8929'" gitlab/gitlab-ce:latest
@@ -51,11 +62,11 @@ npm run test:gitlab                # the install twice, a real hub-report pipeli
 HUB_GITLAB_IT=1 npx playwright test e2e/setup.spec.ts
 ```
 
-On GitHub, choose GitHub on the first screen and paste a fine-grained token of an organization owner. The setup page lists the permissions it needs. A Free organization can install only with public repositories. To try it on a throwaway organization, put `{"org": "<org>", "token": "<token>"}` in `~/.sdlc-hub-test/github.json` (mode 600). Add `"people": {"<login>": "<token>"}` with a second member's token to include the refusal test. Then:
+A throwaway GitHub organization: create a token as in [the GitHub guide](docs/guides/github.md#2-create-your-fine-grained-token). Put `{"org": "<org>", "token": "<token>"}` in `~/.sdlc-hub-test/github.json`. To include the refusal and advisory tests, add `"people": {"<login>": "<token>"}` with a second member's token (Contents and Pull requests, read and write, on `product-specs`). Then:
 
 ```
 node e2e/github/bootstrap.mjs      # public product-specs, backend and web-admin, each team with a CI workflow
-npm run test:github                # the install twice, a save that merges itself, hub-report with the deploy key
+npm run test:github                # the install twice, saves that merge themselves, hub-report, refusal and advisory mode
 ```
 
 ## Check it

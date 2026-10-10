@@ -365,6 +365,8 @@ svg.dag{max-width:none} /* the task graph keeps its size and scrolls inside its 
 .md h1{font:600 1.2rem/1.3 var(--f-body)} .md h2{font:600 1rem/1.3 var(--f-body);letter-spacing:0;text-transform:none;color:var(--ink)} .md h3{font-size:.95rem}
 .md table{font-size:.88rem} .md .scroll-in{overflow-x:auto}
 .md ul,.md ol{display:flex;flex-direction:column;gap:3px}
+.guide table{display:block;overflow-x:auto;max-width:100%} .guide pre{overflow-x:auto;max-width:100%} .guide h2{margin-top:10px}
+.guides-nav{flex-wrap:wrap;gap:6px;margin:8px 0} .guides-nav a{text-decoration:none;color:var(--ink)} .chipbtn.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .live{display:inline-flex;align-items:center;gap:7px;font-size:.84rem;color:var(--muted)}
 .dot.off{background:var(--wire)}
 .empty{padding:28px 0}

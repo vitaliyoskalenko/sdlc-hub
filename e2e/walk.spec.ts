@@ -185,6 +185,22 @@ test("the page shows what the files say", async ({ page }) => {
   await expect(page.locator(".srcnote")).toContainText("Android from your local copy");
 });
 
+test("the guides open from Settings, with the tokens and permissions, and link to each other", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/settings?as=nazar.t");
+  await ready(page);
+  await page.click('#set-guides a[href*="/guides/github"]');
+  await expect(page.locator("#guide h1")).toHaveText("Install SDLC Hub on GitHub");
+  await expect(page.locator("#guide")).toContainText("Secrets");
+  await expect(page.locator("#guide [id=\"2-create-your-fine-grained-token\"]")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.locator('#guide a[href="/guides/settings"]').first().click();
+  await expect(page.locator("#guide h1")).toHaveText("Settings");
+  await page.goto("/guides/gitlab?as=maksym.d");
+  await ready(page);
+  await expect(page.locator("#guide")).toContainText("HUB_GUARD_TOKEN");
+});
+
 test("another site cannot use the server", async ({ request }) => {
   const r = await request.get("/api/features", { headers: { origin: "https://evil.example" } });
   expect(r.status()).toBe(403);
