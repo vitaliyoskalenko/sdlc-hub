@@ -9,9 +9,9 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { GitLab, HostError, WORDS, type GitLabGroup, type GitLabProject, type GitLabUser } from "@sdlc-hub/host";
-import { agentSkillFiles, codexFiles, cursorFiles, MARKETPLACE, PLUGIN, marketplaceFile, pluginFiles, withClaudeSettings } from "@sdlc-hub/plugin/files";
-import { AGENTS_BLOCK, CLAUDE_BLOCK, hostUrl, hubFiles, teamId, withBlock, withIgnore, type SetupAnswers } from "./answers.ts";
+import { hostUrl, hubFiles, teamId, type SetupAnswers } from "./answers.ts";
 import { pushFiles } from "./push.ts";
+import { hubOwnedFiles } from "./hub-files.ts";
 import { HUB_CI_FILE, HUB_CI_PROJECT, HUB_REPORT_FILE, hubGuardCi, hubReportJob, reportStage, withInclude } from "./ci.ts";
 
 export interface Check {
@@ -179,20 +179,7 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
     const { files, issues } = hubFiles(a, { user: user.username, name: user.name });
     if (issues.some((i) => i.level === "error")) throw new Error(issues.map((i) => i.message).join("; "));
     if (existingRoles) delete files[".hub/roles.yaml"]; // a second run keeps the people the admin added
-    files["hub/cli.js"] = opts.hubBundle;
-    // product-specs has no package.json: this one makes Node load hub/cli.js as the ES module it is.
-    files["hub/package.json"] = '{ "private": true, "type": "module" }\n';
-    files["CLAUDE.md"] = withBlock(await gl.file(p.id, "CLAUDE.md", main), CLAUDE_BLOCK);
-    if (a.assistants.codex || a.assistants.cursor) files["AGENTS.md"] = withBlock(await gl.file(p.id, "AGENTS.md", main), AGENTS_BLOCK);
-    files[".gitignore"] = withIgnore(withIgnore(await gl.file(p.id, ".gitignore", main), ".claude/*.local.md"), ".claude/settings.local.json");
-    // The hub plugin for Claude Code, the repository's own marketplace, and the shared settings that enable both.
-    Object.assign(files, pluginFiles());
-    // Codex and Cursor: one set of skills in .agents/skills, and each one's MCP server and hooks.
-    if (a.assistants.codex || a.assistants.cursor) Object.assign(files, agentSkillFiles());
-    if (a.assistants.codex) Object.assign(files, codexFiles());
-    if (a.assistants.cursor) Object.assign(files, cursorFiles());
-    files[".claude-plugin/marketplace.json"] = marketplaceFile(a.project.trim() || a.repo.trim());
-    files[".claude/settings.json"] = withClaudeSettings(await gl.file(p.id, ".claude/settings.json", main), a.engine === "sdd" ? { id: "sdd", source: "genkovich/sdd" } : null);
+    Object.assign(files, await hubOwnedFiles({ host: "gitlab", assistants: a.assistants, engine: a.engine, marketplace: a.project.trim() || a.repo.trim(), bundle: opts.hubBundle, read: (path) => gl.file(p.id, path, main) }));
     // An install merge request still waiting for its pipeline already carries some of the files.
     const pending = locked ? (await gl.openMergeRequests(p.id, INSTALL_BRANCH))[0] : undefined;
     const changed: Record<string, string> = {};

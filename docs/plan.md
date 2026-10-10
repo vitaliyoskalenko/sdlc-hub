@@ -7,7 +7,7 @@ Agreed with the owner on 10 October 2026. Phases 0 to 5 of the delivery plan are
 | # | What | Why | Size | Status |
 |---|---|---|---|---|
 | 1 | Decide whether `tech-design` waits for `sequences` | SDD's `sequences` writes no file of its own, only `_sequences-log.md`, so the step shows done once `design` finishes | — | Done: it waits, except on the quick route (revision 67) |
-| 2 | `hub upgrade`, and a site older than the repository turns read only | Every new hub version otherwise means running setup again | M | To do |
+| 2 | `hub upgrade`, and a site older than the repository turns read only | Every new hub version otherwise means running setup again | M | Done (revision 68) |
 | 3 | File validation in CI (`hub-validate`) | `hub-guard` checks who changed which files, not whether they are valid: a broken `feature.yaml` or `roles.yaml` can merge and break the site | S–M | Done: inside `hub-guard` (revision 67) |
 | 4 | Install on the team's real GitLab, and check the GitLab MCP server there (claim 4) | Only a local GitLab CE in Docker was used so far | S | Needs the owner |
 | 5 | One real feature through all twenty steps (phase 0) | The SDD run stopped at `tasks`: test plan, review record and ship are unchecked against real output | M | Needs the team |

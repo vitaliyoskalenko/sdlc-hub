@@ -101,6 +101,20 @@ Install can be run again at any time. Each step checks first, so a second run sk
 - **A new team repository later** needs the `HUB_STATE_KEY` secret too. Run setup again: it makes a new deploy key for all team repositories. Remove older `sdlc-hub hub-state` keys from `product-specs` once team CI uses the newest.
 - Nothing expires on its own: the deploy key and the secrets have no end date.
 
+## Upgrade the hub
+
+The hub's version is in `hub/package.json`. To upgrade, run the newer hub in your clone of `product-specs`, as the admin:
+
+```
+npx sdlc-hub@<version> upgrade
+```
+
+It proposes the newer `hub/cli.js`, its version, the plugin and the assistants' files as one pull request in your name. The pull request merges itself when `hub-guard` passes. `.hub/` stays as you wrote it, and the hub never goes back to an older version.
+
+Everyone gets the upgrade with `node hub/cli.js sync`. A site still running the older hub turns read only, and says to sync and start it again.
+
+The upgrade also carries the `hub-guard` workflow of the new version.
+
 ## What each person needs on GitHub
 
 - Membership in the organization, with write access to `product-specs` and their team's repository.

@@ -17,6 +17,8 @@ import { localTests } from "@sdlc-hub/save";
 import { collectUsage, noteContext } from "@sdlc-hub/usage";
 import { sync } from "./sync.ts";
 import { rekey } from "./rekey.ts";
+import { upgrade } from "./upgrade.ts";
+import { hubBehind } from "./hub-behind.ts";
 import { claudeHeadless } from "./headless.ts";
 import { seedDemoUsage } from "./demo-usage.ts";
 import { keyStore } from "@sdlc-hub/usage";
@@ -57,6 +59,10 @@ const HELP = `SDLC Hub
   hub sync
       Pulls main and hub-state, publishes your usage encrypted, and on the admin's or the PM's machine the
       open totals. It also refreshes Claude Code's copy of the hub plugin.
+
+  hub upgrade
+      Run by the admin from a newer hub (npx sdlc-hub@<version> upgrade) in their clone of product-specs: proposes
+      hub/, the plugin and the assistants' files of that version as one merge request. .hub/ stays as it is.
 
   hub usage rekey
       On the admin's or a PM's machine, after the PM, an admin or someone's key changed: encrypts every usage
@@ -137,7 +143,7 @@ async function serve(f: Record<string, string>) {
     hasRemote = false;
   }
   // Headless validation starts the person's own Claude Code, read-only; only when the admin turned it on.
-  const actions = hasRemote ? actionHandler({ root, identity: () => gitIdentity(root), headless: claudeHeadless(), ...hostSaves(first.project.config) }) : undefined;
+  const actions = hasRemote ? actionHandler({ root, identity: () => gitIdentity(root), headless: claudeHeadless(), hubBehind: () => hubBehind(root), ...hostSaves(first.project.config) }) : undefined;
   // The per-person costs the admin and the PM may see are decrypted with this machine's usage key.
   const usageKey = () => {
     try {
@@ -374,6 +380,15 @@ async function stdinText(): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
+/** hub upgrade: the admin proposes this hub's files for product-specs, as one merge request. */
+async function upgradeCommand() {
+  const root = topLevel(process.cwd());
+  if (!root) throw new Error("Run hub upgrade in your clone of product-specs.");
+  const r = await upgrade({ root, bundle: readFileSync(fileURLToPath(import.meta.url), "utf8") });
+  console.log(print(r.lines));
+  if (!r.ok) process.exit(1);
+}
+
 /** hub usage rekey: encrypt every usage record again to the readers roles.yaml names now. */
 async function usageCommand(sub: string | undefined) {
   if (sub !== "rekey") throw new Error("hub usage rekey: encrypt the usage records again, after a PM or an admin changed");
@@ -419,7 +434,7 @@ async function testCommand(f: Record<string, string>, slug: string | undefined) 
 }
 
 const [command, ...rest] = process.argv.slice(2);
-const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "usage" ? () => usageCommand(rest[0]) : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(flags(rest.slice(1)), rest[0]) : undefined;
+const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "usage" ? () => usageCommand(rest[0]) : command === "upgrade" ? upgradeCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(flags(rest.slice(1)), rest[0]) : undefined;
 if (!run) {
   console.log(HELP);
   process.exit(command && command !== "help" && command !== "--help" ? 1 : 0);

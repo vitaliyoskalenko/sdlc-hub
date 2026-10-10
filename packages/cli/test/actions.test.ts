@@ -86,6 +86,15 @@ describe("sign-off and return from the site", () => {
     expect((await handler.handle("POST", "/resolve", "olena.k", { branch: "hub/olena.k/x", choice: "mine" }, ctx)).status).toBe(404);
   });
 
+  it("saves nothing while the site runs a hub older than the repository's, and says why", async () => {
+    const { ctx, root } = project();
+    const handler = actionHandler({ root, identity: (u) => ({ name: u, email: `${u}@example.com` }), pushOptions: () => [], hubBehind: () => "This site runs hub 0.6.0, and product-specs has hub 0.7.0." });
+    const list = await handler.handle("GET", "/saves", "olena.k", null, ctx);
+    expect(list.body).toMatchObject({ enabled: false, why: expect.stringContaining("0.7.0") });
+    const r = await handler.handle("POST", "/signoff", "olena.k", { slug: "returns-portal", step: "clarify", decision: "pass" }, ctx);
+    expect(r).toMatchObject({ status: 409, body: { error: expect.stringContaining("0.7.0") } });
+  });
+
   it("records a return with its reason", async () => {
     const { remote, ctx, handler } = project();
     const r = await handler.handle("POST", "/signoff", "olena.k", { slug: "returns-portal", step: "clarify", decision: "return", reason: "AC-03 needs a time limit" }, ctx);

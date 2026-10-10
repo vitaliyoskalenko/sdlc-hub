@@ -2,6 +2,17 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-10: Revision 68, upgrades
+
+### hub upgrade and the version check
+- **Decision:**
+  - The hub's version is `HUB_VERSION` in core. Install and upgrade write it to `hub/package.json`.
+  - `hub upgrade`, run by the admin from the newer hub, writes the hub's own files again (the same function install uses) as one save; `.hub/` is not part of them. It refuses to go back to an older version.
+  - A site whose code is older than the hub in the checkout or on `main` saves nothing, and says why.
+- **Why:** The specification's lifecycle. A site that keeps running an older hub could save files the newer guard reads differently.
+- **Open:** GitLab's `hub-ci` job configuration is not part of the upgrade; running setup again updates it.
+- **By:** Specification; details proposed.
+
 ## 2026-10-10: Revision 67, tech-design waits for sequences; fan-out tokens
 
 ### tech-design waits for sequences, except on the quick route

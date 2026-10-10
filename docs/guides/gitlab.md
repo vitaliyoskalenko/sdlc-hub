@@ -74,6 +74,20 @@ The setup page lists what is left for people:
 - **Optional, self-managed only:** a pre-receive server hook, which needs access to the GitLab server.
 - **Add each person** on People and roles, then send them their setup script (see [People](people.md)).
 
+## Upgrade the hub
+
+The hub's version is in `hub/package.json`. To upgrade, run the newer hub in your clone of `product-specs`, as the admin:
+
+```
+npx sdlc-hub@<version> upgrade
+```
+
+It proposes the newer `hub/cli.js`, its version, the plugin and the assistants' files as one merge request in your name. The merge request merges itself when `hub-guard` passes. `.hub/` stays as you wrote it, and the hub never goes back to an older version.
+
+Everyone gets the upgrade with `node hub/cli.js sync`. A site still running the older hub turns read only, and says to sync and start it again.
+
+`hub-ci` keeps its job configuration. If a release note says it changed, run setup again.
+
 ## What each person needs on GitLab
 
 - Membership in the group with the **Developer** role.

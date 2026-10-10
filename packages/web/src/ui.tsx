@@ -22,6 +22,8 @@ export interface AppState {
   saves: Save[];
   /** False when the server cannot save (no remote): controls that save are disabled with that reason. */
   savesEnabled: boolean;
+  /** Why saving is off, when the server says (an older hub than the repository's). */
+  savesWhy?: string;
   addSave: (save: Save) => void;
 }
 

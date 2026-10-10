@@ -96,7 +96,7 @@ function Findings({ findings }: { findings: Finding[] }) {
 
 /** Sign off or return a gate that waits for me; then its save until it merges. */
 export function SignoffBox({ slug, step }: { slug: string; step: string }) {
-  const { me, session, saves, savesEnabled, addSave } = useApp();
+  const { me, session, saves, savesEnabled, savesWhy, addSave } = useApp();
   const [returning, setReturning] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -144,7 +144,7 @@ export function SignoffBox({ slug, step }: { slug: string; step: string }) {
         <button type="button" class="btn" id="return" disabled={!savesEnabled || busy} aria-expanded={returning} onClick={() => setReturning(!returning)}>
           Return…
         </button>
-        {!savesEnabled && <span class="reason">This checkout has no remote to save to.</span>}
+        {!savesEnabled && <span class="reason">{savesWhy ?? "This checkout has no remote to save to."}</span>}
         {busy && <span class="reason">Saving…</span>}
       </div>
       {returning && (

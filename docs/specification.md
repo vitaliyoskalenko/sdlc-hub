@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 10, 2026 · @Vitaliy · revision 67
+Oct 10, 2026 · @Vitaliy · revision 68
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -860,7 +860,7 @@ guard:
 | A second machine | The same setup script. A new key pair is added beside the first |
 | A person holds two roles | `roles.yaml` takes a list of roles, and the site asks which role to work in |
 | A team is added later | Settings, Add a team: the hub opens the `hub-report` merge request there and includes the team in fan-out. Features already running are not changed |
-| The hub is upgraded | `hub upgrade` opens a merge request that replaces `hub/` and raises `schema_version`. A site older than the repository turns read only and asks to pull |
+| The hub is upgraded | The admin runs the newer hub's `hub upgrade` in their clone. It proposes `hub/cli.js`, `hub/package.json` with the version, the plugin, the assistants' files and, on GitHub, the `hub-guard` workflow, as one merge request in the admin's name; `.hub/` stays as it is. It never goes back to an older version. A site whose hub is older than the one in the checkout or on `main` turns read only and says to sync and start it again. A change of `schema_version` comes with a migration in the release that needs it; none does yet |
 | Uninstall | One merge request removes `hub/`, `.hub/` and the assistant folders, then the admin lifts the branch settings. The documents stay |
 | The admin is unavailable | A second admin is the only protection. Add one on People and roles soon after the first install |
 

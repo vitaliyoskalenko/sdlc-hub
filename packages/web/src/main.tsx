@@ -54,7 +54,7 @@ function Root() {
   const [error, setError] = useState<string | null>(null);
   const [help, setHelp] = useState<string | null>(null);
   const [task, setTask] = useState<Action | null>(null);
-  const [saves, setSaves] = useState<{ list: Save[]; enabled: boolean }>({ list: [], enabled: false });
+  const [saves, setSaves] = useState<{ list: Save[]; enabled: boolean; why?: string }>({ list: [], enabled: false });
   // The latest open layers, for the Escape handler registered once.
   const layers = useRef({ help: false, task: false });
   layers.current = { help: help !== null, task: task !== null };
@@ -123,7 +123,7 @@ function Root() {
   useEffect(() => {
     if (!viewer) return;
     let live = true;
-    const load = () => api.saves(session?.demo ? viewer : undefined).then((x) => live && setSaves({ list: x.saves, enabled: x.enabled }), () => undefined);
+    const load = () => api.saves(session?.demo ? viewer : undefined).then((x) => live && setSaves({ list: x.saves, enabled: x.enabled, ...(x.why ? { why: x.why } : {}) }), () => undefined);
     void load();
     const waiting = (x: Save) => x.state === "pending" || x.state === "queued";
     const timer = setInterval(() => saves.list.some(waiting) && void load(), 8000);
@@ -177,6 +177,7 @@ function Root() {
     openTask,
     saves: saves.list,
     savesEnabled: saves.enabled,
+    ...(saves.why ? { savesWhy: saves.why } : {}),
     addSave: (x: Save) => setSaves((v) => ({ ...v, list: [x, ...v.list] })),
   };
   const actions = actionsFor(me, project, features).length;
@@ -244,6 +245,11 @@ function Root() {
             </a>
           </nav>
           <main id="main">
+            {saves.why && (
+              <p class="note warn" id="hub-behind">
+                {saves.why}
+              </p>
+            )}
             {r.page === "home" && <Home />}
             {r.page === "features" && <Features params={params} />}
             {r.page === "feature" && <Feature slug={r.slug} tab={r.tab} params={params} />}
@@ -260,7 +266,7 @@ function Root() {
           </main>
         </div>
         <p class="muted">
-          Signed in as {me.name} · {roleLabel(me)}. {saves.enabled ? "Your saves reach main through merge requests that merge by themselves when hub-guard passes." : "Read only: this checkout has no remote to save to."}
+          Signed in as {me.name} · {roleLabel(me)}. {saves.enabled ? "Your saves reach main through merge requests that merge by themselves when hub-guard passes." : saves.why ? "Read only until the site is started again with the newer hub." : "Read only: this checkout has no remote to save to."}
         </p>
       </div>
       {task !== null && (

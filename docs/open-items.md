@@ -1,6 +1,6 @@
 # Open items
 
-State on 10 October 2026, revision 67 of the specification. Items already fixed are not listed. Decisions that closed earlier items are in `docs/decisions.md`.
+State on 10 October 2026, revision 68 of the specification. Items already fixed are not listed. Decisions that closed earlier items are in `docs/decisions.md`.
 
 ## Specification
 

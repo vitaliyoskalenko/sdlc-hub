@@ -298,7 +298,7 @@ async function action(name: string, as: string | undefined, body: unknown): Prom
 
 export const api = {
   /** My saves; `as` matters only in the demo. */
-  saves: (as?: string) => get<{ saves: Save[]; enabled: boolean }>(`/api/saves${asQuery(as)}`),
+  saves: (as?: string) => get<{ saves: Save[]; enabled: boolean; why?: string }>(`/api/saves${asQuery(as)}`),
   signoff: (as: string | undefined, body: { slug: string; step: string; decision: "pass" | "return"; reason?: string }) => action("signoff", as, body),
   person: (as: string | undefined, body: { kind: "set"; person: PersonInput } | { kind: "remove"; user: string }) => action("person", as, body),
   people: () => get<{ people: PersonRow[]; release: string }>("/api/people"),
