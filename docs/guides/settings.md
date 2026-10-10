@@ -30,7 +30,7 @@ Choose Advisory for a team that wants the flow and the site without the restrict
 - the assistants' files: `.claude/`, `.claude-plugin/`, `.agents/`, `.codex/`, `.cursor/`, `CLAUDE.md`, `AGENTS.md`;
 - CI files: `.github/`, `.gitlab-ci.yml`, `ci/`.
 
-`signoffs.yaml` stays append-only, and a new sign-off must name its author.
+`signoffs.yaml` stays append-only, and a new sign-off must name its author. A hub file that would not load (`.hub/`, `feature.yaml`, `signoffs.yaml`, `release.yaml`, `verification.yaml`, a bug file) is refused too, so a typo can never break the site for everyone.
 
 The checks change what the guard lets through, not what the site offers: a Sign off button still appears only for the step's owner.
 

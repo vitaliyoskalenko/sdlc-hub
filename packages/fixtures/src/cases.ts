@@ -612,7 +612,12 @@ const QA_PASSED = [
     /teams:[\s\S]*?tracker:/,
     "teams:\n  - { id: app, name: Product, repo: shop/app, kind: other }\ntracker:",
   );
-  const roles = base()[".hub/roles.yaml"]! + "  - { user: ann.d, name: Ann D., role: dev, team: app, lead: true }\n";
+  // One team: the engineers of the other teams are not in this project.
+  const roles =
+    base()[".hub/roles.yaml"]!
+      .split("\n")
+      .filter((l) => !/team: (backend|web|android|ios)\b/.test(l))
+      .join("\n") + "  - { user: ann.d, name: Ann D., role: dev, team: app, lead: true }\n";
   const main = {
     ...base(),
     ".hub/config.yaml": config,

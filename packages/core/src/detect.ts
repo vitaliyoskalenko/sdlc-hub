@@ -111,6 +111,10 @@ export function loadProject(specs: FileSource): Result<Project> {
   const flow = read(".hub/flow.yaml", parseFlow);
   const engine = config ? read(`.hub/engines/${config.engine}.yaml`, parseEngine) : undefined;
   if (engine && flow) issues.push(...checkEngineAgainstFlow(engine, flow, `.hub/engines/${config!.engine}.yaml`));
+  if (config && roles)
+    for (const p of roles.people)
+      if (p.team && !config.teams.some((t) => t.id === p.team))
+        issues.push({ level: "warning", file: ".hub/roles.yaml", message: `${p.user} is in team ${p.team}, which config.yaml does not list` });
   if (!config || !roles || !flow || !engine || hasErrors(issues)) return { issues };
   return { value: { config, roles, flow, engine }, issues };
 }

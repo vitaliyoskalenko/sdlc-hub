@@ -63,7 +63,7 @@ export function guardRepo(o: GuardRepoOptions): GuardResult {
     return { path, ...(from ? { from } : {}), ...(base !== undefined ? { base } : {}), ...(next !== undefined ? { next } : {}) };
   });
   const { config, roles, flow } = project.value;
-  const r = guard({ author: o.author, pushers: o.pushers, changes }, { config, roles, flow, feature: (slug) => rules.read(`docs/features/${slug}/hub/feature.yaml`) });
+  const r = guard({ author: o.author, pushers: o.pushers, changes }, { config, roles, flow, feature: (slug) => rules.read(`docs/features/${slug}/hub/feature.yaml`), main: rules });
   // Advisory mode lets the merge go ahead, except for a change to the hub's own files.
   return r.ok || blocks(r, guardSettings(config).mode) ? r : { ...r, advisory: true };
 }

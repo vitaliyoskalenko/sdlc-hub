@@ -48,7 +48,7 @@ describe("hub guard on a merge request", () => {
     const { dir, baseSha } = repo({ ".hub/roles.yaml": roles, ".hub/config.yaml": "changed: true\n" });
     const r = await guardRepo({ cwd: dir, baseSha, author: "olena.k", pushers: ["olena.k"] });
     expect(r.ok).toBe(false);
-    expect(r.findings.map((f) => f.path).sort()).toEqual([".hub/config.yaml", ".hub/roles.yaml"]);
+    expect([...new Set(r.findings.map((f) => f.path))].sort()).toEqual([".hub/config.yaml", ".hub/roles.yaml"]);
   });
 
   it("counts a deletion and both sides of a rename", async () => {
@@ -150,5 +150,15 @@ describe("the people of a pull request on GitHub", () => {
   });
   it("refuses to run outside a pull request workflow", async () => {
     await expect(pullRequestPeople(new GitHub("t", undefined, fetcher), {}, {})).rejects.toThrow(/pull_request_target/);
+  });
+});
+
+describe("hub guard and invalid files", () => {
+  it("refuses a feature.yaml that does not load, even in advisory mode", async () => {
+    const { dir, baseSha } = repo({ "docs/features/tasks-issues/hub/feature.yaml": "title: T\nowner: [olena.k\n" }, [], { ".hub/config.yaml": `${base()[".hub/config.yaml"]}guard:\n  mode: advisory\n` });
+    const r = await guardRepo({ cwd: dir, baseSha, author: "maksym.d", pushers: ["maksym.d"] });
+    expect(r.ok).toBe(false);
+    expect(r.advisory).toBeUndefined();
+    expect(r.findings[0]?.reason).toMatch(/Not a valid hub file/);
   });
 });

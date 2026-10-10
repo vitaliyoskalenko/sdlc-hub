@@ -3,6 +3,8 @@
 
 import picomatch from "picomatch";
 import { checkChange, type AccessContext, type Change } from "./access.ts";
+import type { FileSource } from "./source.ts";
+import { invalidFiles } from "./validate.ts";
 import { parseFeature, parseSignoffs } from "./files.ts";
 import { contractTeam, guardSettings, type Flow, type Person } from "./schema/project.ts";
 
@@ -10,6 +12,8 @@ export interface GuardContext extends AccessContext {
   flow: Flow;
   /** feature.yaml of a feature on the target branch, by slug. */
   feature: (slug: string) => string | undefined;
+  /** The target branch, to check that .hub/ still loads as a whole after the change. */
+  main?: FileSource;
 }
 
 export interface GuardInput {
@@ -38,14 +42,16 @@ export const ADMIN_ONLY = [".hub/**", "hub/**", ".claude/**", ".claude-plugin/**
 const HUBS_OWN = picomatch(ADMIN_ONLY, { dot: true });
 
 /** Whether a guard result stops the merge: in advisory mode only a finding on an admin-only file does. */
-export function blocks(r: { ok: boolean; findings: Finding[] }, mode: "enforce" | "advisory"): boolean {
+export function blocks(r: { ok: boolean; findings: Finding[]; hard?: boolean }, mode: "enforce" | "advisory"): boolean {
   if (r.ok) return false;
-  return mode === "enforce" || r.findings.some((f) => HUBS_OWN(f.path));
+  return mode === "enforce" || !!r.hard || r.findings.some((f) => HUBS_OWN(f.path));
 }
 
-export function guard(input: GuardInput, ctx: GuardContext): { ok: boolean; findings: Finding[] } {
+export function guard(input: GuardInput, ctx: GuardContext): { ok: boolean; findings: Finding[]; hard?: boolean } {
   const { checks } = guardSettings(ctx.config);
   const findings: Finding[] = [];
+  // A file the site could not read is refused in any mode.
+  const invalid = invalidFiles(input.changes, ctx.main).map((x) => ({ user: input.author, ...x }));
   const users = [...new Set([input.author, ...(checks.pushers ? input.pushers : [])])];
   for (const change of input.changes) {
     for (const user of users) {
@@ -55,7 +61,8 @@ export function guard(input: GuardInput, ctx: GuardContext): { ok: boolean; find
     const m = SIGNOFFS.exec(change.path);
     if (m && change.next !== undefined && !findings.some((f) => f.path === change.path)) findings.push(...entries(m[1]!, change, input.author, ctx, checks.signoffs));
   }
-  return { ok: findings.length === 0, findings };
+  findings.push(...invalid);
+  return { ok: findings.length === 0, findings, ...(invalid.length ? { hard: true } : {}) };
 }
 
 /** What is wrong with one person's change, if anything, under the project's guard switches. */

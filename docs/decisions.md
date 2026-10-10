@@ -9,6 +9,11 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
 - **Why:** The real SDD run showed that `sequences` leaves only its log, so `tech-design` showed done before `sequences` ran.
 - **By:** Owner.
 
+### File validation runs inside hub-guard
+- **Decision:** `hub-guard` refuses a change whose hub files do not load, or that adds a problem to `.hub/` as a whole, in any guard mode. A person's team that `config.yaml` does not list is now a warning when `.hub/` loads.
+- **Why:** The specification's `hub-validate`. Inside `hub-guard` it needs no second required check, and a save from the site gets the same answer before it is pushed.
+- **By:** Proposed.
+
 ### hub-fanout uses one token per team repository
 - **Decision:** On GitLab, install creates a project access token on each team repository and stores it as a masked variable of product-specs. The fan-out job uses it to open the merge request with the shared files there.
 - **Why:** The specification's design. `HUB_STATE_TOKEN` belongs to product-specs and cannot open merge requests in team repositories, and a group access token needs Premium on gitlab.com.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_FLOW_YAML, blocks, guard, guardSettings, parseConfig, parseFlow, parseRoles, type GuardContext } from "../src/index.ts";
+import { DEFAULT_FLOW_YAML, DEFAULT_SDD_ENGINE_YAML, blocks, guard, guardSettings, memorySource, parseConfig, parseFlow, parseRoles, type GuardContext } from "../src/index.ts";
 import { CONFIG, ROLES } from "@sdlc-hub/fixtures";
 
 const F = "docs/features/tasks-issues";
@@ -32,7 +32,7 @@ describe("hub-guard", () => {
 
   it("refuses everyone but the admin under .hub/ and hub/", () => {
     expect(guard({ author: "maksym.d", pushers: [], changes: [{ path: ".hub/roles.yaml", base: "a", next: "b" }] }, ctx).ok).toBe(false);
-    expect(guard({ author: "nazar.t", pushers: [], changes: [{ path: ".hub/roles.yaml", base: "a", next: "b" }] }, ctx).ok).toBe(true);
+    expect(guard({ author: "nazar.t", pushers: [], changes: [{ path: ".hub/roles.yaml", base: ROLES, next: `${ROLES}# reviewed\n` }] }, ctx).ok).toBe(true);
   });
 
   describe("signoffs.yaml", () => {
@@ -136,5 +136,36 @@ describe("hub-guard settings (guard: in config.yaml)", () => {
     expect([blocks(outside, "enforce"), blocks(outside, "advisory")]).toEqual([true, false]);
     expect(blocks(hubs, "advisory")).toBe(true);
     expect(blocks({ ok: true, findings: [] }, "enforce")).toBe(false);
+  });
+});
+
+describe("hub-guard checks that each hub file it touches is valid", () => {
+  const advisory: GuardContext = { ...ctx, config: parseConfig(`${CONFIG}guard:\n  mode: advisory\n`, "c").value! };
+  const featureYaml = { path: `${F}/hub/feature.yaml`, base: FEATURE };
+
+  it("refuses a feature.yaml that does not load, with the line, even from its owner and in advisory mode", () => {
+    const r = guard({ author: "maksym.d", pushers: [], changes: [{ ...featureYaml, next: "title: Tasks\nowner: [olena.k\n" }] }, advisory);
+    expect(r.ok).toBe(false);
+    expect(r.findings[0]).toMatchObject({ path: `${F}/hub/feature.yaml`, reason: expect.stringMatching(/not a valid hub file/i) });
+    expect(blocks(r, "advisory")).toBe(true);
+  });
+
+  it("refuses an unknown field type in release.yaml and a bug without its front matter", () => {
+    const release = guard({ author: "bohdan.r", pushers: [], changes: [{ path: `${F}/hub/release.yaml`, next: "rollout: { stage: lots }\n" }] }, ctx);
+    expect(release.findings.map((f) => f.reason).join()).toMatch(/not a valid hub file/i);
+    const bug = guard({ author: "iryna.s", pushers: [], changes: [{ path: `${F}/hub/bugs/BUG-0001.md`, next: "no front matter\n" }] }, ctx);
+    expect(bug.findings.map((f) => f.reason).join()).toMatch(/front matter/);
+  });
+
+  it("checks .hub/ as a whole: roles that name a team config.yaml does not have", () => {
+    const main = memorySource({ ".hub/config.yaml": CONFIG, ".hub/roles.yaml": ROLES, ".hub/flow.yaml": DEFAULT_FLOW_YAML, ".hub/engines/sdd.yaml": DEFAULT_SDD_ENGINE_YAML });
+    const roles = `${ROLES}  - { user: new.p, name: New P., role: dev, team: mainframe }\n`;
+    const r = guard({ author: "nazar.t", pushers: [], changes: [{ path: ".hub/roles.yaml", base: ROLES, next: roles }] }, { ...ctx, main });
+    expect(r.ok).toBe(false);
+    expect(r.findings[0]?.reason).toMatch(/mainframe/);
+  });
+
+  it("passes a valid change, and a deletion", () => {
+    expect(guard({ author: "maksym.d", pushers: [], changes: [{ ...featureYaml, next: `${FEATURE}ui: true\n` }] }, ctx).ok).toBe(true);
   });
 });

@@ -794,6 +794,7 @@ This section closes gaps found in a review of the design: what the guard checks 
   - The region must keep its place. An existing section keeps the heading it follows; a new section is allowed only as a whole new section between two existing ones or at the end; a front matter key keeps its order.
   - So a renamed heading (`## Test Plan`, `## 9. Test plan`), a section moved elsewhere in the file, an edit to any other section or key, and a heading renamed to `## Test plan` to capture its body are all refused, with the line that differs.
 - Renames, deletions and symbolic links count as changes to both paths.
+- **Valid files.** Each hub file a change writes must load with the parser the site reads it with. That covers everything under `.hub/`, a key file, and in each feature `feature.yaml`, `signoffs.yaml`, `release.yaml`, `verification.yaml` and the bug files. A change under `.hub/` must leave `.hub/` loading as a whole, with no new warning, such as a person in a team that `config.yaml` does not list. An invalid file is refused in any guard mode. This is the specification's `hub-validate`; it runs inside `hub-guard`, so there is one required check.
 - Forking of `product-specs` is turned off, and `hub-ci` has its own protected `main` that only the admin merges into.
 
 ### Guard settings

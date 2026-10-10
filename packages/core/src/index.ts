@@ -32,3 +32,4 @@ export * from "./verification.ts";
 export * from "./release.ts";
 export * from "./settings.ts";
 export * from "./times.ts";
+export * from "./validate.ts";

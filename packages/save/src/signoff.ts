@@ -349,7 +349,7 @@ async function checkedSave(saver: Saver, user: string, o: { label: string; title
         // Judge the change as hub-guard will: by the files on main of the remote, not this checkout.
         const p = loadProject(main).value ?? o.fallback;
         const change = o.build(main, p);
-        const r = guard({ author: user, pushers: [user], changes: [change] }, { config: p.config, roles: p.roles, flow: p.flow, feature: (x) => main.read(`docs/features/${x}/hub/feature.yaml`) });
+        const r = guard({ author: user, pushers: [user], changes: [change] }, { config: p.config, roles: p.roles, flow: p.flow, feature: (x) => main.read(`docs/features/${x}/hub/feature.yaml`), main });
         // In advisory mode the guard only warns: the save goes ahead and carries the warnings.
         if (blocks(r, guardSettings(p.config).mode)) throw new Refused(r.findings);
         if (!r.ok) warned = r.findings;
