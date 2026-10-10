@@ -36,7 +36,7 @@ Agreed with the owner on 10 October 2026. Phases 0 to 5 of the delivery plan are
 | # | What | Needs | Status |
 |---|---|---|---|
 | 15 | The same step from Codex and Cursor (phase 5 exit check) | Codex and Cursor installed | Postponed by the owner |
-| 16 | The PowerShell setup script on Windows; the keychain on Linux and Windows | A Windows and a Linux machine | Open |
+| 16 | The PowerShell setup script on Windows; the keychain on Linux and Windows | A Windows and a Linux machine | In part: the script runs in PowerShell on Linux (Docker); Windows and the keychains still open |
 | 17 | GitHub with private repositories: Team, and advisory mode on Free | A Team organization, or a private repository in the test organization | Open |
 | 18 | Whether GitHub keeps auto-merge after the force push that moves a conflicting save | The test organization | Done: it keeps it, and merges the new content |
 | 19 | Cost within 10% of the provider's report (phase 4 exit check) | A month of real use | Open |
