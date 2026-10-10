@@ -4,12 +4,13 @@ import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, watch } from "n
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { gitIdentity, openProject, personOf, refSource, topLevel } from "@sdlc-hub/git";
 import { startServer, type RunningServer, type ServerOptions } from "@sdlc-hub/server";
 import { GitHub, GitLab } from "@sdlc-hub/host";
-import { isSaveBranch } from "@sdlc-hub/core";
+import { isSaveBranch, setupScript } from "@sdlc-hub/core";
 import { baseTime, formatFindings, guardRepo, mergeRequestPeople, pullRequestPeople, recordRefusal } from "./guard.ts";
 import { actionHandler } from "./actions.ts";
 import { addDemoRemote, demoHost } from "./demo-host.ts";
@@ -73,6 +74,9 @@ const HELP = `SDLC Hub
   hub upgrade
       Run by the admin from a newer hub (npx sdlc-hub@<version> upgrade) in their clone of product-specs: proposes
       hub/, the plugin and the assistants' files of that version as one merge request. .hub/ stays as it is.
+
+  hub script --user <username> [--shell bash|powershell]
+      Prints a person's setup script, as People and roles gives it. It carries no secret.
 
   hub uninstall
       Run by the admin: proposes the removal of hub/, .hub/ and the assistants' hub files as one merge request.
@@ -453,6 +457,21 @@ async function connectTeamsCommand() {
   if (!r.ok) process.exit(1);
 }
 
+/** hub script --user <u> [--shell bash|powershell]: a person's setup script, as People and roles gives it. */
+async function scriptCommand(f: Record<string, string>) {
+  const root = topLevel(process.cwd());
+  if (!root) throw new Error("Run hub script in your clone of product-specs.");
+  const opened = openProject(root);
+  if (!opened.project) throw new Error(".hub/ does not load");
+  const person = opened.project.roles.people.find((p) => p.user === f["user"]);
+  if (!person) throw new Error(`hub script --user <username>: ${f["user"] ? `${f["user"]} is not in roles.yaml` : "name the person"}`);
+  const shell = f["shell"] === "powershell" ? "powershell" : "bash";
+  const hub = opened.view.specs.read("hub/cli.js");
+  const release = hub === undefined ? "none" : createHash("sha256").update(hub).digest("hex").slice(0, 12);
+  const by = personOf(root, opened.project.roles) ?? "admin";
+  process.stdout.write(setupScript({ config: opened.project.config, person, shell, release, date: new Date().toISOString().slice(0, 10), by }));
+}
+
 /** hub uninstall: the admin removes the hub from product-specs; the documents stay. */
 async function uninstallCommand() {
   const root = topLevel(process.cwd());
@@ -516,7 +535,7 @@ async function testCommand(f: Record<string, string>, slug: string | undefined) 
 }
 
 const [command, ...rest] = process.argv.slice(2);
-const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "usage" ? () => usageCommand(rest[0]) : command === "upgrade" ? upgradeCommand : command === "fanout" ? fanoutCommand : command === "connect-teams" ? connectTeamsCommand : command === "recheck" ? recheckCommand : command === "uninstall" ? uninstallCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(flags(rest.slice(1)), rest[0]) : undefined;
+const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "usage" ? () => usageCommand(rest[0]) : command === "upgrade" ? upgradeCommand : command === "fanout" ? fanoutCommand : command === "connect-teams" ? connectTeamsCommand : command === "recheck" ? recheckCommand : command === "uninstall" ? uninstallCommand : command === "script" ? scriptCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(flags(rest.slice(1)), rest[0]) : undefined;
 if (!run) {
   console.log(HELP);
   process.exit(command && command !== "help" && command !== "--help" ? 1 : 0);
