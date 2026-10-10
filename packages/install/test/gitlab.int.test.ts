@@ -260,8 +260,14 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
         const refused = await until(bad, "refused");
         expect(refused.state).toBe("refused");
         expect(refused.findings?.[0]).toMatchObject({ path: ".hub/config.yaml", reason: expect.stringMatching(/No role of olena.k/) });
+        // The guard records the refusal, then deletes the branch; GitLab closes the merge request a moment later.
         const id = await specsId();
-        expect((await root.mergeRequest(id, bad.mr!.iid)).state).toBe("closed");
+        let state = (await root.mergeRequest(id, bad.mr!.iid)).state;
+        for (let i = 0; i < 15 && state !== "closed"; i++) {
+          await wait(2000);
+          state = (await root.mergeRequest(id, bad.mr!.iid)).state;
+        }
+        expect(state).toBe("closed");
       } finally {
         execFileSync("rm", ["-rf", clone]);
       }
