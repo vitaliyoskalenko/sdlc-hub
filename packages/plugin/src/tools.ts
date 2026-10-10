@@ -98,7 +98,9 @@ function planText(ctx: ToolContext, l: Loaded, s: FeatureState, plan: StepPlan):
       const commands = plan.stages.map((stage) => invoke.replace("{stage}", stage).replace("{slug}", slug));
       const where = plan.where === "specs" ? "Run it here, in product-specs." : plan.where === "contract" ? `Run it in the repository of the team that publishes the API contract${s.contractTeam ? ` (${s.contractTeam})` : ""}.` : "Run it in each team repository of the feature.";
       const template = l.open.view.specs.read(`.hub/prompts/${plan.step}.md`);
-      const prompt = template?.replaceAll("{slug}", slug).replaceAll("{title}", s.title ?? slug).trim();
+      // A prompt template is plain Markdown; these placeholders are filled in, anything else stays as written.
+      const fill: Record<string, string> = { slug, title: s.title ?? slug, step: plan.step, route: s.route, size: s.size ?? "not set" };
+      const prompt = template?.replace(/\{(slug|title|step|route|size)\}/g, (_, k: string) => fill[k]!).trim();
       return [
         `${plan.returned ? "The step came back: run it again." : plan.running ? "The step is already running; continue it." : `Next for you in ${slug}: ${plan.step}.`} ${where}`,
         "",

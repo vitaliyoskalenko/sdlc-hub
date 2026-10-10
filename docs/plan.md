@@ -44,7 +44,7 @@ Agreed with the owner on 10 October 2026. Phases 0 to 5 of the delivery plan are
 ## Lower priority, or waiting on a decision
 
 - The Jira copy of bugs: when a bug is copied is not specified.
-- The format of prompt templates (`.hub/prompts/`).
+- ~~The format of prompt templates~~: done, plain Markdown with five placeholders (specification, How proxying works).
 - Uninstall: one merge request that removes the hub.
 - The `hub script` command; editing a story's wording on the site; redrawing the two diagrams; Node 24 as the minimum before April 2027.
 - The optional GitLab pre-receive hook, which needs access to the GitLab server.

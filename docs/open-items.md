@@ -6,7 +6,6 @@ State on 10 October 2026, revision 70 of the specification. Items already fixed 
 
 - "Setup" means three things: the first-install site, the per-person `hub setup` command and the setup script. ("Step" now means one of the twenty, named by its step id; "engine stage" means an SDD stage.)
 - The two diagrams (architecture; QA and release) still say GitLab only, were not redrawn, and do not show team snapshots as the source of steps 5 to 14.
-- Prompt templates (`.hub/prompts/`) have no specified format yet.
 - The JSON schema of a team snapshot (`hub-state/features/<slug>/teams/<team>.json`) is described by its fields only. It is defined in `packages/core` during phase 1a and then copied into the specification.
 - Jira mirror of bugs: no command or trigger is specified, only the setting.
 

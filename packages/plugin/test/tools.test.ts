@@ -58,6 +58,11 @@ describe("hub_next", () => {
     expect(r.text).toContain("  /sdd:clarify returns-portal");
     expect(r.text).toContain("/hub:signoff clarify returns-portal");
   });
+  it("adds the hub's prompt template for the step, with its placeholders filled in", () => {
+    const { ctx } = demo("olena.k");
+    const withTemplate = { ...ctx, open: () => { const o = ctx.open(); const read = o.view.specs.read.bind(o.view.specs); return { ...o, view: { ...o.view, specs: { ...o.view.specs, read: (p: string) => (p === ".hub/prompts/clarify.md" ? "Clarify {title} ({slug}), step {step}, route {route}, size {size}. Keep {other}.\n" : read(p)) } } }; } };
+    expect(hubNext(withTemplate, "returns-portal").text).toMatch(/Clarify .+ \(returns-portal\), step clarify, route \w+, size \w+\. Keep \{other\}\./);
+  });
   it("finds the step that waits for me when no feature is named", () => {
     expect(hubNext(demo("olena.k").ctx).text).toContain("/sdd:clarify returns-portal");
   });

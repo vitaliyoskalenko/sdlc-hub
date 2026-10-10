@@ -267,6 +267,7 @@ The same commands exist in all three assistants: `/hub:name` in Claude Code, `$h
 1. The command's skill calls the MCP tool `hub_next` of the hub's MCP server.
 2. The server checks the gate: the steps before it are done or skipped, and the caller's role owns the step (for Engineering, a team of the feature). If not, it returns what is missing or whose step it is, and the skill stops.
 3. Otherwise it returns the engine command for this assistant, for example `/sdd:specify tasks-issues`, with the filled prompt template from `.hub/prompts/<step>.md` when there is one, and says where to run it (product-specs, the contract team's repository, or each team's).
+   A prompt template is plain Markdown in `.hub/prompts/<step>.md`, one per step, written by the admin. The placeholders `{slug}`, `{title}`, `{step}`, `{route}` and `{size}` are filled in for the feature; any other text, braces included, stays as written. A step with no template gets the engine command alone.
 4. The assistant runs that engine command unchanged. It never runs a stage the hub did not give it.
 5. A step whose gate waits for the person ends with "sign it with `/hub:signoff`"; only the person signs.
 6. When `hub_next` hands out a stage, it records that the stage started. When the stage has run to its end, the skill calls `hub_record`, which records that it finished. Both events are queued in the git directory and pushed to `hub-state` at once in the person's name, or by the next `hub sync`. The hooks record the session's usage (phase 4).
