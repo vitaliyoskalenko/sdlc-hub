@@ -24,6 +24,7 @@ import { connectTeams } from "./connect-teams.ts";
 import { membersOf } from "./members.ts";
 import { checklistOf } from "./checklist.ts";
 import { recheckGitHub, recheckGitLab } from "./recheck.ts";
+import { uninstall } from "./uninstall.ts";
 import { claudeHeadless } from "./headless.ts";
 import { seedDemoUsage } from "./demo-usage.ts";
 import { keyStore } from "@sdlc-hub/usage";
@@ -72,6 +73,10 @@ const HELP = `SDLC Hub
   hub upgrade
       Run by the admin from a newer hub (npx sdlc-hub@<version> upgrade) in their clone of product-specs: proposes
       hub/, the plugin and the assistants' files of that version as one merge request. .hub/ stays as it is.
+
+  hub uninstall
+      Run by the admin: proposes the removal of hub/, .hub/ and the assistants' hub files as one merge request.
+      The documents stay. It lists what install set up on the host, to lift by hand after the merge.
 
   hub usage rekey
       On the admin's or a PM's machine, after the PM, an admin or someone's key changed: encrypts every usage
@@ -448,6 +453,15 @@ async function connectTeamsCommand() {
   if (!r.ok) process.exit(1);
 }
 
+/** hub uninstall: the admin removes the hub from product-specs; the documents stay. */
+async function uninstallCommand() {
+  const root = topLevel(process.cwd());
+  if (!root) throw new Error("Run hub uninstall in your clone of product-specs.");
+  const r = await uninstall({ root });
+  console.log(print(r.lines));
+  if (!r.ok) process.exit(1);
+}
+
 /** hub upgrade: the admin proposes this hub's files for product-specs, as one merge request. */
 async function upgradeCommand() {
   const root = topLevel(process.cwd());
@@ -502,7 +516,7 @@ async function testCommand(f: Record<string, string>, slug: string | undefined) 
 }
 
 const [command, ...rest] = process.argv.slice(2);
-const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "usage" ? () => usageCommand(rest[0]) : command === "upgrade" ? upgradeCommand : command === "fanout" ? fanoutCommand : command === "connect-teams" ? connectTeamsCommand : command === "recheck" ? recheckCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(flags(rest.slice(1)), rest[0]) : undefined;
+const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "usage" ? () => usageCommand(rest[0]) : command === "upgrade" ? upgradeCommand : command === "fanout" ? fanoutCommand : command === "connect-teams" ? connectTeamsCommand : command === "recheck" ? recheckCommand : command === "uninstall" ? uninstallCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(flags(rest.slice(1)), rest[0]) : undefined;
 if (!run) {
   console.log(HELP);
   process.exit(command && command !== "help" && command !== "--help" ? 1 : 0);

@@ -4,6 +4,7 @@
 import picomatch from "picomatch";
 import type { Change } from "./access.ts";
 import { loadProject } from "./detect.ts";
+import { removesHub } from "./uninstall.ts";
 import { parseBugFile, parseConfig, parseEngine, parseFeature, parseFlow, parseRelease, parseRoles, parseSignoffs } from "./files.ts";
 import type { Issue, Result } from "./issues.ts";
 import type { FileSource } from "./source.ts";
@@ -47,7 +48,8 @@ export function invalidFiles(changes: Change[], main?: FileSource): Invalid[] {
     for (const i of errors(r.issues).slice(0, 3)) out.push({ path: c.path, reason: `Not a valid hub file: ${i.message}`, ...(i.line ? { line: i.line } : {}) });
   }
   // .hub/ must still load as a whole, the files refer to each other, and the change brings no new problem.
-  if (main && !out.length && changes.some((c) => c.path.startsWith(".hub/"))) {
+  // Uninstall removes .hub/ as a whole: there is nothing left to load.
+  if (main && !out.length && changes.some((c) => c.path.startsWith(".hub/")) && !removesHub(changes)) {
     const before = new Set(loadProject(main).issues.map((i) => `${i.file}\0${i.message}`));
     const added = loadProject(overlay(main, changes)).issues.filter((i) => i.level === "error" || !before.has(`${i.file}\0${i.message}`));
     for (const i of added.slice(0, 3)) out.push({ path: i.file, reason: `Not a valid hub file: ${i.message}`, ...(i.line ? { line: i.line } : {}) });

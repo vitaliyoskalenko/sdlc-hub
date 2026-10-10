@@ -95,6 +95,16 @@ Everyone gets the upgrade with `node hub/cli.js sync`. A site still running the 
 
 `hub-ci` keeps its job configuration. If a release note says it changed, run setup again.
 
+## Remove the hub
+
+As the admin, in your clone of `product-specs`:
+
+```
+node hub/cli.js uninstall
+```
+
+It proposes one change that removes `hub/`, `.hub/` and the assistants' hub files; the feature documents stay. Then it lists what install set up on the host, to lift by hand once the change has merged.
+
 ## What each person needs on GitLab
 
 - Membership in the group with the **Developer** role.
