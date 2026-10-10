@@ -310,6 +310,8 @@ export const api = {
   signoff: (as: string | undefined, body: { slug: string; step: string; decision: "pass" | "return"; reason?: string }) => action("signoff", as, body),
   person: (as: string | undefined, body: { kind: "set"; person: PersonInput } | { kind: "remove"; user: string }) => action("person", as, body),
   people: () => get<{ people: PersonRow[]; release: string }>("/api/people"),
+  /** What install set up, as the host has it now; for the admin. */
+  checklist: (as?: string) => get<{ items: { ok: boolean; text: string }[] } | { error: string }>(`/api/checklist${asQuery(as)}`),
   /** Who is in the group or organization on the host; an error when this machine cannot ask. */
   members: (as?: string) => get<{ users: string[] } | { error: string }>(`/api/members${asQuery(as)}`),
   /** Any other save: verdicts, bug, bug-edit, release. */

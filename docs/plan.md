@@ -27,7 +27,7 @@ Agreed with the owner on 10 October 2026. Phases 0 to 5 of the delivery plan are
 |---|---|---|---|
 | 10 | Days client teams waited for the contract team | M | To do |
 | 11 | An Ops view across features in release, and a check that a CI result is not older than the last merge | M | To do |
-| 12 | The price table and a host checklist in Settings | S–M | To do |
+| 12 | The price table and a host checklist in Settings | S–M | Done: checked against both hosts |
 | 13 | Re-run open merge requests when `roles.yaml` changes (claim 14) | M | To do |
 | 14 | `hub doctor` warns when a GitHub user has SSH only and cannot save from the site | S | Done |
 

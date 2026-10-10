@@ -54,6 +54,18 @@ guard:
 | Headless runs | Lets the PO and the team leads start a read-only validation run from the site, under their own assistant seat. Off by default. |
 | Links | The Confluence space and the Figma project for the whole project. Each feature's own links (Jira, Figma, staging) are on the feature's page, where the PM edits them with **Edit details**. |
 
+## The host checklist
+
+The admin's Settings page reads, on the host, what install set up, with the admin's own git credential:
+- **GitLab:** the protection of `main`, the CI configuration, "Pipelines must succeed", forking, `hub-state`, and each token with its expiry date. A token that expires within 30 days is marked "to do".
+- **GitHub:** the ruleset, auto-merge, `hub-state`, the two organization settings, and each team's secret and workflows.
+
+It only reads. What it marks "to do" says what to do: renew a token, run setup or `hub connect-teams` again, or merge a team's pull request.
+
+## Prices
+
+Costs are API-equivalent: what the same work would cost at the provider's list prices. On seats, work is not billed per token. Settings shows the hub's table, with the day it was read, and the project's overrides. The admin changes a model's prices with **Edit**, saved under `prices` in `config.yaml`, and goes back to the hub's with **Use the hub's**. An override applies to that model and to every model id it starts.
+
 ## Add a team after install
 
 On Settings, **Add a team** with its name, its repository in the group or organization, and its kind. That is a save on `config.yaml`. When it has merged, run this in your clone of `product-specs`:

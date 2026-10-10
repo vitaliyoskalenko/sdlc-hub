@@ -52,7 +52,7 @@ Claims 8 to 13 were found while planning phase 1, 14 to 17 while building phase 
 - **Plugin: still to come.** Nothing from the plan. Stage events (`hub_next` records the start, `hub_record` the finish), usage, the Codex and Cursor skills, and refreshing Claude Code's copy of the plugin in `hub sync` are built. A stage started outside the hub (an engine command typed directly) records no event.
 - **Fan-out: built in revision 69** and verified on GitLab CE 19.4.1 and github.com (10 October 2026). On GitHub it needs the organization to let Actions open pull requests; setup warns when it does not.
 - **People and roles: built in revision 70.** The membership check, adding a team later (Settings, then `hub connect-teams`), and the working role for a person with several.
-- **Settings: still to come.** The price table, the host checklist and the engine. Settings has the guard settings, assistants, headless runs and links (revision 65).
+- **Settings: still to come.** Changing the engine after install (run setup again). Settings has the guard settings, assistants, headless runs and links (revision 65).
 - **Stale guard results** (claim 14) and **group Maintainers** (claim 15) are accepted risks for now.
 
 ## Decided in code during phase 1a

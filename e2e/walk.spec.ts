@@ -195,6 +195,15 @@ test("People and roles marks a person who is not in the group, for the admin", a
   await expect(page.locator("#people")).not.toContainText("not in the group");
 });
 
+test("Settings shows the admin what install set up on the host, and what to do", async ({ page }) => {
+  await page.goto("/settings?as=nazar.t");
+  await ready(page);
+  await expect(page.locator('#set-host [data-check="warn"]')).toContainText("renew it");
+  await page.goto("/settings?as=olena.k");
+  await ready(page);
+  await expect(page.locator("#set-host")).toHaveCount(0);
+});
+
 test("the guides open from Settings, with the tokens and permissions, and link to each other", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/settings?as=nazar.t");

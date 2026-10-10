@@ -1,7 +1,8 @@
 // Settings: what .hub/config.yaml says, and what the admin may change from the site. A change is a save, a merge
 // request on config.yaml that only the admin role passes. Repositories, teams and the engine are set at install.
 
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
+import { api } from "./api.ts";
 import type { GuardCheck, Price, ProjectInfo } from "./api.ts";
 import { GuidesCard } from "./guides.tsx";
 import { PendingList, useAction } from "./saves.tsx";
@@ -46,6 +47,36 @@ function editOf(was: Form, f: Form): Record<string, unknown> {
   const links = Object.fromEntries((["confluence", "figma"] as const).filter((k) => f[k].trim() !== was[k]).map((k) => [k, f[k].trim()]));
   if (Object.keys(links).length) edit["links"] = links;
   return edit;
+}
+
+/** What install set up on the host, read now with the admin's own token. */
+function HostChecklist({ host }: { host: { n: string; cr: string } }) {
+  const { me, session } = useApp();
+  const admin = me.roles.includes("admin");
+  const [list, setList] = useState<{ items: { ok: boolean; text: string }[] } | { error: string } | null>(null);
+  useEffect(() => {
+    if (admin) api.checklist(session.demo ? me.user : undefined).then(setList, (e) => setList({ error: String(e) }));
+  }, [admin]);
+  if (!admin) return null;
+  return (
+    <div class="card" id="set-host">
+      <h3>{host.n} setup</h3>
+      {!list ? (
+        <p class="muted">Reading the settings on {host.n}…</p>
+      ) : "error" in list ? (
+        <p class="muted">Not read: {list.error}.</p>
+      ) : (
+        <ul class="gates">
+          {list.items.map((x, i) => (
+            <li key={i} data-check={x.ok ? "ok" : "warn"}>
+              <Pill kind={x.ok ? "ok" : "warn"}>{x.ok ? "ok" : "to do"}</Pill>
+              <span>{x.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 const KINDS = ["backend", "web", "android", "ios", "desktop", "other"] as const;
@@ -307,6 +338,7 @@ export function Settings() {
       </div>
       {problem}
       <PendingList saves={pending} />
+      <HostChecklist host={host} />
       <Prices />
       <GuidesCard />
       <div class="card" id="set-project">

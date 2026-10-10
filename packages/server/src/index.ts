@@ -225,6 +225,11 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
       });
     }
 
+    if (parts[0] === "checklist" && parts.length === 1) {
+      if (!opts.actions) return send(res, 200, { error: "This site does not read the host" });
+      return action("GET", "/checklist", null, url, res);
+    }
+
     if (parts[0] === "members" && parts.length === 1) {
       if (!opts.actions) return send(res, 200, { error: "This site does not check membership" });
       return action("GET", "/members", null, url, res);

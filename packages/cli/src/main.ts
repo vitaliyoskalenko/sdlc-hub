@@ -22,6 +22,7 @@ import { hubBehind } from "./hub-behind.ts";
 import { fanoutInto, fanoutPush } from "./fanout.ts";
 import { connectTeams } from "./connect-teams.ts";
 import { membersOf } from "./members.ts";
+import { checklistOf } from "./checklist.ts";
 import { claudeHeadless } from "./headless.ts";
 import { seedDemoUsage } from "./demo-usage.ts";
 import { keyStore } from "@sdlc-hub/usage";
@@ -150,7 +151,7 @@ async function serve(f: Record<string, string>) {
     hasRemote = false;
   }
   // Headless validation starts the person's own Claude Code, read-only; only when the admin turned it on.
-  const actions = hasRemote ? actionHandler({ root, identity: () => gitIdentity(root), headless: claudeHeadless(), hubBehind: () => hubBehind(root), members: membersOf(first.project.config), ...hostSaves(first.project.config) }) : undefined;
+  const actions = hasRemote ? actionHandler({ root, identity: () => gitIdentity(root), headless: claudeHeadless(), hubBehind: () => hubBehind(root), members: membersOf(first.project.config), checklist: checklistOf(first.project.config), ...hostSaves(first.project.config) }) : undefined;
   // The per-person costs the admin and the PM may see are decrypted with this machine's usage key.
   const usageKey = () => {
     try {
@@ -197,6 +198,14 @@ async function demo(f: Record<string, string>) {
     pushOptions: () => [],
     now: clock,
     afterPush: host.afterPush,
+    // The demo's host, as the checklist would read it: one token close to its end.
+    checklist: async () => ({
+      items: [
+        { ok: true, text: "main of product-specs takes no pushes: every change is a merge request" },
+        { ok: true, text: '"Pipelines must succeed" is on' },
+        { ok: false, text: "HUB_FANOUT_TOKEN_IOS expires on 2026-10-30, in 21 days: renew it. Without it, iOS gets no shared files." },
+      ],
+    }),
     // The demo's group: everyone in roles.yaml but sofiia.h, so People and roles shows the warning.
     members: async () => ({ users: (openProject(root).project?.roles.people ?? []).map((p) => p.user).filter((u) => u !== "sofiia.h") }),
   });

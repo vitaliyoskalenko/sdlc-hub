@@ -20,6 +20,8 @@ export interface ActionOptions {
   afterPush?: (save: Save) => void;
   /** Who is in the group or organization on the host, for People and roles. */
   members?: () => Promise<{ users: string[] } | { error: string }>;
+  /** What install set up, as the host has it now, for Settings. */
+  checklist?: () => Promise<{ items: { ok: boolean; text: string }[] } | { error: string }>;
   /** Why this site may not save, when its hub is older than the one on main; saves then wait for a restart. */
   hubBehind?: () => string | undefined;
   /** A read-only run of the person's assistant, for validation; only when the admin enabled headless runs. */
@@ -46,6 +48,10 @@ export function actionHandler(o: ActionOptions): ActionHandler {
 
   return {
     async handle(method, path, user, body, ctx) {
+      if (method === "GET" && path === "/checklist") {
+        if (!ctx.project.roles.people.find((p) => p.user === user)?.roles.includes("admin")) return { status: 403, body: { error: "The host checklist is the admin's" } };
+        return { status: 200, body: o.checklist ? await o.checklist() : { error: "This site does not read the host" } };
+      }
       if (method === "GET" && path === "/members") return { status: 200, body: o.members ? await o.members() : { error: "This site does not check membership" } };
       const behind = o.hubBehind?.();
       if (method === "GET" && path === "/saves" && behind) return { status: 200, body: { saves: saver(user).list().filter((x) => x.user === user), enabled: false, why: behind } };

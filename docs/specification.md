@@ -442,7 +442,7 @@ There is one site for everyone; the role decides the home page and which buttons
 | Feature: Release | Go or no-go, ordered checklist, rollout, watch period | Tick checklist items, record the rollout stage |
 | Feature: Costs | Tokens and API-equivalent cost by step, role, model and assistant, against the estimate | Per-person view for admin and PM |
 | People and roles | Users, roles, teams, setup state | Add or change a person, generate a setup script, download or copy it (admin) |
-| Settings | How strict `hub-guard` is, assistants, headless switch, links; the project, teams and engine read only. Later: prices, adding a team, the host checklist | Admin only |
+| Settings | How strict `hub-guard` is, assistants, headless switch, links, prices, adding a team, and the host checklist (what install set up, read on the host with the admin's credential); the project and engine read only | Admin only |
 | Your guide | What your role does in the assistant and on the site, and how to start next time | None |
 
 A wait on another team (a `<team-id>:<task-id>` reference to a task that is not done) is the cost the hub exists to show, so it is never only on the Tasks screen. A red marker with the number of waiting teams ("3 teams wait") stands beside the current step in the Features list, on the feature's track in the Features graph and in the Now strip. On Home, the waits are actions for the lead whose task is waited for, for the leads who wait and for the PM, and the tile "Blocked by another team" counts the waiting teams. The step itself stays running while the waiting teams still have work, for example on the mock, and turns blocked only when a team has nothing else it can do.
