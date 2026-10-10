@@ -1,14 +1,16 @@
 // Your guide: what your role does in the assistant and on the site, and how to start next time.
 
 import { RepoLabels } from "./home.tsx";
-import { hubCmd, ROLE_CMDS, ROLE_SITE } from "./text.ts";
+import { hubCmd, ROLE_CMDS, ROLE_SITE, roleOf } from "./text.ts";
 import { Cmd, roleLabel, useApp } from "./ui.tsx";
 
 export function Guide() {
-  const { me, project, assistant, go } = useApp();
+  const { me, project, assistant, go, role, setRole } = useApp();
   const roles = me.roles;
-  const cmds = roles.flatMap((r) => ROLE_CMDS[r] ?? []);
-  const site = roles.flatMap((r) => ROLE_SITE[r] ?? []);
+  // The commands and the site tasks of the role being worked in; what may be changed is all roles together.
+  const cmds = ROLE_CMDS[role] ?? [];
+  const site = ROLE_SITE[role] ?? [];
+  const others = roles.filter((r) => r !== role);
   const rules = [...new Set([...roles.flatMap((r) => project.rules.roles[r] ?? []), ...(me.lead ? project.rules.lead : []), ...(me.lead && project.teams.find((t) => t.id === me.team)?.api_contract ? project.rules.contractLead : [])])];
   return (
     <>
@@ -19,6 +21,20 @@ export function Guide() {
         </div>
         <RepoLabels me={me} />
       </div>
+      {others.length > 0 && (
+        <p class="note" id="other-roles">
+          This guide is for your work as {roleOf(role).n}. You also work as{" "}
+          {others.map((x, i) => (
+            <span key={x}>
+              {i > 0 && " and "}
+              <button type="button" class="linkbtn" onClick={() => setRole(x)}>
+                {roleOf(x).n}
+              </button>
+            </span>
+          ))}
+          ; choose it here or in Working as at the top.
+        </p>
+      )}
       <div class="cols3">
         <div class="card">
           <span class="k">1 · In your assistant</span>

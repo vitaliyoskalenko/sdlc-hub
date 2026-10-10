@@ -77,14 +77,13 @@ export function RepoLabels({ me }: { me: Person }) {
   );
 }
 
-function numbersFor(me: Person, features: Summary[]): [string, string, string?][] {
+function numbersFor(me: Person, role: string, features: Summary[]): [string, string, string?][] {
   const open = features.filter((f) => !f.released);
   const waitingMe = open.filter((f) => f.waitingOn.includes(me.user));
   const at = (ids: string[]) => open.filter((f) => ids.includes(f.current)).length;
   const bugs = open.reduce((n, f) => n + f.blockingBugs.length, 0);
   const waits = open.reduce((n, f) => n + f.waits, 0);
-  const r = me.roles[0];
-  switch (r) {
+  switch (role) {
     case "po":
       return [[String(waitingMe.filter((f) => f.status === "signoff" || f.status === "ready").length), "Waiting for you", waitingMe.length ? "warn" : "ok"], [String(waitingMe.filter((f) => f.status === "returned").length), "Returned to you"], [String(at(["accept"])), "In acceptance"], [String(open.length), "Features in progress"]];
     case "pm":
@@ -162,7 +161,7 @@ export function FeatureTable({ list }: { list: Summary[] }) {
 }
 
 export function Home() {
-  const { me, project, features, go, openTask } = useApp();
+  const { me, project, features, go, openTask, role } = useApp();
   const acts = actionsFor(me, project, features);
   const open = features.filter((f) => !f.released);
   const avg = open.length ? Math.round(open.reduce((n, f) => n + f.progress, 0) / open.length) : 100;
@@ -223,7 +222,7 @@ export function Home() {
         <section>
           <h2>Your numbers</h2>
           <div class="kpis two">
-            {numbersFor(me, features).map(([v, l, t]) => (
+            {numbersFor(me, role, features).map(([v, l, t]) => (
               <Kpi key={l} value={v} label={l} tone={t} />
             ))}
           </div>

@@ -121,4 +121,26 @@ test.describe.serial("saves from the site", () => {
     await expect(page.locator("#team-next")).toContainText("node hub/cli.js connect-teams");
     await expect(page.locator("#set-project")).toContainText("shop/desktop-app", { timeout: 20_000 });
   });
+
+  test("a person with two roles chooses the one to work in, for Home and Your guide", async ({ page }) => {
+    await page.goto(`${DEMO}/people?as=nazar.t`);
+    await page.waitForSelector("#people");
+    await page.click("#add-person");
+    await page.fill("#pf-user", "ivan.r");
+    await page.fill("#pf-name", "Ivan R.");
+    await page.click('[data-role="dev"]'); // off: dev was the default
+    await page.click('[data-role="pm"]');
+    await page.click('[data-role="qa"]');
+    await page.click("#pf-save");
+    await expect(page.locator('#people tr[data-user="ivan.r"]')).toBeVisible({ timeout: 20_000 });
+    await page.goto(`${DEMO}/?as=ivan.r`);
+    await page.waitForSelector("#workas");
+    await expect(page.locator("#workas option")).toHaveText(["Project manager", "QA"]);
+    await page.selectOption("#workas", "qa");
+    await expect(page.locator("#main")).toContainText("Features at a QA step");
+    await page.click("#guidebtn");
+    await expect(page.locator("#other-roles")).toContainText("You also work as");
+    await page.locator("#other-roles button").click();
+    await expect(page.locator("#workas")).toHaveValue("pm");
+  });
 });

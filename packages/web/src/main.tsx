@@ -13,7 +13,7 @@ import { Settings } from "./settings.tsx";
 import { GuideDoc } from "./guides.tsx";
 import { TaskPage } from "./task.tsx";
 import "./styles.css";
-import { ASSISTANTS } from "./text.ts";
+import { ASSISTANTS, roleOf } from "./text.ts";
 import { App, href, roleLabel, type AppState } from "./ui.tsx";
 
 type Route =
@@ -47,6 +47,7 @@ const TITLE: Record<Route["page"], string> = { home: "Home", features: "Features
 function Root() {
   const [loc, setLoc] = useState(location.pathname + location.search);
   const [version, setVersion] = useState(0);
+  const [picked, setPicked] = useState<string | null>(null);
   const [live, setLive] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [project, setProject] = useState<ProjectInfo | null>(null);
@@ -165,9 +166,29 @@ function Root() {
   const me = session.me;
   const asst = params.get("asst");
   const assistant: Assistant = session.demo && (asst === "claude" || asst === "codex" || asst === "cursor") ? asst : me.assistant;
+  // A person with several roles chooses the one to work in: it sets the focus of Home and Your guide. What they may
+  // do on the site is still everything their roles allow. The choice is kept on this browser.
+  const stored = (() => {
+    try {
+      return localStorage.getItem(`hub.role.${me.user}`);
+    } catch {
+      return null;
+    }
+  })();
+  const role = [picked, stored].find((x): x is string => !!x && me.roles.includes(x)) ?? me.roles[0]!;
+  const setRole = (x: string) => {
+    setPicked(x);
+    try {
+      localStorage.setItem(`hub.role.${me.user}`, x);
+    } catch {
+      /* kept for this visit only */
+    }
+  };
   const state: AppState = {
     session,
     me,
+    role,
+    setRole,
     project,
     features,
     assistant,
@@ -204,6 +225,18 @@ function Root() {
               <i class={`dot${live ? "" : " off"}`} />
               {live ? "live: main and hub-state" : "reconnecting"}
             </span>
+            {me.roles.length > 1 && (
+              <label class="workas">
+                <span>Working as</span>
+                <select id="workas" value={role} onChange={(e) => setRole(e.currentTarget.value)}>
+                  {me.roles.map((x) => (
+                    <option key={x} value={x}>
+                      {roleOf(x).n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <button type="button" class="btn sm guide" id="guidebtn" aria-current={r.page === "guide" ? "page" : undefined} onClick={() => go("/guide")}>
               <span class="q" aria-hidden="true">
                 ?

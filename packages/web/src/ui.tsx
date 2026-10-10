@@ -9,6 +9,9 @@ import { roleOf, STATUS } from "./text.ts";
 export interface AppState {
   session: Session;
   me: Person & { assistant: Assistant };
+  /** The role a person with several works in now: the focus of Home and Your guide. */
+  role: string;
+  setRole: (role: string) => void;
   project: ProjectInfo;
   features: Summary[];
   assistant: Assistant;
