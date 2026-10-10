@@ -109,7 +109,13 @@ export class GitLab {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const text = await res.text();
-    const data = text ? (JSON.parse(text) as unknown) : undefined;
+    let data: unknown;
+    try {
+      data = text ? (JSON.parse(text) as unknown) : undefined;
+    } catch {
+      // An overloaded or restarting GitLab answers with its HTML error page ("GitLab is not responding").
+      throw new HostError(`GitLab answered ${res.status} to ${method} ${path} with a page, not data: it may be starting or overloaded; try again in a minute`, res.status, undefined);
+    }
     if (!res.ok) {
       const msg = (data as { message?: unknown; error?: unknown } | undefined)?.message ?? (data as { error?: unknown } | undefined)?.error ?? res.statusText;
       throw new HostError(`GitLab answered ${res.status} to ${method} ${path}: ${typeof msg === "string" ? msg : JSON.stringify(msg)}`, res.status, data);

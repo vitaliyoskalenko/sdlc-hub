@@ -27,3 +27,10 @@ describe("setting a merge request to merge by itself", () => {
     expect(calls.filter((c) => c.startsWith("PUT"))).toEqual(["PUT /projects/7/merge_requests/3/merge"]);
   });
 });
+
+describe("GitLab that is not itself", () => {
+  it("says so when it answers with its error page instead of data", async () => {
+    const page = (async () => new Response("<html>GitLab is not responding</html>", { status: 502 })) as unknown as typeof fetch;
+    await expect(new GitLab("https://gitlab.example.com", "t", page).me()).rejects.toThrow(/with a page, not data: it may be starting or overloaded/);
+  });
+});

@@ -6,7 +6,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { parseConfig, parsePersonState, parseRoles, parseTeamSnapshot, parseTestRun, setupScript } from "@sdlc-hub/core";
 import { GitLab, type MergeRequest } from "@sdlc-hub/host";
 import { createSaver, type Save } from "@sdlc-hub/save";
@@ -68,6 +68,14 @@ async function guardLog(projectId: number, pipeline: number): Promise<string> {
 describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
   const owner = new GitLab(URL_, secrets.ownerToken);
   const root = new GitLab(URL_, secrets.rootToken);
+
+  // Merge requests that earlier runs left open would each run hub-guard again on every change of roles: close them.
+  beforeAll(async () => {
+    const specs = await root.project("shop/product-specs");
+    if (!specs) return;
+    for (const mr of await root.mergeRequestsInto(specs.id, "main"))
+      if (mr.source_branch !== "sdlc-hub/install") await root.updateMergeRequest(specs.id, mr.iid, { state_event: "close" }).catch(() => undefined);
+  }, 120_000);
 
   it("passes the checks as a group Owner who is not an instance admin (claim 11)", async () => {
     const me = await owner.me();
