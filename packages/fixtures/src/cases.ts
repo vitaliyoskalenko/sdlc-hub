@@ -481,6 +481,24 @@ function routeFeature(slug: string, route: string, main: Record<string, string>)
 }
 
 {
+  const s = shippedWebFeature("stale-ci", [{ step: "verify", user: "iryna.s", at: "2026-10-03T10:00:00Z" }]);
+  Object.assign(s.main, releaseYaml("stale-ci", "staging: { smoke: passed }\n"));
+  fixtures["ci-older-than-change"] = {
+    description: "The web team's newest CI result is green but for an older commit than its newest snapshot: QA is warned before deciding.",
+    now: NOW,
+    main: s.main,
+    hubState: { ...s.hubState, "features/stale-ci/tests/ci-1.json": testRun("web", "ci", 0, "2026-10-04T10:00:00Z", 40, "main@abc1234") },
+    expected: {
+      "stale-ci": {
+        current: "qa-final",
+        steps: { ...DONE_THROUGH_SHIP, staging: "done", verify: "done", autotests: "done", "qa-final": "ready" },
+        warnings: [/The CI result of web \(passed, main@abc1234\) is older than its newest change \(0000000\)/],
+      },
+    },
+  };
+}
+
+{
   const s = shippedWebFeature("retest", [
     { step: "verify", user: "iryna.s", at: "2026-10-03T10:00:00Z" },
     { step: "qa-final", user: "iryna.s", at: "2026-10-05T10:00:00Z", decision: "return", reason: "BUG-0003 reproduces on web", bugs: ["BUG-0003"], returns_to: "verify", cycle: 1 },

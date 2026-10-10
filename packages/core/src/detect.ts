@@ -231,6 +231,14 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
   const testRuns: TestRun[] = (view.hubState?.list(`features/${slug}/tests`) ?? [])
     .filter((p) => p.endsWith(".json"))
     .flatMap((p) => parse(view.hubState, p, parseTestRun) ?? []);
+  // A team's newest CI result must be for its newest change: a result for an older commit says nothing about it.
+  for (const t of teams) {
+    const run = testRuns.filter((r) => r.team === t.id && r.source === "ci").sort((a, b) => a.at.localeCompare(b.at)).at(-1);
+    const sha = run?.ref?.split("@")[1];
+    const commit = t.snapshot?.source_commit;
+    if (run && sha && commit && !commit.startsWith(sha) && !sha.startsWith(commit) && t.snapshot!.generated_at > run.at)
+      warnings.push(`The CI result of ${t.id} (${run.result ?? "no result"}, ${run.ref}) is older than its newest change (${commit.slice(0, 7)}): wait for the pipeline of that change before deciding`);
+  }
 
   const eventsPath = `features/${slug}/events.jsonl`;
   const events: HubEventLine[] = [];

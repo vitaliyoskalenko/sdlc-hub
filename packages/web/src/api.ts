@@ -328,6 +328,7 @@ export const api = {
   session: (as?: string) => get<Session>(`/api/session${as ? `?as=${encodeURIComponent(as)}` : ""}`),
   project: () => get<ProjectInfo>("/api/project"),
   features: () => get<{ features: Summary[]; now: string }>("/api/features"),
+  releases: () => get<{ releases: { summary: Summary; release: Omit<ReleaseInfo, "now"> }[]; now: string }>("/api/releases"),
   feature: (slug: string) => get<FeatureDetail>(`/api/features/${encodeURIComponent(slug)}`),
   async file(slug: string, path: string): Promise<string | null> {
     const r = await fetch(`/api/features/${encodeURIComponent(slug)}/file?path=${encodeURIComponent(path)}`, { credentials: "same-origin" });

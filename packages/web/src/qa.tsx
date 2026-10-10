@@ -141,6 +141,13 @@ export function QA({ detail }: { detail: FeatureDetail }) {
         ) : (
           <p class="muted">No decision yet.</p>
         )}
+        {detail.state.warnings
+          .filter((w) => w.startsWith("The CI result of"))
+          .map((w) => (
+            <p class="note warn" key={w} data-ci-stale>
+              {w}
+            </p>
+          ))}
         {owner("qa-final") ? <Decision detail={detail} /> : <p class="reason">{qa ? "The final check opens when autotests are green." : "QA records the final decision."}</p>}
       </section>
     </div>

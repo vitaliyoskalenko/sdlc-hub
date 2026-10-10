@@ -261,6 +261,21 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
       }
     }
 
+    if (parts[0] === "releases" && parts.length === 1) {
+      // Ops' view across features: every feature from staging on, and a released one until its watch period ends.
+      const from = project.flow.steps.findIndex((x) => x.id === "staging");
+      const rows = listFeatures(opened.view.specs).flatMap((slug) => {
+        const st = state(slug)!;
+        const rel = releaseView(opened.view.specs, project.flow, slug);
+        const watchEnds = rel.watch ? new Date(Date.parse(rel.watch.started) + rel.watch.days * 86_400_000).toISOString().replace(/\.\d+Z$/, "Z") : null;
+        const at = project.flow.steps.findIndex((x) => x.id === st.current);
+        const released = st.current === "released";
+        if (!(released ? !!watchEnds && watchEnds > opened.view.now : from >= 0 && at >= from)) return [];
+        return [{ summary: summary(slug, st, opened), release: { ...rel, watchEnds } }];
+      });
+      return send(res, 200, { releases: rows, now: opened.view.now });
+    }
+
     if (parts[0] === "features" && parts.length === 1) {
       const features = listFeatures(opened.view.specs).map((slug) => summary(slug, state(slug)!, opened));
       return send(res, 200, { features, now: opened.view.now });

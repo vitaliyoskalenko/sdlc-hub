@@ -48,7 +48,7 @@ Claims 8 to 13 were found while planning phase 1, 14 to 17 while building phase 
   - A person whose clone uses SSH alone has no token for saving from the site; `hub doctor` warns, and says how to sign in (`gh auth login`, `gh auth setup-git`).
   - The setup script on GitHub: it is generated the same way, and its clone URLs and `hub setup` are not checked against GitHub.
 - **Metrics: still to come.** The days teams waited for the contract team, usage from Codex and Cursor (phase 5), and per-step estimates in the default `flow.yaml` (the admin sets them; the hub ships none rather than guessing).
-- **QA and release: still to come.** An Ops view across features, and a check at decision time that a CI result is not older than the last merge of the feature branch.
+- **QA and release: built.** The Releases page shows every feature from staging on, and a released one until its watch ends. The QA tab warns when a team's newest CI result is for an older commit than its newest change.
 - **Plugin: still to come.** Nothing from the plan. Stage events (`hub_next` records the start, `hub_record` the finish), usage, the Codex and Cursor skills, and refreshing Claude Code's copy of the plugin in `hub sync` are built. A stage started outside the hub (an engine command typed directly) records no event.
 - **Fan-out: built in revision 69** and verified on GitLab CE 19.4.1 and github.com (10 October 2026). On GitHub it needs the organization to let Actions open pull requests; setup warns when it does not.
 - **People and roles: built in revision 70.** The membership check, adding a team later (Settings, then `hub connect-teams`), and the working role for a person with several.

@@ -195,6 +195,15 @@ test("People and roles marks a person who is not in the group, for the admin", a
   await expect(page.locator("#people")).not.toContainText("not in the group");
 });
 
+test("Releases shows Ops every feature from staging on, and leaves out one whose watch is over", async ({ page }) => {
+  await page.goto("/releases?as=bohdan.r");
+  await ready(page);
+  await expect(page.locator('#releases tr[data-release="tasks-issues"]')).toBeVisible();
+  await expect(page.locator('#releases tr[data-release="staff-permissions"]')).toHaveCount(0);
+  await page.locator('#releases tr[data-release="tasks-issues"] a').click();
+  await expect(page.locator("#release")).toBeVisible();
+});
+
 test("Settings shows the admin what install set up on the host, and what to do", async ({ page }) => {
   await page.goto("/settings?as=nazar.t");
   await ready(page);

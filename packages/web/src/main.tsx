@@ -10,6 +10,7 @@ import { CommandHelp } from "./help.tsx";
 import { actionsFor, Home, type Action } from "./home.tsx";
 import { People, SetupScript } from "./people.tsx";
 import { Settings } from "./settings.tsx";
+import { Releases } from "./releases.tsx";
 import { GuideDoc } from "./guides.tsx";
 import { TaskPage } from "./task.tsx";
 import "./styles.css";
@@ -23,6 +24,7 @@ type Route =
   | { page: "guide" }
   | { page: "people" }
   | { page: "settings" }
+  | { page: "releases" }
   | { page: "guide-doc"; name: string }
   | { page: "script"; user: string }
   | { page: "missing" };
@@ -33,6 +35,7 @@ function route(path: string): Route {
   if (path === "/guide") return { page: "guide" };
   if (path === "/people") return { page: "people" };
   if (path === "/settings") return { page: "settings" };
+  if (path === "/releases") return { page: "releases" };
   const gd = /^\/guides\/([a-z]+)\/?$/.exec(path);
   if (gd) return { page: "guide-doc", name: gd[1]! };
   const sc = /^\/people\/([A-Za-z0-9][A-Za-z0-9._-]*)\/script\/?$/.exec(path);
@@ -42,7 +45,7 @@ function route(path: string): Route {
   return { page: "missing" };
 }
 
-const TITLE: Record<Route["page"], string> = { home: "Home", features: "Features", feature: "Feature", guide: "Your guide", people: "People and roles", settings: "Settings", "guide-doc": "Guides", script: "Setup script", missing: "Not found" };
+const TITLE: Record<Route["page"], string> = { home: "Home", features: "Features", feature: "Feature", guide: "Your guide", people: "People and roles", settings: "Settings", releases: "Releases", "guide-doc": "Guides", script: "Setup script", missing: "Not found" };
 
 function Root() {
   const [loc, setLoc] = useState(location.pathname + location.search);
@@ -205,8 +208,9 @@ function Root() {
   const nav: [string, string, number | null][] = [
     ["/", "Home", actions],
     ["/features", "Features", features.length],
+    ["/releases", "Releases", null],
   ];
-  const current = r.page === "feature" || r.page === "features" ? "/features" : r.page === "home" ? "/" : "";
+  const current = r.page === "feature" || r.page === "features" ? "/features" : r.page === "home" ? "/" : r.page === "releases" ? "/releases" : "";
   const host = project.project.provider === "github" ? "GitHub" : "GitLab";
 
   return (
@@ -264,7 +268,7 @@ function Root() {
         <div class="shell">
           <nav class="side" id="nav" aria-label="Screens">
             {nav.map(([path, label, n]) => (
-              <a key={path} class="nb" data-page={path === "/" ? "home" : "features"} href={href(path)} aria-current={current === path ? "page" : undefined} onClick={(e) => (e.preventDefault(), go(path))}>
+              <a key={path} class="nb" data-page={path === "/" ? "home" : path.slice(1)} href={href(path)} aria-current={current === path ? "page" : undefined} onClick={(e) => (e.preventDefault(), go(path))}>
                 <span>{label}</span>
                 {n !== null && <span class="cnt">{n}</span>}
               </a>
@@ -289,6 +293,7 @@ function Root() {
             {r.page === "guide" && <Guide />}
             {r.page === "people" && <People />}
             {r.page === "settings" && <Settings />}
+            {r.page === "releases" && <Releases />}
             {r.page === "guide-doc" && <GuideDoc name={r.name} />}
             {r.page === "script" && <SetupScript user={r.user} params={params} />}
             {r.page === "missing" && (
