@@ -54,6 +54,7 @@ The setup site opens at `http://127.0.0.1:4173/setup`. It has five screens:
 | `HUB_STATE_TOKEN` | Creates a project access token on `product-specs` (Developer role; `read_repository` and `write_repository`; expires in 364 days). Stores it as a **masked group variable** `HUB_STATE_TOKEN`, so every team pipeline can write `hub-state`. |
 | `hub-ci` | Creates the project `hub-ci` with the job configuration of `product-specs`: `hub-guard` on merge requests, and `hub-fanout` on `main`. Its `main` is protected; only Maintainers push and merge. |
 | `HUB_GUARD_TOKEN` | Creates a read-only project access token (`read_api`, Reporter role, 364 days), stored as a **masked variable** of `product-specs`. The guard uses it to ask who opened a merge request and who pushed to it. |
+| `HUB_RECHECK_TOKEN` | A project access token on `product-specs` (Developer role; `api`; 364 days), stored as a **protected, masked variable**: only pipelines on `main` see it, never a merge request's. When `.hub/` changes on `main` (a person's role, the guard settings), the `hub-recheck` job starts a new pipeline for every open merge request, so `hub-guard` judges it again under the new rules. |
 | `HUB_FANOUT_TOKEN_<TEAM>` | For each team repository, a project access token on that repository (Developer role; `read_repository` and `write_repository`; 364 days), stored as a **masked variable** of `product-specs`. With it, `hub-fanout` brings the shared files of each feature (spec, flows, screens, test plan, contracts) to the repositories of its teams, as a merge request on the branch `hub/fanout` that the team lead merges. |
 | CI configuration | Points the CI configuration of `product-specs` at `ci/product-specs.yml@<group>/hub-ci`, so a merge request cannot change its own check. Turns on **Pipelines must succeed**. |
 | Protect `main` | Protects `main` of `product-specs`: **no one pushes**; Developers and Maintainers merge. Every change, yours included, now arrives as a merge request that merges itself once `hub-guard` passes. |
@@ -72,6 +73,8 @@ The setup page lists what is left for people:
   - When `HUB_STATE_TOKEN` expires, team pipelines stop publishing.
   - When `HUB_GUARD_TOKEN` expires, `hub-guard` fails and **nothing can merge into `product-specs`**.
   - When a `HUB_FANOUT_TOKEN_<TEAM>` expires, that team stops getting the shared files.
+  - When `HUB_RECHECK_TOKEN` expires, a change of roles no longer checks open merge requests again.
+  - Settings shows each token with its expiry date and warns 30 days ahead.
 
   To renew, create a new project access token with the same name, role and scopes on `product-specs` (**Settings → Access tokens**), and replace the variable's value: the group's **Settings → CI/CD → Variables** for `HUB_STATE_TOKEN`, the project's for `HUB_GUARD_TOKEN`. Running setup again also creates a missing token.
 - **Keep the people of the hub at the Developer role** in the group. On GitLab Free a protected branch cannot be limited to the Owner, so a Maintainer could change `hub-ci` or the protection of `main`.

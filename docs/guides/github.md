@@ -85,6 +85,7 @@ The setup site opens at `http://127.0.0.1:4173/setup`. It has five screens:
 | Step | What it does |
 |---|---|
 | Files | Writes `.hub/` (configuration, roles, flow, engine), the hub as one file `hub/cli.js`, the assistant plugin and skills, the `hub-guard` workflow (`.github/workflows/hub-guard.yml`), and the hub sections of `CLAUDE.md` and `AGENTS.md` into the specifications repository. You are the first person in `.hub/roles.yaml`, as admin. Once `main` is protected, these changes arrive as a pull request that setup merges as soon as `hub-guard` passes. |
+| Recheck | The workflow `.github/workflows/hub-recheck.yml` runs when `.hub/` changes on the default branch. It runs the `hub-guard` job of every open pull request again, so a result under the old roles does not merge. |
 | Settings | Allows auto-merge, deletes a branch once it merged, and turns forking off for a private repository. A public repository can always be forked; a pull request from a fork goes through `hub-guard` like any other. |
 | `hub-state` | Creates the branch `hub-state` for machine data: team snapshots, test results, stage events, encrypted usage. It is a display cache, never trusted for a gate. |
 | Deploy key | Makes a new SSH key pair. The public half becomes a deploy key with write access on `product-specs` (named `sdlc-hub hub-state <date>`). The private half becomes the repository secret **`HUB_STATE_KEY`** in each team repository. The private key is stored nowhere else. |
