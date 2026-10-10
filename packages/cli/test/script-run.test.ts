@@ -63,3 +63,51 @@ describe.skipIf(!existsSync(bundle))("a generated setup script, run", () => {
     expect(again.status, `${again.stdout}\n${again.stderr}`).toBe(0);
   }, 120_000);
 });
+
+/** Docker with the image of e2e/pwsh (docker build -t sdlc-hub-pwsh e2e/pwsh): HUB_PWSH_IT=1 runs the test below. */
+const pwsh = process.env["HUB_PWSH_IT"] === "1" && existsSync(bundle);
+
+describe.skipIf(!pwsh)("a generated PowerShell setup script, run in PowerShell on Linux (claim 17, in part)", () => {
+  it("clones the role's repositories and sets the person up, as the bash script does", () => {
+    const dir = mkdtempSync(join(tmpdir(), "hub-ps-run-"));
+    temp.push(dir);
+    const f = fixtures["demo"]!;
+    const { root } = materialize(f, join(dir, "seed"));
+    mkdirSync(join(root, "hub"), { recursive: true });
+    copyFileSync(bundle, join(root, "hub/cli.js"));
+    writeFileSync(join(root, "hub/package.json"), '{ "private": true, "type": "module" }\n');
+    git(root, "add", "-A");
+    git(root, "-c", "user.name=t", "-c", "user.email=t@x", "commit", "-q", "-m", "vendor the hub");
+    const host = join(dir, "host");
+    const config = { ...parseConfig(f.main[".hub/config.yaml"]!, "c").value! };
+    git(dir, "clone", "-q", "--bare", root, join(host, "shop/product-specs.git"));
+    for (const t of config.teams) {
+      const seed = join(dir, "seed", t.repo.split("/")[1]!);
+      if (!existsSync(join(seed, ".git"))) {
+        mkdirSync(seed, { recursive: true });
+        git(seed, "init", "-q", "-b", "main");
+      }
+      git(seed, "-c", "user.name=t", "-c", "user.email=t@x", "commit", "-q", "--allow-empty", "-m", "start");
+      git(dir, "clone", "-q", "--bare", seed, join(host, `${t.repo}.git`));
+    }
+    mkdirSync(join(dir, "bin"));
+    writeFileSync(join(dir, "bin/claude"), `#!/bin/sh\necho "$@" >> /w/claude.log\n`);
+    chmodSync(join(dir, "bin/claude"), 0o755);
+    const person = parseRoles(f.main[".hub/roles.yaml"]!, "r").value!.people.find((p) => p.user === "petro.v")!;
+    // Inside the container the folder is /w, and the host is file:///w/host.
+    writeFileSync(join(dir, "setup.ps1"), setupScript({ config: { ...config, git: { ...config.git, host: "file:///w/host" } }, person, shell: "powershell", release: "x", date: "2026-10-10", by: "nazar.t" }));
+    const run = () =>
+      spawnSync("docker", ["run", "--rm", "-v", `${dir}:/w`, "-e", "HUB_WORK=/w/work", "-e", "HUB_NO_START=1", "-e", "HUB_KEYS_DIR=/w/keys", "-e", "PATH=/w/bin:/usr/local/bin:/usr/bin:/bin:/opt/microsoft/powershell/7", "-e", "GIT_CONFIG_COUNT=3", "-e", "GIT_CONFIG_KEY_0=user.name", "-e", "GIT_CONFIG_VALUE_0=Petro V.", "-e", "GIT_CONFIG_KEY_1=user.email", "-e", "GIT_CONFIG_VALUE_1=petro.v@example.com", "-e", "GIT_CONFIG_KEY_2=safe.directory", "-e", "GIT_CONFIG_VALUE_2=*", "sdlc-hub-pwsh", "pwsh", "-NoProfile", "-File", "/w/setup.ps1"], { encoding: "utf8", timeout: 300_000 });
+    const r = run();
+    expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
+    expect(r.stdout).toContain("6/6 Opening the site");
+    expect(r.stdout).toContain("✓ You are Petro V. (petro.v), dev");
+    expect(existsSync(join(dir, "work/product-specs/.git"))).toBe(true);
+    expect(existsSync(join(dir, "work/web-admin/.git"))).toBe(true);
+    expect(existsSync(join(dir, "work/backend"))).toBe(false);
+    expect(readFileSync(join(dir, "claude.log"), "utf8")).toContain("plugin install hub@product-specs --scope local");
+    expect(parsePersonState(git(join(host, "shop/product-specs.git"), "show", "hub-state:people/petro.v.json"), "p").value).toMatchObject({ user: "petro.v" });
+    const again = run();
+    expect(again.status, `${again.stdout}\n${again.stderr}`).toBe(0);
+  }, 600_000);
+});

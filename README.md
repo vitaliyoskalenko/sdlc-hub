@@ -69,6 +69,13 @@ node e2e/github/bootstrap.mjs      # public product-specs, backend and web-admin
 npm run test:github                # the install twice, saves that merge themselves, hub-report, refusal and advisory mode
 ```
 
+The PowerShell setup script, in PowerShell on Linux (this checks the script, not Windows itself):
+
+```
+docker build -t sdlc-hub-pwsh e2e/pwsh
+npm run -s build && HUB_PWSH_IT=1 npx vitest run packages/cli/test/script-run.test.ts
+```
+
 ## Check it
 
 ```
