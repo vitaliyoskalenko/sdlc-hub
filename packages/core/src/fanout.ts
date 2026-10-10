@@ -8,6 +8,8 @@ import type { Config } from "./schema/project.ts";
 import type { FileSource } from "./source.ts";
 
 export const FANOUT_BRANCH = "hub/fanout";
+/** The masked CI variable of product-specs with a team's fan-out token, on GitLab. */
+export const fanoutTokenVariable = (team: string) => `HUB_FANOUT_TOKEN_${team.toUpperCase().replace(/[^A-Z0-9]/g, "_")}`;
 const SHARED = ["spec.md", "ux-flows.md", "screens.md", "test-plan.md"];
 
 /** The files a team's repository should have, by path, from main of product-specs at `sha`. */

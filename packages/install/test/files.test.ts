@@ -146,8 +146,10 @@ describe("the hub-ci configuration of product-specs", () => {
   it("runs hub-guard on merge requests only, with the hub code of main and never the merge request's", async () => {
     const { parse } = await import("yaml");
     const ci = parse(hubGuardCi());
-    expect(ci.workflow.rules).toEqual([{ if: '$CI_PIPELINE_SOURCE == "merge_request_event"' }]);
+    // Pipelines run for merge requests (hub-guard) and on main (hub-fanout, with main's own code).
+    expect(ci.workflow.rules).toEqual([{ if: '$CI_PIPELINE_SOURCE == "merge_request_event"' }, { if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH" }]);
     const job = ci["hub-guard"];
+    expect(job.rules).toEqual([{ if: '$CI_PIPELINE_SOURCE == "merge_request_event"' }]);
     expect(job.variables.GIT_DEPTH).toBe("0");
     expect(job.script.every((s: unknown) => typeof s === "string")).toBe(true);
     const script = job.script.join("\n");

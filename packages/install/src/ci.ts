@@ -107,9 +107,12 @@ export function hubGuardCi(): string {
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 hub-guard:
   image: node:22-alpine
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   variables:
     GIT_DEPTH: "0"
   # HUB_GUARD_TOKEN (a masked project variable, read_api) lets the guard ask GitLab who opened the merge request
@@ -122,5 +125,17 @@ hub-guard:
       git fetch --quiet origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
       mkdir -p /tmp/hub && git show FETCH_HEAD:hub/cli.js > /tmp/hub/cli.mjs
       node /tmp/hub/cli.mjs guard --rules FETCH_HEAD
+
+# On main: the shared files of each feature go to the repositories of its teams, as a merge request on hub/fanout
+# that the team lead merges. Each team's token is the masked variable HUB_FANOUT_TOKEN_<TEAM>.
+hub-fanout:
+  image: node:22-alpine
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  allow_failure: true
+  script:
+    - |
+      apk add --no-cache git >/dev/null
+      node hub/cli.js fanout --server-url "\${HUB_GIT_URL:-$CI_SERVER_URL}"
 `;
 }

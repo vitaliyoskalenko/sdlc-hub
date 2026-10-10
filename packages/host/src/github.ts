@@ -167,6 +167,8 @@ export class GitHub {
   openPulls = (owner: string, name: string, head: string) => this.call<GitHubPull[]>("GET", `/repos/${enc(owner)}/${enc(name)}/pulls?state=open&head=${enc(`${owner}:${head}`)}`);
   pull = (owner: string, name: string, n: number) => this.call<GitHubPull>("GET", `/repos/${enc(owner)}/${enc(name)}/pulls/${n}`);
   createPull = (owner: string, name: string, head: string, base: string, title: string, body: string) => this.call<GitHubPull>("POST", `/repos/${enc(owner)}/${enc(name)}/pulls`, { head, base, title, body });
+  /** Lets the repository's workflows open pull requests with their own token ("Allow GitHub Actions to create pull requests"). */
+  allowActionsPullRequests = (owner: string, name: string) => this.call<void>("PUT", `/repos/${enc(owner)}/${enc(name)}/actions/permissions/workflow`, { default_workflow_permissions: "read", can_approve_pull_request_reviews: true });
   /** Merges a pull request; GitHub refuses while a required check has not passed. */
   mergePull = (owner: string, name: string, n: number) => this.call<{ merged: boolean }>("PUT", `/repos/${enc(owner)}/${enc(name)}/pulls/${n}/merge`, { merge_method: "merge" });
   /** GitHub keeps a pull request open when its branch is deleted; this closes it. */

@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { GitHub, HostError, hubRuleset, WORDS, type GitHubRepo, type GitHubUser } from "@sdlc-hub/host";
 import { hubFiles, teamId, type SetupAnswers } from "./answers.ts";
-import { hubReportWorkflow, REPORT_WORKFLOW } from "./github-ci.ts";
+import { FANOUT_WORKFLOW, hubFanoutWorkflow, hubReportWorkflow, REPORT_WORKFLOW } from "./github-ci.ts";
 import { pushOrphan, type Check, type InstallOptions, type InstallResult, type Preflight, type StepEvent, type StepState } from "./install.ts";
 import { pushFiles } from "./push.ts";
 import { hubOwnedFiles } from "./hub-files.ts";
@@ -226,24 +226,28 @@ export async function installGitHub(a: SetupAnswers, gh: GitHub, opts: InstallOp
   for (const t of a.teams) {
     const id = teamId(t.name);
     const repo = t.repo.trim();
-    await step(`report-${id}`, `opened the ${w.changeRequest} that adds hub-report to ${org}/${repo}`, async () => {
+    await step(`report-${id}`, `opened the ${w.changeRequest} that adds the hub-report and hub-fanout workflows to ${org}/${repo}`, async () => {
       const r = await gh.repo(org, repo);
       if (!r) throw new Error(`there is no repository ${org}/${repo}`);
-      const flows = (await gh.workflows(org, repo)).filter((f) => f.state === "active" && !f.path.endsWith("hub-report.yml")).map((f) => f.name);
-      const job = hubReportWorkflow({ specs: `${org}/${name}`, team: id, workflows: flows, host: new URL(web).host });
-      if ((await gh.file(org, repo, REPORT_WORKFLOW, r.default_branch)) === job) return { state: "skip" as const, text: `${org}/${repo} already has the hub-report workflow` };
+      // hub-fanout opens its pull request with the repository's own token: GitHub needs that allowed per repository.
+      await gh.allowActionsPullRequests(org, repo).catch(() => left.push(`Allow GitHub Actions to create pull requests in ${org}/${repo} (Settings, Actions, General), or the organization's policy: hub-fanout needs it`));
+      const flows = (await gh.workflows(org, repo)).filter((f) => f.state === "active" && !/hub-(report|fanout)\.yml$/.test(f.path)).map((f) => f.name);
+      const host = new URL(web).host;
+      const files = { [REPORT_WORKFLOW]: hubReportWorkflow({ specs: `${org}/${name}`, team: id, workflows: flows, host }), [FANOUT_WORKFLOW]: hubFanoutWorkflow({ specs: `${org}/${name}`, team: id, host }) };
+      const has = async (ref: string) => (await Promise.all(Object.entries(files).map(async ([p, t]) => (await gh.file(org, repo, p, ref)) === t))).every(Boolean);
+      if (await has(r.default_branch)) return { state: "skip" as const, text: `${org}/${repo} already has the hub workflows` };
       const pending = (await gh.openPulls(org, repo, REPORT_BRANCH))[0];
-      if (pending && (await gh.file(org, repo, REPORT_WORKFLOW, REPORT_BRANCH)) === job) {
+      if (pending && (await has(REPORT_BRANCH))) {
         opened.push(`${repo} ${w.sign}${pending.number}`);
         return { state: "skip" as const, text: `${org}/${repo} has the ${w.changeRequest} open already`, link: pending.html_url };
       }
-      pushFiles({ url: `${web}/${org}/${repo}.git`, authHeader: gh.gitAuthHeader(), from: pending ? REPORT_BRANCH : r.default_branch, to: REPORT_BRANCH, files: { [REPORT_WORKFLOW]: job }, message: "Add the hub-report workflow (SDLC Hub)", author, force: !pending });
-      const pr = pending ?? (await gh.createPull(org, repo, REPORT_BRANCH, r.default_branch, "Add the hub-report workflow (SDLC Hub)", `SDLC Hub was installed in ${org}/${name}. This workflow publishes this team's tasks, tracker, review verdict and the result of its workflows for each feature to its hub-state branch. It changes nothing in this repository.\n\nThe team lead merges it.`));
+      pushFiles({ url: `${web}/${org}/${repo}.git`, authHeader: gh.gitAuthHeader(), from: pending ? REPORT_BRANCH : r.default_branch, to: REPORT_BRANCH, files, message: "Add the hub workflows (SDLC Hub)", author, force: !pending });
+      const pr = pending ?? (await gh.createPull(org, repo, REPORT_BRANCH, r.default_branch, "Add the hub workflows (SDLC Hub)", `SDLC Hub was installed in ${org}/${name}. hub-report publishes this team's tasks, tracker, review verdict and the result of its workflows for each feature to its hub-state branch. hub-fanout brings the shared files of this team's features (spec, flows, screens, test plan, contracts) as a pull request every hour.\n\nThe team lead merges it.`));
       opened.push(`${repo} ${w.sign}${pr.number}`);
       return { link: pr.html_url };
     });
   }
-  if (opened.length) left.push(`${a.teams.length === 1 ? "The team lead merges" : "Each team lead merges"} the ${w.changeRequest} that adds the hub-report workflow: ${opened.join(", ")}`);
+  if (opened.length) left.push(`${a.teams.length === 1 ? "The team lead merges" : "Each team lead merges"} the ${w.changeRequest} that adds the hub workflows: ${opened.join(", ")}`);
   left.push("Add each person on People and roles, then send them their setup script");
   return { ok: steps.every((s) => s.state !== "fail"), steps, left };
 }

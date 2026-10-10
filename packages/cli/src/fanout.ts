@@ -9,11 +9,11 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { FANOUT_BRANCH, fanoutFiles, loadProject, type FileSource } from "@sdlc-hub/core";
+import { FANOUT_BRANCH, fanoutFiles, fanoutTokenVariable, loadProject, type FileSource } from "@sdlc-hub/core";
 import { tokenEnv, type Line } from "@sdlc-hub/save";
 
 const TITLE = "Shared files from product-specs (hub-fanout)";
-export const fanoutTokenVariable = (team: string) => `HUB_FANOUT_TOKEN_${team.toUpperCase().replace(/[^A-Z0-9]/g, "_")}`;
+export { fanoutTokenVariable };
 
 /** Writes the files into a checkout and commits them on hub/fanout; false when the checkout already has them. */
 export function writeFanout(dir: string, files: Record<string, string>, env: NodeJS.ProcessEnv): boolean {

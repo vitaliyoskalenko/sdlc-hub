@@ -292,6 +292,26 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
     }, 60_000);
   });
 
+  it("brings a feature's shared files to its team's repository: hub-fanout on main opens a merge request there", async () => {
+    const specs = (await root.project("shop/product-specs"))!;
+    const be = (await root.project("shop/backend"))!;
+    const path = "docs/features/bulk-order-export/hub/feature.yaml";
+    const stamp = Date.now();
+    // The admin names the feature's team; the merge starts a pipeline on main, which runs hub-fanout.
+    const next = `title: Bulk order export\nowner: olena.k\nteams:\n  backend: { lead: taras.m }\n# fan-out ${stamp}\n`;
+    const action = (await root.file(specs.id, path, "main")) === null ? "create" : "update";
+    const mr = await owner.propose(specs.id, { target: "main", branch: `fanout-${stamp}`, title: "Bulk order export: teams", description: "", actions: [{ action, file_path: path, content: next }] });
+    expect((await settle(owner, specs.id, mr.iid)).state).toBe("merged");
+    let fan: MergeRequest | undefined;
+    for (let i = 0; i < 72 && !fan; i++) {
+      await wait(5000);
+      fan = (await root.openMergeRequests(be.id, "hub/fanout"))[0];
+    }
+    expect(fan, "no hub/fanout merge request in backend within 6 minutes").toBeDefined();
+    expect(await root.file(be.id, "docs/features/bulk-order-export/spec.md", "hub/fanout")).toContain("Bulk order export");
+    expect(await root.file(be.id, "docs/features/bulk-order-export/_handoff.md", "hub/fanout")).toMatch(/Copied by hub-fanout/);
+  }, 600_000);
+
   it("runs hub-report in a team pipeline and publishes the snapshot to hub-state (claim 12)", async () => {
     const be = (await root.project("shop/backend"))!;
     // A feature in the backend repository, then the team lead merges the hub-report merge request.

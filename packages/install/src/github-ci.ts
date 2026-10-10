@@ -46,6 +46,58 @@ jobs:
 `;
 }
 
+export const FANOUT_WORKFLOW = ".github/workflows/hub-fanout.yml";
+
+/**
+ * The team repository's fan-out: every hour, and on demand, it reads product-specs with the deploy key in
+ * HUB_STATE_KEY, writes this team's shared files on hub/fanout and opens a pull request for the team lead. GitHub gives
+ * no token for another repository that install could create, so the team repository fetches instead of being pushed to.
+ */
+export function hubFanoutWorkflow(opts: { specs: string; team: string; host?: string }): string {
+  const host = opts.host ?? "github.com";
+  return `# Added by SDLC Hub. Brings the shared files of this team's features (spec, flows, screens, test plan, contracts)
+# from ${opts.specs} as a pull request on hub/fanout. The team lead merges it.
+name: hub-fanout
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  hub-fanout:
+    runs-on: ubuntu-latest
+    env:
+      HUB_STATE_KEY: \${{ secrets.HUB_STATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.HUB_STATE_KEY != ''
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        if: env.HUB_STATE_KEY != ''
+        with:
+          node-version: 22
+      - name: Shared files from ${opts.specs}
+        if: env.HUB_STATE_KEY != ''
+        env:
+          GH_TOKEN: \${{ github.token }}
+          BASE: \${{ github.event.repository.default_branch }}
+        run: |
+          install -m 600 /dev/null /tmp/hub-key && printf '%s\\n' "$HUB_STATE_KEY" > /tmp/hub-key
+          export GIT_SSH_COMMAND="ssh -i /tmp/hub-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          git clone --quiet --depth 1 "git@${host}:${opts.specs}.git" /tmp/hub-specs
+          out=$(node /tmp/hub-specs/hub/cli.js fanout --team ${JSON.stringify(opts.team)} --specs /tmp/hub-specs --into .)
+          echo "$out"
+          case "$out" in *FANOUT_CHANGED=1*) ;; *) exit 0 ;; esac
+          git fetch --quiet origin hub/fanout 2>/dev/null || true
+          if [ "$(git rev-parse HEAD^{tree})" = "$(git rev-parse --verify -q FETCH_HEAD^{tree} 2>/dev/null)" ]; then echo "The pull request has these files already"; exit 0; fi
+          git push --quiet --force origin hub/fanout
+          gh pr view hub/fanout --json state -q .state 2>/dev/null | grep -q OPEN || gh pr create --base "$BASE" --head hub/fanout --title "Shared files from product-specs (hub-fanout)" --body "Copied by hub-fanout from ${opts.specs}. The team lead merges it; change these files in ${opts.specs}, not here."
+`;
+}
+
 /**
  * The team repository's job: after each of the team's workflows completes, publish the snapshot and the result to
  * hub-state of product-specs, through a deploy key of product-specs kept as the secret HUB_STATE_KEY. A repository

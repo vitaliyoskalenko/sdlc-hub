@@ -81,3 +81,28 @@ describe("the GitHub plan check", () => {
     expect(await plan("free", true, "advisory")).toMatchObject({ ok: true, text: expect.stringMatching(/waits for someone to merge it/) });
   });
 });
+
+describe("the hub-fanout workflow in a team repository", () => {
+  it("runs hourly and on demand, reads product-specs with the deploy key, and opens the pull request with its own token", async () => {
+    const { hubFanoutWorkflow } = await import("../src/github-ci.ts");
+    const text = hubFanoutWorkflow({ specs: "shop/product-specs", team: "web" });
+    const w = parse(text);
+    expect(Object.keys(w.on)).toEqual(["schedule", "workflow_dispatch"]);
+    expect(w.permissions).toEqual({ contents: "write", "pull-requests": "write" });
+    const run = (w.jobs["hub-fanout"].steps as { run?: string; env?: Record<string, string> }[]).find((s) => s.run)!;
+    expect(run.env).toEqual({ GH_TOKEN: "${{ github.token }}", BASE: "${{ github.event.repository.default_branch }}" });
+    expect(run.run).toContain('fanout --team "web" --specs /tmp/hub-specs --into .');
+    expect(run.run).toContain("git@github.com:shop/product-specs.git");
+    expect(run.run).toContain("gh pr create");
+  });
+});
+
+describe("hub-ci on GitLab", () => {
+  it("runs hub-guard on merge requests and hub-fanout on main", async () => {
+    const { hubGuardCi } = await import("../src/ci.ts");
+    const c = parse(hubGuardCi());
+    expect(c["hub-guard"].rules).toEqual([{ if: '$CI_PIPELINE_SOURCE == "merge_request_event"' }]);
+    expect(c["hub-fanout"].rules).toEqual([{ if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH" }]);
+    expect(c["hub-fanout"].script.join("\n")).toContain('node hub/cli.js fanout --server-url "${HUB_GIT_URL:-$CI_SERVER_URL}"');
+  });
+});

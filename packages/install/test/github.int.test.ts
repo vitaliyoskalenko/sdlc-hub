@@ -163,6 +163,27 @@ describe.skipIf(!enabled)("install on GitHub (Free organization, public reposito
     expect(parseTeamSnapshot(snap!, "backend.json").value).toMatchObject({ team: "backend", slug: "bulk-order-export", tracker: [{ id: "T1", status: "in_progress" }] });
   }, 480_000);
 
+  it("brings the shared files of a feature to its team's repository as a pull request on hub/fanout", async () => {
+    // A feature that names the backend team (the save test above wrote its spec).
+    const admin = personSaver(owner, secrets.token, login);
+    const path = "docs/features/bulk-order-export/hub/feature.yaml";
+    const s = await admin
+      .save({ user: login, label: "feature", title: "Bulk order export: teams", build: (main) => (main.read(path) ? [] : [{ path, next: `title: Bulk order export\nowner: ${login}\nteams:\n  backend: { lead: ${login} }\n` }]) })
+      .catch((e: Error) => (/nothing to save/i.test(e.message) ? undefined : Promise.reject(e)));
+    if (s) expect((await settle(admin, s.branch)).state).toBe("merged");
+    const h = { authorization: `Bearer ${secrets.token}`, accept: "application/vnd.github+json", "content-type": "application/json" };
+    const run = await fetch(`https://api.github.com/repos/${ORG}/backend/actions/workflows/hub-fanout.yml/dispatches`, { method: "POST", headers: h, body: JSON.stringify({ ref: "main" }) });
+    expect(run.status, await run.text()).toBe(204);
+    let pr: { number: number } | undefined;
+    for (let i = 0; i < 60 && !pr; i++) {
+      await wait(5000);
+      pr = (await owner.openPulls(ORG, "backend", "hub/fanout"))[0];
+    }
+    expect(pr, "no hub/fanout pull request in backend within 5 minutes").toBeDefined();
+    expect(await owner.file(ORG, "backend", "docs/features/bulk-order-export/spec.md", "hub/fanout")).toContain("Bulk order export");
+    expect(await owner.file(ORG, "backend", "docs/features/bulk-order-export/_handoff.md", "hub/fanout")).toMatch(/Copied by hub-fanout/);
+  }, 600_000);
+
   const [person, personToken] = Object.entries(secrets.people ?? {})[0] ?? [];
   it.skipIf(!person)("refuses a person's change outside their role at merge, with the reason recorded in hub-state", async () => {
     // The owner adds the person as the PO, through a save that merges by itself.

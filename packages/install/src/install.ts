@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { GitLab, HostError, WORDS, type GitLabGroup, type GitLabProject, type GitLabUser } from "@sdlc-hub/host";
 import { hostUrl, hubFiles, teamId, type SetupAnswers } from "./answers.ts";
+import { fanoutTokenVariable } from "@sdlc-hub/core";
 import { pushFiles } from "./push.ts";
 import { hubOwnedFiles } from "./hub-files.ts";
 import { HUB_CI_FILE, HUB_CI_PROJECT, HUB_REPORT_FILE, hubGuardCi, hubReportJob, reportStage, withInclude } from "./ci.ts";
@@ -275,6 +276,28 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
     if (t.expires) left.push(`Renew HUB_GUARD_TOKEN before ${t.expires}: after that day hub-guard fails and no merge request into ${specsPath} can merge`);
     if (!t.created) return { state: "skip" as const, text: "the variable HUB_GUARD_TOKEN already exists" };
   });
+
+  // HUB_FANOUT_TOKEN_<TEAM>: the hub-fanout job on main pushes each team's shared files to its repository with a
+  // project access token of that repository, and push options open the merge request there.
+  for (const t of a.teams) {
+    const id = teamId(t.name);
+    const variable = fanoutTokenVariable(id);
+    await step(`fanout-${id}`, `stored a project access token of ${group.full_path}/${t.repo.trim()} for hub-fanout as the masked variable ${variable}`, async () => {
+      const team = await gl.project(`${group.full_path}/${t.repo.trim()}`);
+      if (!team) throw new Error(`there is no repository ${group.full_path}/${t.repo.trim()}`);
+      const tk = await tokenVariable(gl, {
+        projectId: team.id,
+        name: "hub-fanout",
+        scopes: ["read_repository", "write_repository"],
+        level: DEVELOPER,
+        now,
+        has: () => gl.projectVariable(p.id, variable),
+        store: (token) => gl.setProjectVariable(p.id, variable, token, { masked: true, protected: false }),
+      });
+      if (tk.expires) left.push(`Renew ${variable} before ${tk.expires}: after that day ${t.name.trim()} gets no shared files`);
+      if (!tk.created) return { state: "skip" as const, text: `the variable ${variable} already exists` };
+    });
+  }
 
   // The CI configuration file of product-specs points at hub-ci, and a merge request merges only when it passes.
   const ciConfig = `${HUB_CI_FILE}@${ciPath}`;
