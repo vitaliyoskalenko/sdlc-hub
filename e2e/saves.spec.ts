@@ -109,4 +109,16 @@ test.describe.serial("saves from the site", () => {
     await page.waitForSelector("#steph");
     await expect(page.locator("#edit-details")).toHaveCount(0);
   });
+
+  test("the admin adds a team on Settings; it merges and the next step is named", async ({ page }) => {
+    await page.goto(`${DEMO}/settings?as=nazar.t`);
+    await page.waitForSelector("#set-project");
+    await page.click("#add-team");
+    await page.fill("#tf-name", "Desktop");
+    await page.fill("#tf-repo", "desktop-app");
+    await page.selectOption("#tf-kind", "desktop");
+    await page.click("#tf-save");
+    await expect(page.locator("#team-next")).toContainText("node hub/cli.js connect-teams");
+    await expect(page.locator("#set-project")).toContainText("shop/desktop-app", { timeout: 20_000 });
+  });
 });

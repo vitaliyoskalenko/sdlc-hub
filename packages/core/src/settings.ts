@@ -1,9 +1,10 @@
 // Settings: what the admin changes in .hub/config.yaml from the site. The file keeps its comments and order; the
 // result must load, or the edit is refused. Repositories, teams and the engine are not edited here.
 
-import { parseDocument } from "yaml";
+import { isMap, isSeq, parseDocument } from "yaml";
 import type { Change } from "./access.ts";
 import { parseConfig } from "./files.ts";
+import { TEAM_KINDS } from "./schema/project.ts";
 
 export type GuardCheck = "files" | "signoffs" | "pushers" | "members";
 const CHECKS: GuardCheck[] = ["files", "signoffs", "pushers", "members"];
@@ -13,7 +14,12 @@ export interface SettingsEdit {
   assistants?: { codex?: boolean; cursor?: boolean };
   links?: { confluence?: string; figma?: string };
   guard?: { mode?: "enforce" | "advisory"; checks?: Partial<Record<GuardCheck, boolean>> };
+  /** A team repository added after install, in the same group or organization. */
+  addTeam?: { name: string; repo: string; kind: string };
 }
+
+/** A team id from its name, as setup makes it: "Desktop App" is desktop-app. */
+export const teamIdOf = (name: string) => name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "team";
 
 const PATH = ".hub/config.yaml";
 const isObj = (x: unknown): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x);
@@ -29,7 +35,12 @@ const bools = (x: unknown, keys: readonly string[], what: string): string | unde
 /** Checks an edit that came from the site; the error says what is wrong. */
 export function settingsEdit(x: unknown): SettingsEdit | string {
   if (!isObj(x)) return "Send the settings to change";
-  for (const k of Object.keys(x)) if (!["headless", "assistants", "links", "guard"].includes(k)) return `${k} is not changed in Settings`;
+  for (const k of Object.keys(x)) if (!["headless", "assistants", "links", "guard", "addTeam"].includes(k)) return `${k} is not changed in Settings`;
+  if (x["addTeam"] !== undefined) {
+    const t = x["addTeam"];
+    if (!isObj(t) || typeof t["name"] !== "string" || !t["name"].trim() || typeof t["repo"] !== "string" || !/^[A-Za-z0-9._-]+$/.test(t["repo"].trim())) return "A new team needs a name and a repository name in the group";
+    if (typeof t["kind"] !== "string" || !(TEAM_KINDS as readonly string[]).includes(t["kind"])) return `A team's kind is one of ${TEAM_KINDS.join(", ")}`;
+  }
   if (x["headless"] !== undefined && typeof x["headless"] !== "boolean") return "headless must be on or off";
   if (x["assistants"] !== undefined) {
     const e = bools(x["assistants"], ["codex", "cursor"], "assistants");
@@ -77,6 +88,15 @@ export function settingsChange(base: string, edit: SettingsEdit): Change | strin
   if (edit.guard?.mode) doc.setIn(["guard", "mode"], edit.guard.mode);
   for (const [k, v] of Object.entries(edit.guard?.checks ?? {})) doc.setIn(["guard", "checks", k], v);
   // No folding: a long flow map such as git: { ... } stays on its line.
+  if (edit.addTeam) {
+    const team = doc.createNode({ id: teamIdOf(edit.addTeam.name), name: edit.addTeam.name.trim(), repo: `${before.git.namespace}/${edit.addTeam.repo.trim()}`, kind: edit.addTeam.kind });
+    const teams = doc.get("teams");
+    // In the style of the teams before it: one line each, when they are written so.
+    if (isSeq(teams)) {
+      if (isMap(teams.items[0]) && teams.items[0].flow && isMap(team)) team.flow = true;
+      teams.add(team);
+    }
+  }
   const next = doc.toString({ lineWidth: 0 });
   const after = parseConfig(next, PATH);
   if (!after.value) return after.issues.map((i) => i.message).join("; ");

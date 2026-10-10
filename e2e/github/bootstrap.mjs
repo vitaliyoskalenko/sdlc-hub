@@ -50,7 +50,7 @@ if ((await call("GET", `/orgs/${org}/actions/permissions/workflow`))?.can_approv
   console.log(`let GitHub Actions open pull requests in ${org}`);
 }
 
-for (const repo of ["product-specs", "backend", "web-admin"]) {
+for (const repo of ["product-specs", "backend", "web-admin", "android-app"]) {
   if (!(await call("GET", `/repos/${org}/${repo}`))) {
     await call("POST", `/orgs/${org}/repos`, { name: repo, private: false, auto_init: true, description: "SDLC Hub test repository" });
     console.log(`created ${org}/${repo}`);
@@ -58,7 +58,7 @@ for (const repo of ["product-specs", "backend", "web-admin"]) {
 }
 
 const ci = 'name: CI\non:\n  push:\n  pull_request:\njobs:\n  tests:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - run: if [ -f fail-tests ]; then echo "tests failed"; exit 1; fi; echo "tests passed"\n';
-for (const repo of ["backend", "web-admin"]) await put(repo, ".github/workflows/ci.yml", ci, "CI");
+for (const repo of ["backend", "web-admin", "android-app"]) await put(repo, ".github/workflows/ci.yml", ci, "CI");
 
 const slug = "bulk-order-export";
 await put("backend", `docs/features/${slug}/tasks.json`, JSON.stringify({ slug, tasks: [{ id: "T1", title: "export_jobs migration", layer: "migration", deps: [], acs: ["AC-01"] }] }), "Tasks of bulk order export");

@@ -109,6 +109,7 @@ export async function installGitHub(a: SetupAnswers, gh: GitHub, opts: InstallOp
   };
   type Outcome = { state?: StepState; text?: string; link?: string } | void;
   const step = async (id: string, text: string, run: () => Promise<Outcome>) => {
+    if (opts.only && !opts.only(id)) return true;
     emit({ id, state: "running", text });
     try {
       const r = (await run()) ?? {};

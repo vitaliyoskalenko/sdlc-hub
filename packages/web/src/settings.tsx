@@ -48,6 +48,66 @@ function editOf(was: Form, f: Form): Record<string, unknown> {
   return edit;
 }
 
+const KINDS = ["backend", "web", "android", "ios", "desktop", "other"] as const;
+
+/** A team repository added after install: config.yaml by a save, then the admin connects it from their machine. */
+function AddTeam({ host }: { host: { n: string; cr: string } }) {
+  const { me, project, savesEnabled } = useApp();
+  const { run, busy, problem } = useAction();
+  const [open, setOpen] = useState(false);
+  const [t, setT] = useState({ name: "", repo: "", kind: "backend" as string });
+  const [sent, setSent] = useState(false);
+  if (!me.roles.includes("admin")) return <p class="muted">Repositories, teams and the engine are set at install; the admin adds a team here.</p>;
+  if (sent)
+    return (
+      <p class="note" id="team-next">
+        When the change merges, run <code>node hub/cli.js connect-teams</code> in your clone of {project.project.repo}. It opens the hub-report {host.cr} in the new repository and sets up its fan-out, with your setup token.
+      </p>
+    );
+  if (!open)
+    return (
+      <div class="row">
+        <button type="button" class="btn" id="add-team" disabled={!savesEnabled} onClick={() => setOpen(true)}>
+          Add a team
+        </button>
+        <span class="muted">The engine is set at install; run setup again to change it.</span>
+      </div>
+    );
+  return (
+    <div id="team-form">
+      <div class="form">
+        <label class="fld">
+          <span>Team name</span>
+          <input type="text" id="tf-name" value={t.name} placeholder="Desktop" onInput={(e) => setT({ ...t, name: (e.target as HTMLInputElement).value })} />
+        </label>
+        <label class="fld">
+          <span>Repository in {project.project.namespace}</span>
+          <input type="text" id="tf-repo" value={t.repo} placeholder="desktop-app" onInput={(e) => setT({ ...t, repo: (e.target as HTMLInputElement).value })} />
+        </label>
+        <label class="fld">
+          <span>Kind</span>
+          <select id="tf-kind" value={t.kind} onChange={(e) => setT({ ...t, kind: (e.target as HTMLSelectElement).value })}>
+            {KINDS.map((k) => (
+              <option key={k} value={k}>
+                {k}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <button type="button" class="btn pri" id="tf-save" disabled={!t.name.trim() || !t.repo.trim() || busy} onClick={() => void run("settings", { edit: { addTeam: { name: t.name.trim(), repo: t.repo.trim(), kind: t.kind } } }).then((ok) => ok && setSent(true))}>
+          {busy ? "Saving…" : "Add the team"}
+        </button>
+        <button type="button" class="btn" onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+      </div>
+      {problem}
+    </div>
+  );
+}
+
 export function Settings() {
   const { me, project, saves, savesEnabled } = useApp();
   const admin = me.roles.includes("admin");
@@ -205,7 +265,7 @@ export function Settings() {
             </tbody>
           </table>
         </div>
-        <p class="muted">Repositories, teams and the engine are set at install. Run setup again to change them.</p>
+        <AddTeam host={host} />
       </div>
     </>
   );

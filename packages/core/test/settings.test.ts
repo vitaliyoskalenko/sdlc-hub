@@ -24,6 +24,16 @@ describe("Settings: edits to .hub/config.yaml", () => {
     expect(cfg.links).toEqual({ figma: "https://figma.com/p/1" });
   });
 
+  it("adds a team after install, with an id from its name, and refuses one that clashes", () => {
+    const c = settingsChange(CONFIG, { addTeam: { name: "Desktop App", repo: "desktop", kind: "desktop" } });
+    if (typeof c === "string") throw new Error(c);
+    const cfg = parseConfig(c.next!, "c").value!;
+    expect(cfg.teams.at(-1)).toEqual({ id: "desktop-app", name: "Desktop App", repo: "shop/desktop", kind: "desktop" });
+    expect(settingsChange(CONFIG, { addTeam: { name: "Web", repo: "web2", kind: "web" } })).toMatch(/Two teams use the id web/);
+    expect(settingsChange(CONFIG, { addTeam: { name: "Again", repo: "web-admin", kind: "web" } })).toMatch(/same repository/);
+    expect(settingsEdit({ addTeam: { name: "X", repo: "x", kind: "spaceship" } })).toMatch(/kind/);
+  });
+
   it("says when nothing changes, and refuses what is not a setting", () => {
     expect(settingsChange(CONFIG, { headless: parseConfig(CONFIG, "c").value!.headless.enabled })).toBe("Nothing to change");
     expect(settingsEdit({ guard: { mode: "loose" } })).toMatch(/mode/);

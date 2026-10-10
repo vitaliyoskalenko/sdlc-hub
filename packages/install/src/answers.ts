@@ -2,6 +2,8 @@
 
 import { DEFAULT_FLOW_YAML, DEFAULT_SDD_ENGINE_YAML, DEFAULT_PLAIN_ENGINE_YAML, PLAIN_PROMPTS, parseConfig, parseRoles, type Issue } from "@sdlc-hub/core";
 
+import type { Config } from "@sdlc-hub/core";
+
 export interface SetupAnswers {
   host: "gitlab" | "github";
   /** gitlab.example.com, or a full address such as http://localhost:8929 */
@@ -22,6 +24,27 @@ export interface SetupAnswers {
   guard?: { mode: "enforce" | "advisory"; checks: { files: boolean; signoffs: boolean; pushers: boolean; members: boolean } };
   /** false where the host has no auto-merge (GitHub Free with private repositories); set by the install, not asked. */
   autoMerge?: boolean;
+}
+
+/** The setup answers config.yaml stands for, to run install's steps again from the hub (hub connect-teams). */
+export function answersOf(config: Config): SetupAnswers {
+  const ns = config.git.namespace;
+  return {
+    host: config.git.provider,
+    address: config.git.host,
+    namespace: ns,
+    repoMode: "existing",
+    repo: config.git.repo,
+    teams: config.teams.map((t) => ({ name: t.name, repo: t.repo.startsWith(`${ns}/`) ? t.repo.slice(ns.length + 1) : t.repo, kind: t.kind })),
+    contract: config.teams.findIndex((t) => t.api_contract),
+    project: config.project.name,
+    tracker: config.tracker.type === "jira" ? { type: "jira", url: config.tracker.url ?? "", key: config.tracker.project_key ?? "", mirror: !!config.tracker.mirror_bugs } : { type: "none" },
+    links: { ...(config.links?.confluence ? { confluence: config.links.confluence } : {}), ...(config.links?.figma ? { figma: config.links.figma } : {}) },
+    assistants: { claude: true, codex: config.assistants.includes("codex"), cursor: config.assistants.includes("cursor") },
+    engine: config.engine === "sdd" || config.engine === "plain" ? config.engine : "custom",
+    headless: config.headless.enabled,
+    ...(config.git.auto_merge === false ? { autoMerge: false } : {}),
+  };
 }
 
 export const DEFAULT_GUARD: NonNullable<SetupAnswers["guard"]> = { mode: "enforce", checks: { files: true, signoffs: true, pushers: true, members: true } };

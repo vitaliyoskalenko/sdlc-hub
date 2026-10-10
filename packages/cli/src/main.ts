@@ -20,6 +20,7 @@ import { rekey } from "./rekey.ts";
 import { upgrade } from "./upgrade.ts";
 import { hubBehind } from "./hub-behind.ts";
 import { fanoutInto, fanoutPush } from "./fanout.ts";
+import { connectTeams } from "./connect-teams.ts";
 import { claudeHeadless } from "./headless.ts";
 import { seedDemoUsage } from "./demo-usage.ts";
 import { keyStore } from "@sdlc-hub/usage";
@@ -60,6 +61,10 @@ const HELP = `SDLC Hub
   hub sync
       Pulls main and hub-state, publishes your usage encrypted, and on the admin's or the PM's machine the
       open totals. It also refreshes Claude Code's copy of the hub plugin.
+
+  hub connect-teams
+      Run by the admin after adding a team on Settings: opens the hub-report merge request in the new team's
+      repository and sets up its fan-out. Uses HUB_SETUP_TOKEN, or the setup token in git's credential helper.
 
   hub upgrade
       Run by the admin from a newer hub (npx sdlc-hub@<version> upgrade) in their clone of product-specs: proposes
@@ -404,6 +409,15 @@ async function fanoutCommand(f: Record<string, string>) {
   if (!r.ok) process.exit(1);
 }
 
+/** hub connect-teams: the team steps of install, for a team the admin added on Settings. */
+async function connectTeamsCommand() {
+  const root = topLevel(process.cwd());
+  if (!root) throw new Error("Run hub connect-teams in your clone of product-specs.");
+  const r = await connectTeams({ root });
+  console.log(print(r.lines));
+  if (!r.ok) process.exit(1);
+}
+
 /** hub upgrade: the admin proposes this hub's files for product-specs, as one merge request. */
 async function upgradeCommand() {
   const root = topLevel(process.cwd());
@@ -458,7 +472,7 @@ async function testCommand(f: Record<string, string>, slug: string | undefined) 
 }
 
 const [command, ...rest] = process.argv.slice(2);
-const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "usage" ? () => usageCommand(rest[0]) : command === "upgrade" ? upgradeCommand : command === "fanout" ? fanoutCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(flags(rest.slice(1)), rest[0]) : undefined;
+const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "usage" ? () => usageCommand(rest[0]) : command === "upgrade" ? upgradeCommand : command === "fanout" ? fanoutCommand : command === "connect-teams" ? connectTeamsCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(flags(rest.slice(1)), rest[0]) : undefined;
 if (!run) {
   console.log(HELP);
   process.exit(command && command !== "help" && command !== "--help" ? 1 : 0);

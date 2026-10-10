@@ -80,6 +80,15 @@ describe("sign-off and return from the site", () => {
     expect((await handler.handle("POST", "/settings", "nazar.t", { edit: { teams: [] } }, ctx)).status).toBe(400);
   });
 
+  it("adds a team to config.yaml from Settings, for the admin only", async () => {
+    const { remote, ctx, handler } = project();
+    const r = await handler.handle("POST", "/settings", "nazar.t", { edit: { addTeam: { name: "Desktop", repo: "desktop-app", kind: "desktop" } } }, ctx);
+    expect(r.status, JSON.stringify(r.body)).toBe(202);
+    const branch = (r.body as { save: { branch: string } }).save.branch;
+    expect(parseConfig(git(remote, "show", `${branch}:.hub/config.yaml`), "c").value?.teams.at(-1)).toMatchObject({ id: "desktop", repo: "shop/desktop-app", kind: "desktop" });
+    expect((await handler.handle("POST", "/settings", "taras.m", { edit: { addTeam: { name: "X", repo: "x", kind: "web" } } }, ctx)).status).toBe(403);
+  });
+
   it("resolves only a save of the person's own that waits for a decision", async () => {
     const { ctx, handler } = project();
     expect((await handler.handle("POST", "/resolve", "olena.k", { branch: "hub/olena.k/x", choice: "maybe" }, ctx)).status).toBe(400);

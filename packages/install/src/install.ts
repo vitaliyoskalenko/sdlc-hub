@@ -97,7 +97,12 @@ export interface InstallOptions {
   onStep?: (e: StepEvent) => void;
   /** The current time, for the token's expiry. */
   now?: Date;
+  /** Runs only the steps it says yes to; the others count as done. `hub connect-teams` runs the team steps only. */
+  only?: (stepId: string) => boolean;
 }
+
+/** The steps that connect team repositories: a team added after install needs these and nothing else. */
+export const TEAM_STEPS = (stepId: string) => stepId === "token" || /^(fanout|report)-/.test(stepId);
 
 export interface InstallResult {
   ok: boolean;
@@ -150,6 +155,7 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
   /** A step's result: nothing for done, or a change of state ("skip" when it was already done), text or link. */
   type Outcome = { state?: StepState; text?: string; link?: string } | void;
   const step = async (id: string, text: string, run: () => Promise<Outcome>) => {
+    if (opts.only && !opts.only(id)) return true;
     emit({ id, state: "running", text });
     try {
       const r = (await run()) ?? {};

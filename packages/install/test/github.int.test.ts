@@ -10,6 +10,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { parseConfig, parseSaveRefusal, parseTeamSnapshot, refusalPath, settingsChange } from "@sdlc-hub/core";
+import { connectTeams } from "../../cli/src/connect-teams.ts";
 import { GitHub } from "@sdlc-hub/host";
 import { createSaver, type Save, type Saver } from "@sdlc-hub/save";
 import { hostSaves } from "../../cli/src/host-saves.ts";
@@ -184,6 +185,23 @@ describe.skipIf(!enabled)("install on GitHub (Free organization, public reposito
     expect(await owner.file(ORG, "backend", "docs/features/bulk-order-export/spec.md", "hub/fanout")).toContain("Bulk order export");
     expect(await owner.file(ORG, "backend", "docs/features/bulk-order-export/_handoff.md", "hub/fanout")).toMatch(/Copied by hub-fanout/);
   }, 600_000);
+
+  it("connects a team the admin added on Settings: its secret and its hub workflows", async () => {
+    const admin = personSaver(owner, secrets.token, login);
+    const s = await admin
+      .save({ user: login, label: "team", title: "Add the Android team", build: (main) => { const c = settingsChange(main.read(".hub/config.yaml")!, { addTeam: { name: "Android", repo: "android-app", kind: "android" } }); return typeof c === "string" ? [] : [c]; } })
+      .catch((e: Error) => (/nothing to save|Two teams use the id/i.test(e.message) ? undefined : Promise.reject(e)));
+    if (s) expect((await settle(admin, s.branch)).state).toBe("merged");
+    const root = mkdtempSync(join(tmpdir(), "hub-gh-"));
+    temp.push(root);
+    execFileSync("git", ["clone", "-q", `https://github.com/${ORG}/${SPECS}.git`, root], { env: gitEnv(owner, login) });
+    const r = await connectTeams({ root, token: secrets.token });
+    expect(r.ok, r.lines.map((l) => l.text).join("\n")).toBe(true);
+    expect(await owner.repoSecret(ORG, "android-app", "HUB_STATE_KEY")).not.toBeNull();
+    const open = (await owner.openPulls(ORG, "android-app", "sdlc-hub/hub-report")).length;
+    const merged = (await owner.file(ORG, "android-app", ".github/workflows/hub-fanout.yml", "main")) !== null;
+    expect(open === 1 || merged).toBe(true);
+  }, 300_000);
 
   const [person, personToken] = Object.entries(secrets.people ?? {})[0] ?? [];
   it.skipIf(!person)("refuses a person's change outside their role at merge, with the reason recorded in hub-state", async () => {
