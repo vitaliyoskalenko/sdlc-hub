@@ -63,7 +63,11 @@ export function Link(props: { to: string; params?: Record<string, string | undef
   );
 }
 
-export const Pill = ({ kind, children }: { kind: string; children: ComponentChildren }) => <span class={`pill ${kind}`}>{children}</span>;
+export const Pill = ({ kind, children, title }: { kind: string; children: ComponentChildren; title?: string }) => (
+  <span class={`pill ${kind}`} title={title}>
+    {children}
+  </span>
+);
 
 export const StatusPill = ({ status }: { status: StepStatus }) => <Pill kind={STATUS[status][0]}>{STATUS[status][1]}</Pill>;
 

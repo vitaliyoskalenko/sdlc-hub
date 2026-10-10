@@ -185,6 +185,16 @@ test("the page shows what the files say", async ({ page }) => {
   await expect(page.locator(".srcnote")).toContainText("Android from your local copy");
 });
 
+test("People and roles marks a person who is not in the group, for the admin", async ({ page }) => {
+  await page.goto("/people?as=nazar.t");
+  await ready(page);
+  await expect(page.locator('#people tr[data-user="sofiia.h"]')).toContainText("not in the group");
+  await expect(page.locator('#people tr[data-user="olena.k"]')).not.toContainText("not in the group");
+  await page.goto("/people?as=olena.k");
+  await ready(page);
+  await expect(page.locator("#people")).not.toContainText("not in the group");
+});
+
 test("the guides open from Settings, with the tokens and permissions, and link to each other", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/settings?as=nazar.t");

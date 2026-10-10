@@ -2,6 +2,21 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-10: Revision 70, teams added later, membership, the working role
+
+### Adding a team: a save, then hub connect-teams
+- **Decision:** Settings adds a team to `config.yaml` by a save. `hub connect-teams` then runs only install's team steps, with answers rebuilt from `config.yaml` and the admin's setup token.
+- **Why:** The site has no host token on GitLab, which is git only, and a team needs host calls: tokens, secrets and merge requests. Running all of setup again would rewrite `config.yaml` and `flow.yaml` from the answers.
+- **By:** Proposed.
+
+### Membership on People and roles
+- **Decision:** The admin's view asks the host for the group's or organization's members, with the admin's own git credential, kept for ten minutes. When it cannot ask, it says so.
+- **By:** Specification; mechanism proposed.
+
+### The working role
+- **Decision:** A person with several roles picks one under Working as, at the top. It sets the focus of Home and Your guide. What they may do stays the union of their roles. The choice is kept in the browser.
+- **By:** Specification.
+
 ## 2026-10-10: Revision 69, fan-out
 
 ### hub-fanout: pushed on GitLab, pulled on GitHub

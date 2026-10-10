@@ -167,6 +167,16 @@ export class GitHub {
   openPulls = (owner: string, name: string, head: string) => this.call<GitHubPull[]>("GET", `/repos/${enc(owner)}/${enc(name)}/pulls?state=open&head=${enc(`${owner}:${head}`)}`);
   pull = (owner: string, name: string, n: number) => this.call<GitHubPull>("GET", `/repos/${enc(owner)}/${enc(name)}/pulls/${n}`);
   createPull = (owner: string, name: string, head: string, base: string, title: string, body: string) => this.call<GitHubPull>("POST", `/repos/${enc(owner)}/${enc(name)}/pulls`, { head, base, title, body });
+  /** Logins of everyone in the organization. */
+  async orgMembers(org: string): Promise<string[]> {
+    const out: string[] = [];
+    for (let page = 1; page <= 50; page++) {
+      const list = await this.call<{ login: string }[]>("GET", `/orgs/${enc(org)}/members?per_page=100&page=${page}`);
+      out.push(...list.map((m) => m.login));
+      if (list.length < 100) break;
+    }
+    return out;
+  }
   /** The organization's policy for workflows' token: whether they may open pull requests. */
   orgWorkflowPermissions = (org: string) => this.maybe<{ default_workflow_permissions: string; can_approve_pull_request_reviews: boolean }>(`/orgs/${enc(org)}/actions/permissions/workflow`);
   /** Lets the repository's workflows open pull requests with their own token ("Allow GitHub Actions to create pull requests"). */

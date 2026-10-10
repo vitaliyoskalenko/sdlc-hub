@@ -54,6 +54,20 @@ guard:
 | Headless runs | Lets the PO and the team leads start a read-only validation run from the site, under their own assistant seat. Off by default. |
 | Links | The Confluence space and the Figma project for the whole project. Each feature's own links (Jira, Figma, staging) are on the feature's page, where the PM edits them with **Edit details**. |
 
+## Add a team after install
+
+On Settings, **Add a team** with its name, its repository in the group or organization, and its kind. That is a save on `config.yaml`. When it has merged, run this in your clone of `product-specs`:
+
+```
+node hub/cli.js connect-teams
+```
+
+It runs install's team steps for every team, and skips those already connected:
+- **GitLab:** the `hub-report` merge request in the new repository, and its fan-out token.
+- **GitHub:** the deploy key's secret, and the pull request with the `hub-report` and `hub-fanout` workflows.
+
+It uses your setup token: the one git's credential helper keeps from setup, or `HUB_SETUP_TOKEN`. Running setup again instead also works, but rewrites `config.yaml` from the setup answers, so enter the new team there too.
+
 ## Usage records
 
 Per-person usage is encrypted to the person, the admins and the PMs, as `.hub/roles.yaml` names them when it is published. After the PM or an admin changes, run this on the admin's or a PM's machine:

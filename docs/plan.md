@@ -17,8 +17,8 @@ Agreed with the owner on 10 October 2026. Phases 0 to 5 of the delivery plan are
 | # | What | Why | Size | Status |
 |---|---|---|---|---|
 | 6 | `hub-fanout` | Copies a feature's shared files (`spec.md`, `ux-flows.md`, `screens.md`, `test-plan.md`, `contracts/`) to each team repository by merge request; implement and review run there | L | Done: verified on the local GitLab and on github.com (revision 69) |
-| 7 | Add a team after install (Settings) | The `hub-report` merge request in the new repository and the team in `config.yaml`; on GitHub a new deploy key | M | To do |
-| 8 | Membership check on People and roles | Warn when a person is not in the group or organization | S–M | To do |
+| 7 | Add a team after install (Settings) | The `hub-report` merge request in the new repository and the team in `config.yaml`; on GitHub a new deploy key | M | Done: Settings, then `hub connect-teams`; verified on github.com |
+| 8 | Membership check on People and roles | Warn when a person is not in the group or organization | S–M | Done |
 | 9 | A person with two roles chooses the role to work in | The specification says the site asks | S | Done: Working as, for Home and Your guide |
 
 ## Stage 3: metrics, QA and Settings

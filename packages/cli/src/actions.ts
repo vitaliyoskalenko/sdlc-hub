@@ -18,6 +18,8 @@ export interface ActionOptions {
   now?: () => Date;
   /** Called after a push; the demo's stand-in for the git host uses it. */
   afterPush?: (save: Save) => void;
+  /** Who is in the group or organization on the host, for People and roles. */
+  members?: () => Promise<{ users: string[] } | { error: string }>;
   /** Why this site may not save, when its hub is older than the one on main; saves then wait for a restart. */
   hubBehind?: () => string | undefined;
   /** A read-only run of the person's assistant, for validation; only when the admin enabled headless runs. */
@@ -44,6 +46,7 @@ export function actionHandler(o: ActionOptions): ActionHandler {
 
   return {
     async handle(method, path, user, body, ctx) {
+      if (method === "GET" && path === "/members") return { status: 200, body: o.members ? await o.members() : { error: "This site does not check membership" } };
       const behind = o.hubBehind?.();
       if (method === "GET" && path === "/saves" && behind) return { status: 200, body: { saves: saver(user).list().filter((x) => x.user === user), enabled: false, why: behind } };
       if (method === "POST" && behind) return { status: 409, body: { error: behind } };

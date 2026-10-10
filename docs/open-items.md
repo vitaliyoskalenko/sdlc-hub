@@ -1,6 +1,6 @@
 # Open items
 
-State on 10 October 2026, revision 69 of the specification. Items already fixed are not listed. Decisions that closed earlier items are in `docs/decisions.md`.
+State on 10 October 2026, revision 70 of the specification. Items already fixed are not listed. Decisions that closed earlier items are in `docs/decisions.md`.
 
 ## Specification
 
@@ -51,8 +51,8 @@ Claims 8 to 13 were found while planning phase 1, 14 to 17 while building phase 
 - **QA and release: still to come.** An Ops view across features, and a check at decision time that a CI result is not older than the last merge of the feature branch.
 - **Plugin: still to come.** Nothing from the plan. Stage events (`hub_next` records the start, `hub_record` the finish), usage, the Codex and Cursor skills, and refreshing Claude Code's copy of the plugin in `hub sync` are built. A stage started outside the hub (an engine command typed directly) records no event.
 - **Fan-out: built in revision 69** and verified on GitLab CE 19.4.1 and github.com (10 October 2026). On GitHub it needs the organization to let Actions open pull requests; setup warns when it does not.
-- **People and roles: still to come.** The check that a person is a member of the group on the host (the site only says to add them), and adding a team later.
-- **Settings: still to come.** The price table, the host checklist, the engine, and adding a team. Settings has the guard settings, assistants, headless runs and links (revision 65).
+- **People and roles: built in revision 70.** The membership check, adding a team later (Settings, then `hub connect-teams`), and the working role for a person with several.
+- **Settings: still to come.** The price table, the host checklist and the engine. Settings has the guard settings, assistants, headless runs and links (revision 65).
 - **Stale guard results** (claim 14) and **group Maintainers** (claim 15) are accepted risks for now.
 
 ## Decided in code during phase 1a

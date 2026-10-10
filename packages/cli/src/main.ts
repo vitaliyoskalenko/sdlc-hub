@@ -21,6 +21,7 @@ import { upgrade } from "./upgrade.ts";
 import { hubBehind } from "./hub-behind.ts";
 import { fanoutInto, fanoutPush } from "./fanout.ts";
 import { connectTeams } from "./connect-teams.ts";
+import { membersOf } from "./members.ts";
 import { claudeHeadless } from "./headless.ts";
 import { seedDemoUsage } from "./demo-usage.ts";
 import { keyStore } from "@sdlc-hub/usage";
@@ -149,7 +150,7 @@ async function serve(f: Record<string, string>) {
     hasRemote = false;
   }
   // Headless validation starts the person's own Claude Code, read-only; only when the admin turned it on.
-  const actions = hasRemote ? actionHandler({ root, identity: () => gitIdentity(root), headless: claudeHeadless(), hubBehind: () => hubBehind(root), ...hostSaves(first.project.config) }) : undefined;
+  const actions = hasRemote ? actionHandler({ root, identity: () => gitIdentity(root), headless: claudeHeadless(), hubBehind: () => hubBehind(root), members: membersOf(first.project.config), ...hostSaves(first.project.config) }) : undefined;
   // The per-person costs the admin and the PM may see are decrypted with this machine's usage key.
   const usageKey = () => {
     try {
@@ -196,6 +197,8 @@ async function demo(f: Record<string, string>) {
     pushOptions: () => [],
     now: clock,
     afterPush: host.afterPush,
+    // The demo's group: everyone in roles.yaml but sofiia.h, so People and roles shows the warning.
+    members: async () => ({ users: (openProject(root).project?.roles.people ?? []).map((p) => p.user).filter((u) => u !== "sofiia.h") }),
   });
   // The demo project has a month of made-up usage, encrypted with a key made now, for the Costs screen.
   const usageKey = name === "demo" ? await seedDemoUsage(root, remote, fixture.now) : undefined;

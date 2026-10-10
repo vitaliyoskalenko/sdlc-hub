@@ -158,6 +158,14 @@ export function People() {
   const [removing, setRemoving] = useState<string | null>(null);
   const [problem, setProblem] = useState<{ error: string; findings?: Finding[] } | null>(null);
   const admin = me.roles.includes("admin");
+  // The admin sees who is missing from the group or organization; the host answers this machine's own credential.
+  const [members, setMembers] = useState<{ users: string[] } | { error: string } | null>(null);
+  useEffect(() => {
+    if (admin) api.members(session.demo ? me.user : undefined).then(setMembers, () => setMembers(null));
+  }, [admin, rows?.length]);
+  const github = project.project.provider === "github";
+  const hostName = github ? "GitHub" : "GitLab";
+  const groupWord = github ? "organization" : "group";
   const pending = saves.filter((s) => s.meta?.["kind"] === "person" && s.state !== "merged");
   const pendingOf = (user: string) => pending.find((s) => s.meta?.["person"] === user && s.state === "pending");
 
@@ -188,6 +196,7 @@ export function People() {
         )}
       </div>
       <AdminNote />
+      {admin && members && "error" in members && <p class="muted" id="members-note">Membership in the {groupWord} is not checked: {members.error}.</p>}
       {form && admin && <PersonForm editing={form.editing} close={() => setForm(null)} />}
       {problem && <Problem {...problem} />}
       {pending.length > 0 && (
@@ -240,7 +249,13 @@ export function People() {
                     </td>
                     <td class="nw">{ASSISTANTS[p.assistant]}</td>
                     <td class="nw">{p.os ? SYSTEMS[p.os] : <span class="muted">not set</span>}</td>
-                    <td class="nw">{wait ? <SaveState save={wait} /> : p.setup ? <Pill kind="ok">set up {p.setup.setup_at.slice(0, 10)}</Pill> : <Pill kind="mute">not set up</Pill>}</td>
+                    <td class="nw">
+                      {members && "users" in members && !members.users.includes(p.user) && (
+                        <Pill kind="warn" title={`${p.user} is not in ${project.project.namespace} on ${hostName}: they cannot clone or save until the admin adds them there`}>
+                          not in the {groupWord}
+                        </Pill>
+                      )}{" "}
+                      {wait ? <SaveState save={wait} /> : p.setup ? <Pill kind="ok">set up {p.setup.setup_at.slice(0, 10)}</Pill> : <Pill kind="mute">not set up</Pill>}</td>
                     <td class="nw">
                       <span class="row">
                         <button type="button" class="btn sm" data-script={p.user} onClick={() => go(`/people/${p.user}/script`)}>

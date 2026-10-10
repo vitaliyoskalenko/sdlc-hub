@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 10, 2026 · @Vitaliy · revision 69
+Oct 10, 2026 · @Vitaliy · revision 70
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -857,12 +857,12 @@ guard:
 
 | Event | What happens |
 | --- | --- |
-| A person is added | The admin adds them on People and roles and to the group on the host. The hub checks the membership and warns when it is missing |
+| A person is added | The admin adds them on People and roles and to the group on the host. The admin's People and roles marks a person who is not a member, asked with the admin's own git credential and kept for ten minutes |
 | A role changes | The admin edits the role and the person runs the setup script again, so the local path rules match. Open merge requests are judged by the new role |
 | A person leaves | The admin removes them from `roles.yaml` and from the group. Their sign-offs stay as history |
 | A second machine | The same setup script. A new key pair is added beside the first |
 | A person holds two roles | `roles.yaml` takes a list of roles, and the site asks which role to work in |
-| A team is added later | Settings, Add a team: the hub opens the `hub-report` merge request there and includes the team in fan-out. Features already running are not changed |
+| A team is added later | Settings, Add a team: a save adds it to `config.yaml`. Then the admin runs `hub connect-teams`, which runs install's team steps with the admin's setup token: the `hub-report` merge request and the fan-out token on GitLab; the deploy key's secret and the workflows on GitHub. Teams already connected are skipped. Features already running are not changed |
 | The hub is upgraded | The admin runs the newer hub's `hub upgrade` in their clone. It proposes `hub/cli.js`, `hub/package.json` with the version, the plugin, the assistants' files and, on GitHub, the `hub-guard` workflow, as one merge request in the admin's name; `.hub/` stays as it is. It never goes back to an older version. A site whose hub is older than the one in the checkout or on `main` turns read only and says to sync and start it again. A change of `schema_version` comes with a migration in the release that needs it; none does yet |
 | Uninstall | One merge request removes `hub/`, `.hub/` and the assistant folders, then the admin lifts the branch settings. The documents stay |
 | The admin is unavailable | A second admin is the only protection. Add one on People and roles soon after the first install |

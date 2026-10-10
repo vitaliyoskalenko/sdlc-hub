@@ -302,6 +302,8 @@ export const api = {
   signoff: (as: string | undefined, body: { slug: string; step: string; decision: "pass" | "return"; reason?: string }) => action("signoff", as, body),
   person: (as: string | undefined, body: { kind: "set"; person: PersonInput } | { kind: "remove"; user: string }) => action("person", as, body),
   people: () => get<{ people: PersonRow[]; release: string }>("/api/people"),
+  /** Who is in the group or organization on the host; an error when this machine cannot ask. */
+  members: (as?: string) => get<{ users: string[] } | { error: string }>(`/api/members${asQuery(as)}`),
   /** Any other save: verdicts, bug, bug-edit, release. */
   act: (name: "verdicts" | "bug" | "bug-edit" | "release" | "signoff" | "estimate" | "validation" | "settings" | "details", as: string | undefined, body: unknown) => action(name, as, body),
   /** A save in conflict: keep my version on the newest main, or drop it for the newer one. */

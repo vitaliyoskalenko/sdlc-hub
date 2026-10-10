@@ -131,6 +131,16 @@ export class GitLab {
   me = () => this.call<GitLabUser>("GET", "/user");
   version = () => this.call<{ version: string; revision: string }>("GET", "/version");
   group = (path: string) => this.maybe<GitLabGroup>(`/groups/${enc(path)}`);
+  /** Usernames of everyone in the group, inherited members included. */
+  async groupMembers(path: string): Promise<string[]> {
+    const out: string[] = [];
+    for (let page = 1; page <= 50; page++) {
+      const list = await this.call<{ username: string }[]>("GET", `/groups/${enc(path)}/members/all?per_page=100&page=${page}`);
+      out.push(...list.map((m) => m.username));
+      if (list.length < 100) break;
+    }
+    return out;
+  }
   /** The access level of a user in a group, inherited ones included (50 is Owner). */
   async groupAccess(groupId: number, userId: number): Promise<number> {
     return (await this.maybe<{ access_level: number }>(`/groups/${groupId}/members/all/${userId}`))?.access_level ?? 0;
