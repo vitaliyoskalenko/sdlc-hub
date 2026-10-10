@@ -2,6 +2,17 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-10: Revision 69, fan-out
+
+### hub-fanout: pushed on GitLab, pulled on GitHub
+- **Decision:**
+  - The shared files of a feature go to the repositories of the teams its `feature.yaml` names, unchanged, with `_handoff.md`, on the branch `hub/fanout` as a merge request the team lead merges.
+  - On GitLab, a job on `main` of product-specs pushes with a token per team repository (the owner's choice).
+  - On GitHub, each team repository's own workflow pulls them hourly with its deploy key and opens the pull request with its own token.
+  - The assistants' command files are not copied.
+- **Why:** The copies stay byte-identical, because tools read them; the handoff note is a separate file. GitHub gives no token for another repository that install could create, but the team repository already holds a deploy key of product-specs. The hub runs only in product-specs, so its commands are not needed in team repositories.
+- **By:** Owner (one token per team); the GitHub way and the handoff file proposed.
+
 ## 2026-10-10: Revision 68, upgrades
 
 ### hub upgrade and the version check

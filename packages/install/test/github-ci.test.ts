@@ -65,6 +65,7 @@ describe("the GitHub plan check", () => {
       me: async () => ({ id: 1, login: "nazar.t", name: "Nazar T." }),
       org: async () => ({ login: "shop", id: 2, plan: { name: plan }, deploy_keys_enabled_for_repositories: true }),
       orgRole: async () => "admin",
+      orgWorkflowPermissions: async () => ({ default_workflow_permissions: "read", can_approve_pull_request_reviews: false }),
       repo: async (_o: string, n: string) => ({ id: 3, name: n, full_name: `shop/${n}`, private: isPrivate, default_branch: "main" }),
     }) as never;
   const plan = async (p: string, priv: boolean, mode?: "enforce" | "advisory") => {
@@ -75,6 +76,12 @@ describe("the GitHub plan check", () => {
   it("passes GitHub Team, and public repositories on Free", async () => {
     expect((await plan("team", true)).ok).toBe(true);
     expect((await plan("free", false)).ok).toBe(true);
+  });
+  it("warns, without blocking, when the organization does not let Actions open pull requests", async () => {
+    const { preflightGitHub } = await import("../src/install-github.ts");
+    const r = await preflightGitHub({ ...answers, teams: [...answers.teams] }, gh("team", true));
+    expect(r.checks.find((c) => c.id === "actions-prs")).toMatchObject({ ok: false, blocking: false, text: expect.stringMatching(/Allow GitHub Actions to create and approve pull requests/) });
+    expect(r.ok).toBe(true);
   });
   it("refuses Free with private repositories, unless the admin chose advisory mode", async () => {
     expect(await plan("free", true)).toMatchObject({ ok: false, text: expect.stringMatching(/choose advisory mode/) });
@@ -87,7 +94,8 @@ describe("the hub-fanout workflow in a team repository", () => {
     const { hubFanoutWorkflow } = await import("../src/github-ci.ts");
     const text = hubFanoutWorkflow({ specs: "shop/product-specs", team: "web" });
     const w = parse(text);
-    expect(Object.keys(w.on)).toEqual(["schedule", "workflow_dispatch"]);
+    expect(Object.keys(w.on)).toEqual(["schedule", "workflow_dispatch", "repository_dispatch"]);
+    expect(w.on.repository_dispatch).toEqual({ types: ["hub-fanout"] });
     expect(w.permissions).toEqual({ contents: "write", "pull-requests": "write" });
     const run = (w.jobs["hub-fanout"].steps as { run?: string; env?: Record<string, string> }[]).find((s) => s.run)!;
     expect(run.env).toEqual({ GH_TOKEN: "${{ github.token }}", BASE: "${{ github.event.repository.default_branch }}" });

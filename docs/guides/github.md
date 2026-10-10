@@ -15,7 +15,7 @@ For the admin who installs the hub for a team on GitHub (github.com, or GitHub E
 
 ## 1. Prepare the organization
 
-Two settings, both under the organization's **Settings**:
+Three settings, all under the organization's **Settings**:
 
 1. **Fine-grained personal access tokens may access the organization.** Under **Third-party Access → Personal access tokens → Settings**, allow access through fine-grained tokens. If you require administrator approval, you approve your own token after step 2 under **Pending requests**.
 2. **Deploy keys are allowed.** A new organization may have them turned off, and team CI writes `hub-state` with a deploy key. Allow them in the organization's repository policies (the setting is named *Deploy keys*), or with the GitHub CLI:
@@ -25,6 +25,7 @@ Two settings, both under the organization's **Settings**:
    ```
 
    Setup checks this and says so when it is off.
+3. **GitHub Actions may open pull requests.** Under **Actions → General → Workflow permissions**, tick *Allow GitHub Actions to create and approve pull requests*. The `hub-fanout` workflow in each team repository needs it to propose the shared files. Without it, the files still reach the branch `hub/fanout`, but no pull request opens. Setup warns when it is off.
 
 ## 2. Create your fine-grained token
 
@@ -88,7 +89,7 @@ The setup site opens at `http://127.0.0.1:4173/setup`. It has five screens:
 | `hub-state` | Creates the branch `hub-state` for machine data: team snapshots, test results, stage events, encrypted usage. It is a display cache, never trusted for a gate. |
 | Deploy key | Makes a new SSH key pair. The public half becomes a deploy key with write access on `product-specs` (named `sdlc-hub hub-state <date>`). The private half becomes the repository secret **`HUB_STATE_KEY`** in each team repository. The private key is stored nowhere else. |
 | Ruleset | Adds the ruleset **`sdlc-hub: main`** on the default branch: pull requests only, the status check **`hub-guard`** required (on github.com, only from GitHub Actions, so a status a person posts does not count), no deletion and no force push, with nobody allowed to bypass it. Skipped on Free with private repositories. |
-| Team repositories | Opens one pull request per team repository that adds the `hub-report` workflow (`.github/workflows/hub-report.yml`). It runs after the team's own workflows and publishes the team's tasks, tracker, review verdict and workflow result to `hub-state`. |
+| Team repositories | Opens one pull request per team repository that adds two workflows. `hub-report` (`.github/workflows/hub-report.yml`) runs after the team's own workflows and publishes the team's tasks, tracker, review verdict and workflow result to `hub-state`. `hub-fanout` (`.github/workflows/hub-fanout.yml`) runs every hour and on demand: it reads `product-specs` with the deploy key and opens a pull request on `hub/fanout` with the shared files of the team's features (spec, flows, screens, test plan, contracts). Install also lets the repository's workflows open pull requests (*Allow GitHub Actions to create pull requests*). |
 
 `hub-guard` runs on `pull_request_target`, so the workflow and the hub it runs always come from the default branch: a pull request cannot change its own check. It reads the pull request only as data.
 
@@ -96,7 +97,8 @@ Install can be run again at any time. Each step checks first, so a second run sk
 
 ## 5. After Install
 
-- **Each team lead merges** the pull request that adds `hub-report` to their repository.
+- **Each team lead merges** the pull request that adds the hub workflows to their repository, and later the `hub/fanout` pull requests with the shared files of their features. The copies are read-only there: they change in `product-specs`.
+- If the organization's policy forbids workflows to open pull requests, allow it for the team repositories (organization **Settings → Actions → General**). Setup says so when it cannot.
 - **Add each person** on People and roles, then send them their setup script (see [People](people.md)). Each person must be a member of the organization with **write** access to `product-specs` and to their team's repository.
 - **A new team repository later** needs the `HUB_STATE_KEY` secret too. Run setup again: it makes a new deploy key for all team repositories. Remove older `sdlc-hub hub-state` keys from `product-specs` once team CI uses the newest.
 - Nothing expires on its own: the deploy key and the secrets have no end date.

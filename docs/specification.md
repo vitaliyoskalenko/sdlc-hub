@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 10, 2026 · @Vitaliy · revision 68
+Oct 10, 2026 · @Vitaliy · revision 69
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -845,7 +845,10 @@ guard:
 
 ### Team repositories and fan-out
 
-- `hub-fanout` runs on `main` of `product-specs`. For each team in `config.yaml` it opens a merge request in the team repository with the shared files of the features that team takes part in: `spec.md`, `ux-flows.md`, `screens.md`, `test-plan.md` and `contracts/`, the handoff block of the feature and the hub command files of the assistants. It uses one token per team repository, stored as a protected variable.
+- `hub-fanout` brings the shared files of each feature to the repositories of the teams its `feature.yaml` names (set at the epic step): `spec.md`, `ux-flows.md`, `screens.md`, `test-plan.md` and `contracts/`, unchanged, and `_handoff.md`, which says where they come from and that they change in product-specs. They arrive as a merge request on the branch `hub/fanout`, which the team lead merges; a second run with the same files changes nothing.
+  - On GitLab, the job runs on `main` of `product-specs` and pushes with one project access token per team repository, the masked variable `HUB_FANOUT_TOKEN_<TEAM>`. Push options open the merge request.
+  - On GitHub, a workflow in each team repository runs every hour and on demand. It reads `product-specs` with the deploy key it already has, and opens the pull request with its own token. Install allows the repository's workflows to open pull requests.
+  - The hub command files of the assistants are not copied: the hub runs in product-specs.
 - In a team repository the assistant finds the feature from the slug argument, or from the branch name `feat/<slug>`.
 - `hub-report` in a team repository writes the team snapshot to `hub-state` with `HUB_STATE_TOKEN`: a project access token with the Developer role and write access to the repository only.
 - The validation report is written by the local server to `docs/features/<slug>/hub/validation/<timestamp>.md` from the output of the read-only run. The PO and the team leads may add these files.

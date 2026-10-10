@@ -66,6 +66,16 @@ export async function preflightGitHub(a: SetupAnswers, gh: GitHub): Promise<Pref
   // Team CI writes hub-state with a deploy key of the specifications repository.
   const keys = org.deploy_keys_enabled_for_repositories !== false;
   add("deploy-keys", keys, keys ? `${org.login} allows deploy keys, which team CI writes hub-state with` : `${org.login} has deploy keys turned off, and team CI writes hub-state with one. Turn them on in the organization's settings: Repository, Deploy keys`);
+  // hub-fanout in each team repository opens its pull request with the workflow's own token.
+  const prs = (await gh.orgWorkflowPermissions(org.login).catch(() => null))?.can_approve_pull_request_reviews;
+  add(
+    "actions-prs",
+    prs !== false,
+    prs !== false
+      ? `${org.login} lets GitHub Actions open pull requests, which hub-fanout does in each team repository`
+      : `${org.login} does not let GitHub Actions open pull requests, so hub-fanout pushes each team's shared files to the branch hub/fanout but opens no pull request there. Turn it on in the organization's settings: Actions, General, Workflow permissions, "Allow GitHub Actions to create and approve pull requests"`,
+    false,
+  );
   for (const t of a.teams) {
     const r = await gh.repo(org.login, t.repo.trim());
     add(`team-${teamId(t.name)}`, !!r, r ? `Found ${r.full_name} for ${t.name.trim()}` : `There is no repository ${org.login}/${t.repo.trim()} for ${t.name.trim()}`);

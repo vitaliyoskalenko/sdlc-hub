@@ -172,7 +172,8 @@ describe.skipIf(!enabled)("install on GitHub (Free organization, public reposito
       .catch((e: Error) => (/nothing to save/i.test(e.message) ? undefined : Promise.reject(e)));
     if (s) expect((await settle(admin, s.branch)).state).toBe("merged");
     const h = { authorization: `Bearer ${secrets.token}`, accept: "application/vnd.github+json", "content-type": "application/json" };
-    const run = await fetch(`https://api.github.com/repos/${ORG}/backend/actions/workflows/hub-fanout.yml/dispatches`, { method: "POST", headers: h, body: JSON.stringify({ ref: "main" }) });
+    // A repository dispatch needs Contents write; starting the workflow by hand would need Actions write.
+    const run = await fetch(`https://api.github.com/repos/${ORG}/backend/dispatches`, { method: "POST", headers: h, body: JSON.stringify({ event_type: "hub-fanout" }) });
     expect(run.status, await run.text()).toBe(204);
     let pr: { number: number } | undefined;
     for (let i = 0; i < 60 && !pr; i++) {

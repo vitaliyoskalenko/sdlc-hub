@@ -44,6 +44,12 @@ if ((await call("GET", `/orgs/${org}`)).deploy_keys_enabled_for_repositories ===
   console.log(`turned on deploy keys in ${org}`);
 }
 
+// hub-fanout opens its pull request with the workflow's own token, which the organization must allow.
+if ((await call("GET", `/orgs/${org}/actions/permissions/workflow`))?.can_approve_pull_request_reviews === false) {
+  await call("PUT", `/orgs/${org}/actions/permissions/workflow`, { default_workflow_permissions: "read", can_approve_pull_request_reviews: true });
+  console.log(`let GitHub Actions open pull requests in ${org}`);
+}
+
 for (const repo of ["product-specs", "backend", "web-admin"]) {
   if (!(await call("GET", `/repos/${org}/${repo}`))) {
     await call("POST", `/orgs/${org}/repos`, { name: repo, private: false, auto_init: true, description: "SDLC Hub test repository" });

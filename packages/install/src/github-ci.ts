@@ -62,6 +62,9 @@ on:
   schedule:
     - cron: "17 * * * *"
   workflow_dispatch:
+  # POST /repos/<team repository>/dispatches with event_type hub-fanout: needs only Contents write on the token.
+  repository_dispatch:
+    types: [hub-fanout]
 permissions:
   contents: write
   pull-requests: write
@@ -92,8 +95,7 @@ jobs:
           echo "$out"
           case "$out" in *FANOUT_CHANGED=1*) ;; *) exit 0 ;; esac
           git fetch --quiet origin hub/fanout 2>/dev/null || true
-          if [ "$(git rev-parse HEAD^{tree})" = "$(git rev-parse --verify -q FETCH_HEAD^{tree} 2>/dev/null)" ]; then echo "The pull request has these files already"; exit 0; fi
-          git push --quiet --force origin hub/fanout
+          if [ "$(git rev-parse HEAD^{tree})" = "$(git rev-parse --verify -q FETCH_HEAD^{tree} 2>/dev/null)" ]; then echo "hub/fanout has these files already"; else git push --quiet --force origin hub/fanout; fi
           gh pr view hub/fanout --json state -q .state 2>/dev/null | grep -q OPEN || gh pr create --base "$BASE" --head hub/fanout --title "Shared files from product-specs (hub-fanout)" --body "Copied by hub-fanout from ${opts.specs}. The team lead merges it; change these files in ${opts.specs}, not here."
 `;
 }
