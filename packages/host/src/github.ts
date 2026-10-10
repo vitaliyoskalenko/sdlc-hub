@@ -167,6 +167,12 @@ export class GitHub {
   openPulls = (owner: string, name: string, head: string) => this.call<GitHubPull[]>("GET", `/repos/${enc(owner)}/${enc(name)}/pulls?state=open&head=${enc(`${owner}:${head}`)}`);
   pull = (owner: string, name: string, n: number) => this.call<GitHubPull>("GET", `/repos/${enc(owner)}/${enc(name)}/pulls/${n}`);
   createPull = (owner: string, name: string, head: string, base: string, title: string, body: string) => this.call<GitHubPull>("POST", `/repos/${enc(owner)}/${enc(name)}/pulls`, { head, base, title, body });
+  /** The check runs of a name on a commit. */
+  checkRuns = async (owner: string, name: string, sha: string, check: string) => (await this.call<{ check_runs: { id: number; name: string; status: string; conclusion: string | null }[] }>("GET", `/repos/${enc(owner)}/${enc(name)}/commits/${enc(sha)}/check-runs?check_name=${enc(check)}`)).check_runs;
+  /** Runs a job of GitHub Actions again: its check run has the job's id. A workflow's token needs actions: write. */
+  rerunJob = (owner: string, name: string, jobId: number) => this.call<void>("POST", `/repos/${enc(owner)}/${enc(name)}/actions/jobs/${jobId}/rerun`);
+  /** Open pull requests into a branch. */
+  pullsInto = (owner: string, name: string, base: string) => this.call<GitHubPull[]>("GET", `/repos/${enc(owner)}/${enc(name)}/pulls?state=open&base=${enc(base)}&per_page=100`);
   /** Logins of everyone in the organization. */
   async orgMembers(org: string): Promise<string[]> {
     const out: string[] = [];

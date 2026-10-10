@@ -105,6 +105,21 @@ describe("the hub-fanout workflow in a team repository", () => {
   });
 });
 
+describe("hub-recheck", () => {
+  it("on GitHub, runs on a change of .hub/ on main and may rerun jobs", async () => {
+    const { hubRecheckWorkflow } = await import("../src/github-ci.ts");
+    const w = parse(hubRecheckWorkflow());
+    expect(w.on.push).toEqual({ branches: ["main"], paths: [".hub/**"] });
+    expect(w.permissions.actions).toBe("write");
+    expect(w.jobs["hub-recheck"].steps.at(-1)).toMatchObject({ run: "node hub/cli.js recheck --github", env: { GITHUB_TOKEN: "${{ github.token }}" } });
+  });
+  it("on GitLab, runs on main when .hub/ changed", async () => {
+    const { hubGuardCi } = await import("../src/ci.ts");
+    const c = parse(hubGuardCi());
+    expect(c["hub-recheck"].rules).toEqual([{ if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH", changes: [".hub/**/*"] }]);
+  });
+});
+
 describe("hub-ci on GitLab", () => {
   it("runs hub-guard on merge requests and hub-fanout on main", async () => {
     const { hubGuardCi } = await import("../src/ci.ts");

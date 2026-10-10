@@ -126,6 +126,17 @@ hub-guard:
       mkdir -p /tmp/hub && git show FETCH_HEAD:hub/cli.js > /tmp/hub/cli.mjs
       node /tmp/hub/cli.mjs guard --rules FETCH_HEAD
 
+# On main, after .hub/ changed: open merge requests run hub-guard again under the new rules. HUB_RECHECK_TOKEN (api)
+# is a protected variable, so only pipelines on main see it; merge request pipelines never do.
+hub-recheck:
+  image: node:22-alpine
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes: [".hub/**/*"]
+  allow_failure: true
+  script:
+    - node hub/cli.js recheck --server-url "\${HUB_GIT_URL:-$CI_SERVER_URL}"
+
 # On main: the shared files of each feature go to the repositories of its teams, as a merge request on hub/fanout
 # that the team lead merges. Each team's token is the masked variable HUB_FANOUT_TOKEN_<TEAM>.
 hub-fanout:

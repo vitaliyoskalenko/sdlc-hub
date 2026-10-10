@@ -47,6 +47,37 @@ jobs:
 }
 
 export const FANOUT_WORKFLOW = ".github/workflows/hub-fanout.yml";
+export const RECHECK_WORKFLOW = ".github/workflows/hub-recheck.yml";
+
+/** After .hub/ changes on the default branch, every open pull request runs hub-guard again under the new rules. */
+export function hubRecheckWorkflow(): string {
+  return `# Written by SDLC Hub. When .hub/ changes on the default branch (a person's role, the guard settings), every open
+# pull request runs hub-guard again, so a result under the old rules does not merge.
+name: hub-recheck
+on:
+  push:
+    branches: [main]
+    paths: [".hub/**"]
+permissions:
+  actions: write
+  checks: read
+  pull-requests: read
+  contents: read
+jobs:
+  hub-recheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: hub
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node hub/cli.js recheck --github
+        env:
+          GITHUB_TOKEN: \${{ github.token }}
+`;
+}
 
 /**
  * The team repository's fan-out: every hour, and on demand, it reads product-specs with the deploy key in

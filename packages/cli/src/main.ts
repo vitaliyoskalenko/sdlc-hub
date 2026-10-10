@@ -23,6 +23,7 @@ import { fanoutInto, fanoutPush } from "./fanout.ts";
 import { connectTeams } from "./connect-teams.ts";
 import { membersOf } from "./members.ts";
 import { checklistOf } from "./checklist.ts";
+import { recheckGitHub, recheckGitLab } from "./recheck.ts";
 import { claudeHeadless } from "./headless.ts";
 import { seedDemoUsage } from "./demo-usage.ts";
 import { keyStore } from "@sdlc-hub/usage";
@@ -421,6 +422,23 @@ async function fanoutCommand(f: Record<string, string>) {
   if (!r.ok) process.exit(1);
 }
 
+/** hub recheck: in the pipeline (or workflow) on main after .hub/ changed, open merge requests run hub-guard again. */
+async function recheckCommand(f: Record<string, string>) {
+  const env = process.env;
+  if (f["github"] !== undefined) {
+    const [owner, repo] = (env["GITHUB_REPOSITORY"] ?? "").split("/");
+    if (!env["GITHUB_TOKEN"] || !owner || !repo) throw new Error("hub recheck --github runs in the hub-recheck workflow, with GITHUB_TOKEN set");
+    const r = await recheckGitHub({ gh: new GitHub(env["GITHUB_TOKEN"], env["GITHUB_API_URL"] ?? "https://api.github.com"), owner, repo });
+    console.log(print(r.lines));
+    return;
+  }
+  const token = env["HUB_RECHECK_TOKEN"];
+  const server = f["server-url"] ?? env["HUB_GIT_URL"] ?? env["CI_SERVER_URL"];
+  if (!token || !server || !env["CI_PROJECT_ID"]) throw new Error("hub recheck runs in the pipeline on main of product-specs, with HUB_RECHECK_TOKEN set");
+  const r = await recheckGitLab({ gl: new GitLab(server, token), project: env["CI_PROJECT_ID"], target: env["CI_DEFAULT_BRANCH"] ?? "main" });
+  console.log(print(r.lines));
+}
+
 /** hub connect-teams: the team steps of install, for a team the admin added on Settings. */
 async function connectTeamsCommand() {
   const root = topLevel(process.cwd());
@@ -484,7 +502,7 @@ async function testCommand(f: Record<string, string>, slug: string | undefined) 
 }
 
 const [command, ...rest] = process.argv.slice(2);
-const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "usage" ? () => usageCommand(rest[0]) : command === "upgrade" ? upgradeCommand : command === "fanout" ? fanoutCommand : command === "connect-teams" ? connectTeamsCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(flags(rest.slice(1)), rest[0]) : undefined;
+const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "usage" ? () => usageCommand(rest[0]) : command === "upgrade" ? upgradeCommand : command === "fanout" ? fanoutCommand : command === "connect-teams" ? connectTeamsCommand : command === "recheck" ? recheckCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(flags(rest.slice(1)), rest[0]) : undefined;
 if (!run) {
   console.log(HELP);
   process.exit(command && command !== "help" && command !== "--help" ? 1 : 0);

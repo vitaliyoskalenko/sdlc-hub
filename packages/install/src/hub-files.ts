@@ -5,7 +5,7 @@
 import { hubPackageJson } from "@sdlc-hub/core";
 import { agentSkillFiles, codexFiles, cursorFiles, marketplaceFile, pluginFiles, withClaudeSettings } from "@sdlc-hub/plugin/files";
 import { AGENTS_BLOCK, CLAUDE_BLOCK, withBlock, withIgnore } from "./answers.ts";
-import { GUARD_WORKFLOW, hubGuardWorkflow } from "./github-ci.ts";
+import { GUARD_WORKFLOW, hubGuardWorkflow, hubRecheckWorkflow, RECHECK_WORKFLOW } from "./github-ci.ts";
 
 export interface HubOwnedInput {
   host: "gitlab" | "github";
@@ -36,6 +36,9 @@ export async function hubOwnedFiles(o: HubOwnedInput): Promise<Record<string, st
   if (o.assistants.cursor) Object.assign(files, cursorFiles());
   files[".claude-plugin/marketplace.json"] = marketplaceFile(o.marketplace);
   files[".claude/settings.json"] = withClaudeSettings((await o.read(".claude/settings.json")) ?? null, o.engine === "sdd" ? { id: "sdd", source: "genkovich/sdd" } : null);
-  if (o.host === "github") files[GUARD_WORKFLOW] = hubGuardWorkflow();
+  if (o.host === "github") {
+    files[GUARD_WORKFLOW] = hubGuardWorkflow();
+    files[RECHECK_WORKFLOW] = hubRecheckWorkflow();
+  }
   return files;
 }

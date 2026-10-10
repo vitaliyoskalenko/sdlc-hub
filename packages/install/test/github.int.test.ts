@@ -254,4 +254,44 @@ describe.skipIf(!enabled)("install on GitHub (Free organization, public reposito
       await setMode("enforce");
     }
   }, 900_000);
+
+  it.skipIf(!person)("checks an open pull request again when .hub/roles.yaml changes on main (claim 14)", async () => {
+    const pgh = new GitHub(personToken!);
+    const R = `https://api.github.com/repos/${ORG}/${SPECS}`;
+    const h = { authorization: `Bearer ${personToken}`, accept: "application/vnd.github+json", "content-type": "application/json" };
+    const api = (m: string, p: string, b?: unknown) => fetch(`${R}${p}`, { method: m, headers: h, ...(b ? { body: JSON.stringify(b) } : {}) }).then(async (r) => (await r.json().catch(() => null)) as Record<string, unknown>);
+    const admin = personSaver(owner, secrets.token, login);
+    const role = async (from: string, to: string) => {
+      const s = await admin
+        .save({ user: login, label: `role-${to}`, title: `${person} as ${to}`, build: (main) => { const roles = main.read(".hub/roles.yaml")!; const next = roles.replace(`{ user: ${person}, name: ${person}, role: ${from} }`, `{ user: ${person}, name: ${person}, role: ${to} }`); return next === roles ? [] : [{ path: ".hub/roles.yaml", base: roles, next }]; } })
+        .catch((e: Error) => (/nothing to save/i.test(e.message) ? undefined : Promise.reject(e)));
+      if (s) expect((await settle(admin, s.branch)).state).toBe("merged");
+    };
+    // The PO opens a pull request on a spec by hand, without auto-merge: hub-guard passes.
+    const main = ((await api("GET", "/git/ref/heads/main")) as { object: { sha: string } }).object.sha;
+    const branch = `recheck-${Date.now()}`;
+    await api("POST", "/git/refs", { ref: `refs/heads/${branch}`, sha: main });
+    await api("PUT", `/contents/docs/features/recheck/spec.md`, { message: "Spec", content: Buffer.from(`# Recheck ${branch}\n`).toString("base64"), branch });
+    const pr = (await pgh.createPull(ORG, SPECS, branch, "main", "A spec by the PO", ""))!;
+    const conclusion = async (want: (runs: { id: number; status: string; conclusion: string | null }[]) => boolean) => {
+      for (let i = 0; i < 60; i++) {
+        const runs = await owner.checkRuns(ORG, SPECS, pr.head.sha, "hub-guard");
+        if (runs.length && want(runs)) return runs;
+        await wait(5000);
+      }
+      return owner.checkRuns(ORG, SPECS, pr.head.sha, "hub-guard");
+    };
+    try {
+      const first = await conclusion((r) => r[0]!.status === "completed");
+      expect(first[0]!.conclusion).toBe("success");
+      // The admin moves the person from PO to designer: the open pull request runs hub-guard again, and now fails.
+      await role("po", "designer");
+      const again = await conclusion((r) => r.some((x) => x.id !== first[0]!.id && x.status === "completed"));
+      expect(again.find((x) => x.id !== first[0]!.id)?.conclusion).toBe("failure");
+    } finally {
+      await role("designer", "po");
+      await fetch(`${R}/pulls/${pr.number}`, { method: "PATCH", headers: h, body: JSON.stringify({ state: "closed" }) });
+      await fetch(`${R}/git/refs/heads/${branch}`, { method: "DELETE", headers: h });
+    }
+  }, 900_000);
 });

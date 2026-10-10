@@ -292,6 +292,41 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
       expect(merged).toBe(false);
     }, 180_000);
 
+    it("checks an open merge request again when .hub/roles.yaml changes on main (claim 14)", async () => {
+      const id = await specsId();
+      const olena = as("olena.k");
+      const branch = `recheck-${stamp}`;
+      // The PO's merge request on a spec, with nobody setting it to merge: hub-guard passes.
+      await olena.commit(id, branch, "Spec", [{ action: "create", file_path: `docs/features/recheck-${stamp}/spec.md`, content: "# Recheck\n" }], "main");
+      const mr = await olena.createMergeRequest(id, branch, "main", "A spec by the PO", "");
+      const pipelines = async () => (await fetch(`${URL_}/api/v4/projects/${id}/merge_requests/${mr.iid}/pipelines`, { headers: { "PRIVATE-TOKEN": secrets.rootToken } }).then((r) => r.json())) as { id: number; status: string }[];
+      let ps = await pipelines();
+      for (let i = 0; i < 60 && !(ps[0] && ["success", "failed"].includes(ps[0].status)); i++) {
+        await wait(5000);
+        ps = await pipelines();
+      }
+      expect(ps[0]?.status).toBe("success");
+      const first = ps[0]!.id;
+      const roles = (await root.file(id, ".hub/roles.yaml", "main"))!;
+      const set = async (r: string, label: string) => {
+        const m = await owner.propose(id, { target: "main", branch: `role-${label}-${stamp}`, title: `Olena as ${label}`, description: "", actions: [{ action: "update", file_path: ".hub/roles.yaml", content: r }] });
+        expect((await settle(owner, id, m.iid)).state).toBe("merged");
+      };
+      try {
+        // The admin moves the PO to designer: hub-recheck on main runs the merge request's pipeline again, and it fails.
+        await set(roles.replace("{ user: olena.k, name: Olena K., role: po }", "{ user: olena.k, name: Olena K., role: designer }"), "designer");
+        let next = await pipelines();
+        for (let i = 0; i < 72 && !next.some((p) => p.id !== first && ["success", "failed"].includes(p.status)); i++) {
+          await wait(5000);
+          next = await pipelines();
+        }
+        expect(next.find((p) => p.id !== first)?.status).toBe("failed");
+      } finally {
+        await set(roles, "po");
+        await root.updateMergeRequest(id, mr.iid, { state_event: "close" }).catch(() => undefined);
+      }
+    }, 900_000);
+
     it("refuses a direct push to main, even by the admin", async () => {
       const id = await specsId();
       await expect(owner.commit(id, "main", "direct", [{ action: "create", file_path: `direct-${stamp}.txt`, content: "x" }])).rejects.toThrow(/403|protected|not allowed/i);

@@ -163,6 +163,18 @@ export class GitLab {
     this.call<{ id: string; web_url: string }>("POST", `/projects/${projectId}/repository/commits`, { branch, commit_message: message, actions, ...(startBranch ? { start_branch: startBranch } : {}) });
   openMergeRequests = (projectId: number, source: string) =>
     this.call<MergeRequest[]>("GET", `/projects/${projectId}/merge_requests?state=opened&source_branch=${enc(source)}`);
+  /** Every open merge request into a branch. */
+  async mergeRequestsInto(projectId: number | string, target: string): Promise<MergeRequest[]> {
+    const out: MergeRequest[] = [];
+    for (let page = 1; page <= 20; page++) {
+      const list = await this.call<MergeRequest[]>("GET", `/projects/${enc(String(projectId))}/merge_requests?state=opened&target_branch=${enc(target)}&per_page=100&page=${page}`);
+      out.push(...list);
+      if (list.length < 100) break;
+    }
+    return out;
+  }
+  /** A new pipeline for a merge request: its jobs, hub-guard among them, run again. */
+  mergeRequestPipeline = (projectId: number | string, iid: number) => this.call<{ id: number }>("POST", `/projects/${enc(String(projectId))}/merge_requests/${iid}/pipelines`);
   createMergeRequest = (projectId: number, source: string, target: string, title: string, description: string) =>
     this.call<MergeRequest>("POST", `/projects/${projectId}/merge_requests`, { source_branch: source, target_branch: target, title, description, remove_source_branch: true });
   mergeRequest = (projectId: number | string, iid: number) => this.call<MergeRequest>("GET", `/projects/${enc(String(projectId))}/merge_requests/${iid}`);

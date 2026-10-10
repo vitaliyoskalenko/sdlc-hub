@@ -283,6 +283,22 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
     if (!t.created) return { state: "skip" as const, text: "the variable HUB_GUARD_TOKEN already exists" };
   });
 
+  // HUB_RECHECK_TOKEN: api, so hub-recheck on main starts a new pipeline for each open merge request when .hub/
+  // changes. A protected variable: only pipelines on protected branches (main) see it, never a merge request's.
+  await step("recheck-token", "stored a project access token for hub-recheck as the protected, masked variable HUB_RECHECK_TOKEN", async () => {
+    const t = await tokenVariable(gl, {
+      projectId: p.id,
+      name: "hub-recheck",
+      scopes: ["api"],
+      level: DEVELOPER,
+      now,
+      has: () => gl.projectVariable(p.id, "HUB_RECHECK_TOKEN"),
+      store: (token) => gl.setProjectVariable(p.id, "HUB_RECHECK_TOKEN", token, { masked: true, protected: true }),
+    });
+    if (t.expires) left.push(`Renew HUB_RECHECK_TOKEN before ${t.expires}: after that day a change of roles no longer checks open merge requests again`);
+    if (!t.created) return { state: "skip" as const, text: "the variable HUB_RECHECK_TOKEN already exists" };
+  });
+
   // HUB_FANOUT_TOKEN_<TEAM>: the hub-fanout job on main pushes each team's shared files to its repository with a
   // project access token of that repository, and push options open the merge request there.
   for (const t of a.teams) {

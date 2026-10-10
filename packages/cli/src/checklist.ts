@@ -51,6 +51,7 @@ async function gitLabItems(c: Config, gl: GitLab, now: Date): Promise<CheckItem[
   const group = await gl.group(ns);
   await token("HUB_STATE_TOKEN", !!(group && (await gl.groupVariable(group.id, "HUB_STATE_TOKEN"))), await expiry(p.id, "hub-report"), "Without it, team pipelines publish nothing.");
   await token("HUB_GUARD_TOKEN", !!(await gl.projectVariable(p.id, "HUB_GUARD_TOKEN")), await expiry(p.id, "hub-guard"), "Without it, nothing merges into product-specs.");
+  await token("HUB_RECHECK_TOKEN", !!(await gl.projectVariable(p.id, "HUB_RECHECK_TOKEN")), await expiry(p.id, "hub-recheck"), "Without it, a change of roles does not check open merge requests again.");
   for (const t of c.teams) {
     const team = await gl.project(t.repo);
     const v = fanoutTokenVariable(t.id);
