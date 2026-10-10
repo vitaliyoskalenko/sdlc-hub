@@ -6,7 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile, execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { gitIdentity, openProject, personOf, topLevel } from "@sdlc-hub/git";
+import { gitIdentity, openProject, personOf, refSource, topLevel } from "@sdlc-hub/git";
 import { startServer, type RunningServer, type ServerOptions } from "@sdlc-hub/server";
 import { GitHub, GitLab } from "@sdlc-hub/host";
 import { isSaveBranch } from "@sdlc-hub/core";
@@ -19,6 +19,7 @@ import { sync } from "./sync.ts";
 import { rekey } from "./rekey.ts";
 import { upgrade } from "./upgrade.ts";
 import { hubBehind } from "./hub-behind.ts";
+import { fanoutInto, fanoutPush } from "./fanout.ts";
 import { claudeHeadless } from "./headless.ts";
 import { seedDemoUsage } from "./demo-usage.ts";
 import { keyStore } from "@sdlc-hub/usage";
@@ -380,6 +381,29 @@ async function stdinText(): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
+/**
+ * hub fanout. In product-specs CI on GitLab: a merge request with the shared files in each team repository. With
+ * --team <id> --specs <product-specs clone> --into <dir>, in a team repository's workflow on GitHub: the files on the
+ * branch hub/fanout of that checkout, for the workflow to open the pull request.
+ */
+async function fanoutCommand(f: Record<string, string>) {
+  if (f["into"] !== undefined) {
+    const specsDir = f["specs"];
+    if (!specsDir || !f["team"]) throw new Error("hub fanout --team <id> --specs <product-specs clone> --into <dir>");
+    const sha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: specsDir, encoding: "utf8" }).trim();
+    const r = fanoutInto({ specs: refSource(specsDir, "HEAD"), sha, team: f["team"], dir: f["into"] || ".", env: process.env });
+    console.log(r.changed ? `hub-fanout: ${r.files} shared files on hub/fanout\nFANOUT_CHANGED=1` : "hub-fanout: nothing new for this team");
+    return;
+  }
+  const server = f["server-url"] ?? process.env["CI_SERVER_URL"];
+  if (!server) throw new Error("hub fanout runs in the product-specs pipeline on main (CI_SERVER_URL), or with --into in a team repository");
+  const cwd = process.cwd();
+  const sha = process.env["CI_COMMIT_SHA"] ?? execFileSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).trim();
+  const r = fanoutPush({ specs: refSource(cwd, "HEAD"), sha, serverUrl: server, env: process.env });
+  console.log(print(r.lines));
+  if (!r.ok) process.exit(1);
+}
+
 /** hub upgrade: the admin proposes this hub's files for product-specs, as one merge request. */
 async function upgradeCommand() {
   const root = topLevel(process.cwd());
@@ -434,7 +458,7 @@ async function testCommand(f: Record<string, string>, slug: string | undefined) 
 }
 
 const [command, ...rest] = process.argv.slice(2);
-const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "usage" ? () => usageCommand(rest[0]) : command === "upgrade" ? upgradeCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(flags(rest.slice(1)), rest[0]) : undefined;
+const run = command === "serve" ? serve : command === "demo" ? demo : command === "init" ? init : command === "report" ? reportCommand : command === "guard" ? guardCommand : command === "mcp" ? mcp : command === "setup" ? setupCommand : command === "sync" ? syncCommand : command === "usage" ? () => usageCommand(rest[0]) : command === "upgrade" ? upgradeCommand : command === "fanout" ? fanoutCommand : command === "test" ? (f: Record<string, string>) => testCommand(f, rest[0]) : command === "doctor" ? doctorCommand : command === "hook" ? (f: Record<string, string>) => hook(flags(rest.slice(1)), rest[0]) : undefined;
 if (!run) {
   console.log(HELP);
   process.exit(command && command !== "help" && command !== "--help" ? 1 : 0);
