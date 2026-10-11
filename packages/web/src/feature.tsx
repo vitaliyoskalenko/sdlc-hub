@@ -10,7 +10,7 @@ import { QA } from "./qa.tsx";
 import { ValidateCard } from "./validate.tsx";
 import { Release } from "./release.tsx";
 import { PendingList, SignoffBox, useAction, usePending } from "./saves.tsx";
-import { Cmd, CopyButton, Link, names, Pill, personName, RoleChip, StatusPill, teamName, useApp, WaitMark, waitText } from "./ui.tsx";
+import { Cmd, CopyButton, jiraKey, Link, names, Pill, personName, RoleChip, StatusPill, teamName, useApp, WaitMark, waitText } from "./ui.tsx";
 
 
 /** Steps recorded on the QA or Release screen. */
@@ -94,14 +94,14 @@ export function Feature({ slug, tab, params }: { slug: string; tab: string; para
           <div class="row">
             {(
               [
-                ["Jira", links.jira],
+                [links.jira ? (jiraKey(links.jira) ?? "Jira") : "Jira", links.jira],
                 ["Confluence", links.confluence],
                 ["Figma", links.figma],
                 ["Staging", links.staging],
               ] as const
             ).map(([label, url]) =>
               url ? (
-                <a key={label} class="btn sm" href={url} target="_blank" rel="noopener noreferrer">
+                <a key={label} class="btn sm" href={url} title={url} target="_blank" rel="noopener noreferrer">
                   {label} ↗
                 </a>
               ) : null,
@@ -113,7 +113,7 @@ export function Feature({ slug, tab, params }: { slug: string; tab: string; para
             )}
           </div>
         </div>
-        {editing && <DetailsForm slug={slug} title={f.title} links={links} close={() => setEditing(false)} />}
+        {editing && <DetailsForm slug={slug} title={f.title} links={links} jira={project.tracker.type === "jira" ? project.tracker : undefined} close={() => setEditing(false)} />}
         <PendingList saves={detailsPending} />
         <NowStrip f={f} detail={d} tab={tab} />
         {notes.length > 0 && (
@@ -494,10 +494,11 @@ const LINKS = [
 ] as const;
 
 /** The PM's light edits: the title and the links, saved to feature.yaml through a merge request. */
-function DetailsForm({ slug, title, links, close }: { slug: string; title: string; links: Partial<Record<(typeof LINKS)[number][0], string>>; close: () => void }) {
+function DetailsForm({ slug, title, links, jira, close }: { slug: string; title: string; links: Partial<Record<(typeof LINKS)[number][0], string>>; jira: { url?: string; project_key?: string } | undefined; close: () => void }) {
   const { run, busy, problem } = useAction();
   const [t, setT] = useState(title);
   const [l, setL] = useState<Record<string, string>>(Object.fromEntries(LINKS.map(([k]) => [k, links[k] ?? ""])));
+  const key = jira?.url ? `${jira.project_key ?? "SHOP"}-123` : undefined;
   const changedLinks = Object.fromEntries(LINKS.filter(([k]) => l[k]!.trim() !== (links[k] ?? "")).map(([k]) => [k, l[k]!.trim()]));
   const edit = { ...(t.trim() !== title ? { title: t.trim() } : {}), ...(Object.keys(changedLinks).length ? { links: changedLinks } : {}) };
   const changed = Object.keys(edit).length > 0;
@@ -511,10 +512,19 @@ function DetailsForm({ slug, title, links, close }: { slug: string; title: strin
         {LINKS.map(([k, label]) => (
           <label class="fld" key={k}>
             <span>{label}</span>
-            <input type="url" id={`df-${k}`} value={l[k]} placeholder="https://" onInput={(e) => setL({ ...l, [k]: (e.target as HTMLInputElement).value })} />
+            <input type="text" inputMode="url" id={`df-${k}`} value={l[k]} placeholder={k === "jira" && key ? `${key} or https://` : "https://"} onInput={(e) => setL({ ...l, [k]: (e.target as HTMLInputElement).value })} />
           </label>
         ))}
       </div>
+      <p class="note">
+        Each link opens this feature's own page: its Jira issue, its Confluence page, its Figma file, its staging address.
+        {key && (
+          <>
+            {" "}
+            For Jira, the issue key is enough (<code>{key}</code>): the hub makes it a link on <code>{jira!.url}</code>, and a link to another Jira is refused.
+          </>
+        )}
+      </p>
       <div class="row">
         <button type="button" class="btn pri" id="df-save" disabled={!changed || !t.trim() || busy} onClick={() => void run("details", { slug, edit }).then((ok) => ok && close())}>
           {busy ? "Saving…" : "Save"}

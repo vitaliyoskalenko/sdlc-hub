@@ -56,6 +56,13 @@ describe("the release of a feature", () => {
     expect(() => featureDetailsChange(memorySource(main), slug, { links: { jira: "jira" } })).toThrow(/https/);
     expect(() => featureDetailsChange(memorySource(main), slug, { title: "Tasks" })).toThrow(/Nothing to change/);
   });
+  it("makes a Jira key a link on the project's Jira, and keeps a link to another Jira out", () => {
+    const main = { ...base(), [`docs/features/${slug}/hub/feature.yaml`]: "title: Tasks\nowner: olena.k\n" };
+    const jira = { url: "https://jira.example.com" };
+    expect(featureDetailsChange(memorySource(main), slug, { links: { jira: "SHOP-412" } }, jira).next).toContain("jira: https://jira.example.com/browse/SHOP-412");
+    expect(() => featureDetailsChange(memorySource(main), slug, { links: { jira: "https://other.atlassian.net/browse/X-1" } }, jira)).toThrow(/not on this project's Jira \(jira\.example\.com\)/);
+    expect(() => featureDetailsChange(memorySource(main), slug, { links: { jira: "SHOP-412" } })).toThrow(/Jira is not set up/);
+  });
   it("leaves the go to the PM and the rest to Ops", () => {
     const go = releaseChange(memorySource(base()), project.flow, slug, { kind: "go", value: "no-go" }, "maksym.d", at);
     expect(guard({ author: "bohdan.r", pushers: [], changes: [go] }, ctx).ok).toBe(false);

@@ -6,7 +6,7 @@ import { api, type FeatureDetail, type TestRun } from "./api.ts";
 import { collectTasks, StepPanel, stepCommand, TASK_LABEL, waitsOf } from "./feature.tsx";
 import type { Action } from "./home.tsx";
 import { hubCmd } from "./text.ts";
-import { Cmd, names, Pill, Progress, RoleChip, roleLabel, StatusPill, taskLabel, teamName, useApp, WaitMark } from "./ui.tsx";
+import { Cmd, jiraKey, names, Pill, Progress, RoleChip, roleLabel, StatusPill, taskLabel, teamName, useApp, WaitMark } from "./ui.tsx";
 
 const SEVERITY: Record<string, string> = { critical: "bad", high: "bad", medium: "warn", low: "mute" };
 const BUG_STATUS: Record<string, string> = { open: "bad", fixing: "warn", retest: "info", closed: "ok", rejected: "mute" };
@@ -104,8 +104,8 @@ export function TaskPage({ action, close }: { action: Action; close: () => void 
                   <>
                     <span class="k">Jira</span>
                     <span>
-                      <a class="btn sm" href={d.feature.links.jira} target="_blank" rel="noopener noreferrer">
-                        {d.feature.links.jira.split("/").pop()} ↗
+                      <a class="btn sm" href={d.feature.links.jira} title={d.feature.links.jira} target="_blank" rel="noopener noreferrer">
+                        {jiraKey(d.feature.links.jira) ?? "Jira"} ↗
                       </a>
                     </span>
                   </>

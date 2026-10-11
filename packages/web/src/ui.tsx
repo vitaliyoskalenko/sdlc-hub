@@ -183,3 +183,8 @@ export function WaitMark({ project, f }: { project: ProjectInfo; f: Summary }) {
     </span>
   );
 }
+
+/** The issue key of a Jira link (…/browse/SHOP-431), for a button's label; undefined for any other link. */
+export function jiraKey(url: string): string | undefined {
+  return /\/browse\/([A-Z][A-Z0-9]+-\d+)\b/.exec(url)?.[1];
+}

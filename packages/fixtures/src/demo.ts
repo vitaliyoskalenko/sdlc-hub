@@ -43,11 +43,20 @@ function sign(steps: string[], leads: Record<string, string>, contract: string |
   });
 }
 
+/**
+ * A feature's own resources: its Jira issue, its Confluence page, its Figma file (none without a user interface) and
+ * where it runs on staging. Each feature links to its own, not to one page for the whole project.
+ */
 function featureYaml(title: string, jira: string, teams: Record<string, string>, days: number, extra = ""): string {
+  const page = title.replace(/&/g, "and").replace(/[^A-Za-z0-9]+/g, "+").replace(/^\+|\+$/g, "");
+  const noUi = /^ui: false/m.test(extra);
+  const figma = `https://www.figma.com/design/${jira.replace("-", "")}a7Kq/${page.replace(/\+/g, "-")}`;
   return (
     `title: ${title}\nowner: olena.k\nteams:\n` +
     Object.entries(teams).map(([t, l]) => `  ${t}: { lead: ${l} }\n`).join("") +
-    `links:\n  jira: https://jira.example.com/browse/${jira}\n  confluence: https://confluence.example.com/display/SHOP\n  figma: https://www.figma.com/file/EXAMPLE\n  staging: https://admin.staging.example.com\n` +
+    `links:\n  jira: https://jira.example.com/browse/${jira}\n  confluence: https://confluence.example.com/display/SHOP/${page}\n` +
+    (noUi ? "" : `  figma: ${figma}\n`) +
+    `  staging: https://staging-${jira.toLowerCase()}.admin.example.com\n` +
     `estimate:\n  days: ${days}\n` +
     extra
   );

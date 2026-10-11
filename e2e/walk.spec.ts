@@ -189,6 +189,21 @@ test("the page shows what the files say", async ({ page }) => {
   await expect(page.locator(".srcnote")).toContainText("Android from your local copy");
 });
 
+test("each feature's buttons open its own Jira issue, Confluence page, Figma file and staging address", async ({ page }) => {
+  const links = async (slug: string) => {
+    await page.goto(`/features/${slug}?as=maksym.d`);
+    await ready(page);
+    return page.locator(".ph a.btn[target=_blank]").evaluateAll((as) => as.map((a) => [a.textContent!.replace(" ↗", "").trim(), (a as HTMLAnchorElement).href, a.getAttribute("title")]));
+  };
+  const bulk = await links("bulk-order-export");
+  const notes = await links("order-notes-fix");
+  expect(bulk.map(([label]) => label)).toEqual(["SHOP-431", "Confluence", "Figma", "Staging"]);
+  expect(bulk[0]).toEqual(["SHOP-431", "https://jira.example.com/browse/SHOP-431", "https://jira.example.com/browse/SHOP-431"]);
+  for (const i of [0, 1, 2, 3]) expect(bulk[i]![1]).not.toEqual(notes[i]![1]);
+  // No user interface, no Figma file.
+  expect((await links("order-webhooks")).map(([label]) => label)).toEqual(["SHOP-445", "Confluence", "Staging"]);
+});
+
 test("The Team page marks a person who is not in the group, for the admin", async ({ page }) => {
   await page.goto("/people?as=nazar.t");
   await ready(page);

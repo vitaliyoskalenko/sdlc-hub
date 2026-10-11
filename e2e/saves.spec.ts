@@ -99,9 +99,12 @@ test.describe.serial("saves from the site", () => {
     await expect(page.locator("#df-save")).toBeDisabled();
     await page.fill("#df-title", "Returns portal for buyers");
     await page.fill("#df-figma", "https://figma.com/file/returns");
+    // The issue key is enough: the hub makes it a link on the project's Jira.
+    await page.fill("#df-jira", "SHOP-499");
     await page.click("#df-save");
     await expect(page.locator("h1")).toHaveText("Returns portal for buyers", { timeout: 20_000 });
     await expect(page.locator('a.btn[href="https://figma.com/file/returns"]')).toBeVisible();
+    await expect(page.locator('a.btn[href="https://jira.example.com/browse/SHOP-499"]')).toHaveText("SHOP-499 ↗");
   });
 
   test("someone other than the PM or the admin sees no Edit details", async ({ page }) => {

@@ -119,7 +119,22 @@ export interface FeatureDetailsEdit {
 }
 
 /** The PM's light edits of a feature: its title and links in feature.yaml. The rest of the file stays as it is. */
-export function featureDetailsChange(specs: FileSource, slug: string, edit: FeatureDetailsEdit): Change {
+/**
+ * The Jira link of a feature: an issue key (SHOP-431) becomes a link on the project's Jira; a full link must be on
+ * that Jira. Without Jira in config.yaml, any https link.
+ */
+export function jiraLink(value: string, jira?: { url?: string }): string {
+  const v = value.trim();
+  if (/^[A-Z][A-Z0-9]+-\d+$/.test(v)) {
+    if (!jira?.url) throw new Error("Jira is not set up for this project: paste the full link to the issue");
+    return `${jira.url.replace(/\/+$/, "")}/browse/${v}`;
+  }
+  if (!/^https:\/\/\S+$/.test(v)) throw new Error("The jira link must start with https://, or be an issue key such as SHOP-431");
+  if (jira?.url && new URL(v).host !== new URL(jira.url).host) throw new Error(`The Jira link is on ${new URL(v).host}, not on this project's Jira (${new URL(jira.url).host})`);
+  return v;
+}
+
+export function featureDetailsChange(specs: FileSource, slug: string, edit: FeatureDetailsEdit, jira?: { url?: string }): Change {
   const path = `docs/features/${slug}/hub/feature.yaml`;
   const base = specs.read(path);
   if (base === undefined) throw new Error(`${slug} has no feature.yaml`);
@@ -131,7 +146,7 @@ export function featureDetailsChange(specs: FileSource, slug: string, edit: Feat
   }
   for (const [k, v] of Object.entries(edit.links ?? {})) {
     if (!(LINK_KINDS as readonly string[]).includes(k)) throw new Error(`There is no ${k} link`);
-    const url = (v ?? "").trim();
+    const url = k === "jira" && (v ?? "").trim() ? jiraLink(v!, jira) : (v ?? "").trim();
     if (url && !/^https:\/\/\S+$/.test(url)) throw new Error(`The ${k} link must start with https://, or be empty`);
     if (url) {
       if (!doc.has("links")) {

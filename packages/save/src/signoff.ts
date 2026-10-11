@@ -307,7 +307,7 @@ export async function saveFeatureDetails(i: FeatureSaveInput & { edit: unknown }
   if (!ok) return { ok: false, code: "bad-input", error: "Change the title or the links" };
   const edit = e as { title?: string; links?: Record<string, string> };
   try {
-    featureDetailsChange(i.local, f.slug, edit);
+    featureDetailsChange(i.local, f.slug, edit, i.project.config.tracker);
   } catch (err) {
     const msg = (err as Error).message;
     return { ok: false, code: msg === "Nothing to change" ? "unchanged" : "bad-input", error: msg };
@@ -316,7 +316,7 @@ export async function saveFeatureDetails(i: FeatureSaveInput & { edit: unknown }
     label: `details-${f.slug}`,
     title: `Details of ${f.slug}`,
     meta: { kind: "details", slug: f.slug },
-    build: (main) => featureDetailsChange(main, f.slug, edit),
+    build: (main) => featureDetailsChange(main, f.slug, edit, i.project.config.tracker),
     fallback: i.project,
   });
 }
