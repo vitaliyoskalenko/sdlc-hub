@@ -102,7 +102,7 @@ export function Help() {
         </div>
       </div>
       <nav class="rolepick" aria-label="On this page">
-        {[["help-guides", "Guides"], ["help-roles", "By role"], ["help-flow", "The flow"], ["help-commands", "Commands"], ["help-statuses", "Statuses"], ["words", "Words"], ["help-trouble", "When something goes wrong"]].map(([id, label]) => (
+        {[["help-guides", "Guides"], ["help-roles", "By role"], ["help-flow", "The flow"], ["help-commands", "Commands"], ["help-statuses", "Statuses"], ["words", "Words"], ["help-keys", "Shortcuts"], ["help-trouble", "When something goes wrong"]].map(([id, label]) => (
           <a key={id} class="chipbtn" href={`#${id}`} onClick={(e) => (e.preventDefault(), document.getElementById(id!)?.scrollIntoView())}>
             {label}
           </a>
@@ -169,8 +169,51 @@ export function Help() {
         <h2>Words</h2>
         <Glossary />
       </section>
+      <Shortcuts />
       <Trouble />
     </>
+  );
+}
+
+const KEYS: [string[], string][] = [
+  [["g", "h"], "Home"],
+  [["g", "f"], "Features"],
+  [["g", "r"], "Releases"],
+  [["g", "t"], "Team"],
+  [["g", "s"], "Settings"],
+  [["g", "g"], "Your guide"],
+  [["/"], "Find a feature"],
+  [["?"], "This help, at the shortcuts"],
+  [["Esc"], "Close the open task or command help"],
+];
+
+/** The keyboard shortcuts, and what the site keeps in this browser. */
+function Shortcuts() {
+  return (
+    <section id="help-keys">
+      <h2>Keyboard shortcuts</h2>
+      <div class="card">
+        <dl class="gloss keys">
+          {KEYS.map(([k, what]) => (
+            <Fragment key={what}>
+              <dt>
+                {k.map((x, i) => (
+                  <Fragment key={x}>
+                    {i > 0 && " then "}
+                    <kbd>{x}</kbd>
+                  </Fragment>
+                ))}
+              </dt>
+              <dd>{what}</dd>
+            </Fragment>
+          ))}
+        </dl>
+        <p class="muted">They work anywhere except while you type in a field.</p>
+      </div>
+      <p class="muted">
+        This browser keeps a few things for you, and nothing leaves it: which features you have seen (a feature whose step moved since then is marked as changed), your choice of notifications (Notify me, on Home), and the role you work as.
+      </p>
+    </section>
   );
 }
 

@@ -442,3 +442,18 @@ label.check{display:flex;gap:10px;align-items:flex-start;padding:6px 0;cursor:po
 }
 .fpick{align-items:center}
 @media (max-width:860px){.nb.after{margin-top:0;border-top:1.5px solid var(--line);border-radius:10px;padding-top:revert}}
+#toast[hidden]{display:none}
+.changed{margin-left:6px;vertical-align:middle}
+.changedbar{gap:8px;margin:0 0 8px}
+.flowlist{display:none;list-style:none;margin:0;padding:0}
+.flowlist button{display:grid;grid-template-columns:1.8em minmax(0,1fr) auto;gap:4px 8px;align-items:center;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:9px 2px;font:inherit;color:inherit;cursor:pointer}
+.flowlist button[aria-current]{background:var(--sunk);border-radius:8px}
+.flowlist .num{font:500 .75rem var(--f-mono);color:var(--muted);text-align:right}
+.flowlist .nm{display:flex;flex-direction:column;min-width:0} .flowlist .nm code{font-size:.75rem;color:var(--muted)}
+.flowlist .pill{grid-column:2/-1;justify-self:start}
+.flowlist .st-skipped{opacity:.55}
+@media (max-width:760px){
+  .flowgrid .mapwrap,.flowgrid .legend{display:none}
+  .flowlist{display:block}
+}
+kbd{font:500 .8rem var(--f-mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;background:var(--surface)}

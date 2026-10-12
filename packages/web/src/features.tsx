@@ -2,7 +2,7 @@
 
 import { useState } from "preact/hooks";
 import type { FlowStep, StepStatus, Summary } from "./api.ts";
-import { FeatureTable } from "./home.tsx";
+import { ChangedBar, FeatureTable } from "./home.tsx";
 import { LEGEND, roleOf, STATUS } from "./text.ts";
 import { Cmd, names, teamName, useApp, waitingTeams } from "./ui.tsx";
 import { hubCmd } from "./text.ts";
@@ -208,7 +208,10 @@ export function Features({ params }: { params: URLSearchParams }) {
           </div>
         </div>
       ) : (
-        <FeatureTable list={list} />
+        <>
+          <ChangedBar list={list} />
+          <FeatureTable list={list} />
+        </>
       )}
       <p class="note">The step is derived from evidence: SDD files, the task tracker, review verdicts, test runs and sign-offs. Nobody types a status.</p>
     </>

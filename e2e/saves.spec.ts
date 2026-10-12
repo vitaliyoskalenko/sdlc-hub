@@ -10,14 +10,46 @@ async function step(page: Page, who: string, slug: string, id: string) {
   await page.waitForSelector("#steph");
 }
 
+/** Headless Chromium denies notifications whatever is granted: a stand-in for the browser's API, and a hidden tab. */
+async function fakeNotifications(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { shown: string[]; Notification: unknown };
+    w.shown = [];
+    let permission = "default";
+    w.Notification = class {
+      onclick: (() => void) | null = null;
+      static get permission() {
+        return permission;
+      }
+      static async requestPermission() {
+        permission = "granted";
+        return permission;
+      }
+      constructor(title: string) {
+        w.shown.push(title);
+      }
+      close() {}
+    };
+    Object.defineProperty(document, "hidden", { get: () => true });
+  });
+}
+
 test.describe.serial("saves from the site", () => {
-  test("the PO signs off clarify: pending, then merged, and the step is done", async ({ page }) => {
+  test("the PO signs off clarify: pending, then merged, and the step is done; the PM's background tab notifies", async ({ page, context }) => {
+    const pm = await context.newPage();
+    await fakeNotifications(pm);
+    await pm.goto(`${DEMO}/?as=maksym.d`);
+    await pm.click("#notify");
+    await expect(pm.locator("#notify")).toHaveText("Notifications on");
     await step(page, "olena.k", "returns-portal", "clarify");
     await page.click("#signoff");
     await expect(page.locator('[data-save="pending"]')).toContainText("waiting to merge");
     await expect(page.locator(".sd")).toContainText("Done", { timeout: 20_000 });
     await expect(page.locator("#signoff")).toHaveCount(0);
     await expect(page.locator(".kv")).toContainText("Olena K.");
+    // The step moved to epic, the PM's: a new action, so the PM's tab in the background shows a notification.
+    await expect.poll(() => pm.evaluate(() => (window as unknown as { shown: string[] }).shown), { timeout: 20_000 }).toContain("epic is ready for you");
+    await pm.close();
   });
 
   test("someone whose gate it is not sees no Sign off", async ({ page }) => {

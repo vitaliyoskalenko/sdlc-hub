@@ -59,6 +59,14 @@ It takes a few minutes and is safe to run again. It:
 | `node hub/cli.js doctor` | Checks Node.js, `.hub/`, who you are, the git host and your assistant's plugin. |
 | `/hub:status`, `/hub:next <slug>` | In Claude Code: where features are, and your next step. In Codex, `$hub-status`; in Cursor, `/hub-status`. |
 
+On the site:
+
+- **Changed since you last looked.** A feature whose step moved since your last visit is marked in the features table; opening it takes it as seen, and **Mark all as seen** clears the rest.
+- **Notify me**, on Home: the browser tells you when a new action reaches you while the site's tab is in the background.
+- **Keyboard:** `g` then `h`, `f`, `r`, `t`, `s` or `g` opens Home, Features, Releases, Team, Settings or Your guide; `/` finds a feature; `?` opens Help.
+
+What you have seen, the notifications choice and the role you work as are kept in your browser only.
+
 ## Who you are
 
 The hub matches your git identity (`user.name` and `user.email`, or `git config hub.user <username>`) to a person in `.hub/roles.yaml`. If the site says you are not in `roles.yaml`, ask the admin to add you, then run your setup script again.

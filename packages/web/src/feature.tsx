@@ -43,8 +43,13 @@ const GATE_BY: Record<string, string> = {
 };
 
 export function Feature({ slug, tab, params }: { slug: string; tab: string; params: URLSearchParams }) {
-  const { version, features, go, project, me } = useApp();
+  const { version, features, go, project, me, seen } = useApp();
   const [editing, setEditing] = useState(false);
+  // Opening a feature takes what changed in it as seen.
+  const changed = seen.changed(slug);
+  useEffect(() => {
+    if (changed) seen.mark(slug);
+  }, [slug, changed]);
   // Hooks before the early returns below.
   const detailsPending = usePending(slug, "details");
   const [d, setD] = useState<FeatureDetail | null | "missing">(null);
@@ -451,6 +456,35 @@ export function StepPanel({ detail, id }: { detail: FeatureDetail; id: string })
   );
 }
 
+/** The steps as a list, for a phone, where the role-lane map does not fit. */
+function FlowList({ detail, selected }: { detail: FeatureDetail; selected: string }) {
+  const { go, project } = useApp();
+  const pick = (x: string) => {
+    go(`/features/${detail.state.slug}`, { step: x });
+    setTimeout(() => document.getElementById("steppanel")?.scrollIntoView({ block: "start" }), 60);
+  };
+  return (
+    <ol class="flowlist" aria-label={`Steps of ${detail.state.slug}`}>
+      {project.flow.steps.map((s, i) => {
+        const st = detail.state.steps.find((x) => x.id === s.id)?.status ?? "todo";
+        return (
+          <li key={s.id}>
+            <button type="button" data-flow-item={s.id} aria-current={s.id === selected ? "step" : undefined} class={`st-${st}`} onClick={() => pick(s.id)}>
+              <span class="num">{i + 1}</span>
+              <span class="nm">
+                <b>{STEP[s.id]?.title ?? s.id}</b>
+                <code>{s.id}</code>
+              </span>
+              <RoleChip role={s.role} />
+              {st !== "todo" && <StatusPill status={st} />}
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 function Flow({ detail, params }: { detail: FeatureDetail; params: URLSearchParams }) {
   const { go, project } = useApp();
   const ids = project.flow.steps.map((s) => s.id);
@@ -462,6 +496,7 @@ function Flow({ detail, params }: { detail: FeatureDetail; params: URLSearchPara
         <div class="mapwrap">
           <FlowMap detail={detail} selected={id} pick={(x) => go(`/features/${detail.state.slug}`, { step: x })} />
         </div>
+        <FlowList detail={detail} selected={id} />
         <div class="legend">
           {LEGEND.map(([s, l]) => (
             <span key={s}>

@@ -2,6 +2,7 @@
 
 import { render } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useActionNotifications, useSeen } from "./attention.tsx";
 import { api, onChanges, type Assistant, type ProjectInfo, type Save, type Session, type Summary } from "./api.ts";
 import { Feature } from "./feature.tsx";
 import { Features } from "./features.tsx";
@@ -46,6 +47,9 @@ function route(path: string): Route {
   if (m) return { page: "feature", slug: m[1]!, tab: m[2] ?? "flow" };
   return { page: "missing" };
 }
+
+/** g then a letter: the page it opens. */
+export const SHORTCUT_PAGES: Record<string, string> = { h: "/", f: "/features", r: "/releases", t: "/people", s: "/settings", g: "/guide" };
 
 const TITLE: Record<Route["page"], string> = { home: "Home", features: "Features", feature: "Feature", guide: "Your guide", people: "Team", settings: "Settings", releases: "Releases", help: "Help", "guide-doc": "Help", script: "Setup script", missing: "Not found" };
 
@@ -139,6 +143,11 @@ function Root() {
     };
   }, [viewer, version, saves.list.some((x) => x.state === "pending" || x.state === "queued")]);
 
+  // Hooks that need the person and the features run before the early returns below, with what is loaded so far.
+  const seen = useSeen(project, session?.me?.user, features);
+  const acts = session?.me && project && features ? actionsFor(session.me, project, features) : null;
+  useActionNotifications(acts, session?.me?.user, openTask);
+
   // A #section part names a heading of the page, not a page.
   const r = route(loc.split("?")[0]!.split("#")[0]!);
   useEffect(() => {
@@ -154,6 +163,34 @@ function Root() {
     if (hash) setTimeout(() => document.getElementById(decodeURIComponent(hash))?.scrollIntoView(), 50);
     else scrollTo(0, 0);
   };
+  // Keyboard shortcuts, registered once: they reach the latest go through a ref.
+  const goRef = useRef(go);
+  goRef.current = go;
+  useEffect(() => {
+    let g = 0;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented || layers.current.help || layers.current.task) return;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      const to = Date.now() - g < 1200 ? SHORTCUT_PAGES[e.key] : undefined;
+      g = 0;
+      if (to) {
+        e.preventDefault();
+        goRef.current(to);
+      } else if (e.key === "g") g = Date.now();
+      else if (e.key === "/") {
+        e.preventDefault();
+        if (location.pathname !== "/features") goRef.current("/features");
+        setTimeout(() => document.getElementById("fsearch")?.focus(), 50);
+      } else if (e.key === "?") {
+        e.preventDefault();
+        goRef.current("/help#help-keys");
+      }
+    };
+    addEventListener("keydown", onKey);
+    return () => removeEventListener("keydown", onKey);
+  }, []);
+
   const setParam = (key: string, value: string) => {
     const q = new URLSearchParams(location.search);
     q.set(key, value);
@@ -209,8 +246,9 @@ function Root() {
     savesEnabled: saves.enabled,
     ...(saves.why ? { savesWhy: saves.why } : {}),
     addSave: (x: Save) => setSaves((v) => ({ ...v, list: [x, ...v.list] })),
+    seen,
   };
-  const actions = actionsFor(me, project, features).length;
+  const actions = acts?.length ?? 0;
   const nav: [string, string, number | null][] = [
     ["/", "Home", actions],
     ["/features", "Features", features.length],

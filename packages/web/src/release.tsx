@@ -31,6 +31,7 @@ export function Release({ detail }: { detail: FeatureDetail }) {
   const waiting = pending.some((p) => p.state === "pending");
   const opsOnly = ops ? (waiting ? "Waiting for your last change to merge." : "") : "Only Ops changes this.";
   const wait = busy || waiting;
+  const released = st("release")?.status === "done";
 
   return (
     <div class="stack" id="release">
@@ -101,7 +102,7 @@ export function Release({ detail }: { detail: FeatureDetail }) {
                   type="checkbox"
                   data-item={c.item}
                   checked={want[c.item] ?? c.done}
-                  disabled={!ops || wait || c.item in want}
+                  disabled={!ops || wait || released || c.item in want}
                   onChange={(e) => {
                     const done = e.currentTarget.checked;
                     setWant((w) => ({ ...w, [c.item]: done }));
@@ -115,7 +116,11 @@ export function Release({ detail }: { detail: FeatureDetail }) {
             </li>
           ))}
         </ol>
-        {ops ? (
+        {released ? (
+          <p class="reason" id="checklist-locked">
+            Released: the checklist is the record of this release and no longer changes.
+          </p>
+        ) : ops ? (
           <div class="row">
             <input type="text" id="new-item" value={item} placeholder="Another item" aria-label="Another checklist item" onInput={(e) => setItem(e.currentTarget.value)} />
             <button type="button" class="btn" id="add-item" disabled={!item.trim() || wait} onClick={() => (edit({ kind: "add-item", item }), setItem(""))}>

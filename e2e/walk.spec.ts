@@ -117,13 +117,14 @@ for (const vp of VIEWPORTS) {
       for (const slug of FEATURES) {
         await page.goto(`/features/${slug}?as=${person}`);
         await ready(page);
-        await expect(page.locator("svg.flow")).toBeVisible();
+        // The role-lane map on a desktop; on a phone, the list of steps.
+        const steps = vp.name === "phone" ? ".flowlist [data-flow-item]" : "svg.flow [data-step]";
+        await expect(page.locator(steps).first()).toBeVisible();
         await check(`${person} ${slug} flow`);
-        // Every step of the map opens its panel.
-        const steps = await page.locator("svg.flow [data-step]").count();
-        expect(steps).toBe(20);
+        // Every step opens its panel.
+        expect(await page.locator(steps).count()).toBe(20);
         for (const k of [0, 4, 11, 16]) {
-          await page.locator("svg.flow [data-step]").nth(k).click();
+          await page.locator(steps).nth(k).click();
           await expect(page.locator("#steppanel h3")).toBeVisible();
         }
         await openHelp(`${person} ${slug} flow`);
@@ -294,6 +295,87 @@ test("the guides open from Help, with the tokens and permissions, and link to ea
   await page.goto("/guides/gitlab?as=maksym.d");
   await ready(page);
   await expect(page.locator("#guide")).toContainText("HUB_GUARD_TOKEN");
+});
+
+test("a feature whose step moved since you last looked is marked, until you open it", async ({ page }) => {
+  await page.goto("/?as=maksym.d");
+  await ready(page);
+  // The first visit takes everything as seen.
+  await expect(page.locator("[data-changed]")).toHaveCount(0);
+  await page.evaluate(() => {
+    const key = Object.keys(localStorage).find((k) => k.startsWith("hub.seen.") && k.endsWith(".maksym.d"))!;
+    const seen = JSON.parse(localStorage.getItem(key)!);
+    seen["order-notes-fix"] = "implement|running";
+    delete seen["returns-portal"];
+    localStorage.setItem(key, JSON.stringify(seen));
+  });
+  await page.reload();
+  await ready(page);
+  await expect(page.locator('[data-changed="order-notes-fix"]')).toHaveText("moved to review");
+  await expect(page.locator('[data-changed="returns-portal"]')).toHaveText("new");
+  await expect(page.locator("#changedbar")).toContainText("2 changed");
+  await page.locator("a", { hasText: "Order notes lose line breaks" }).first().click();
+  await expect(page.locator("h1")).toHaveText("Order notes lose line breaks");
+  await page.click('.nb[data-page="home"]');
+  await expect(page.locator('[data-changed="order-notes-fix"]')).toHaveCount(0);
+  await page.click("#mark-seen");
+  await expect(page.locator("#changedbar")).toHaveCount(0);
+});
+
+test("keyboard shortcuts open the pages, the search and the help", async ({ page }) => {
+  await page.goto("/?as=iryna.s");
+  await ready(page);
+  await page.keyboard.press("g");
+  await page.keyboard.press("f");
+  await expect(page.locator("h1")).toHaveText("Features");
+  await page.keyboard.press("g");
+  await page.keyboard.press("r");
+  await expect(page.locator("h1")).toHaveText("Releases");
+  await page.keyboard.press("/");
+  await expect(page.locator("#fsearch")).toBeFocused();
+  // Typing in a field is not a shortcut.
+  await page.keyboard.type("gh");
+  await expect(page.locator("h1")).toHaveText("Features");
+  await expect(page.locator("#fsearch")).toHaveValue("gh");
+  await page.locator("#fsearch").blur();
+  await page.keyboard.press("?");
+  await expect(page.locator("h1")).toHaveText("Help");
+  await expect(page.locator("#help-keys")).toContainText("Find a feature");
+});
+
+test("a copy button says what it copied", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/guide?as=taras.m");
+  await ready(page);
+  await page.locator(".cmd .copy").first().click();
+  await expect(page.locator("#toast")).toContainText("Copied: /hub:next");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("/hub:next <slug>");
+});
+
+test("Notify me says why when the browser blocks notifications", async ({ page }) => {
+  // Headless Chromium denies notifications.
+  await page.goto("/?as=iryna.s");
+  await ready(page);
+  await expect(page.locator("#main")).toContainText("Notifications are blocked for this site");
+});
+
+test("on a phone, the flow is a list of steps that opens each one", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto("/features/tasks-issues?as=iryna.s");
+  await ready(page);
+  await expect(page.locator("svg.flow")).toBeHidden();
+  await expect(page.locator(".flowlist [data-flow-item]")).toHaveCount(20);
+  await expect(page.locator('.flowlist [data-flow-item="verify"]')).toHaveAttribute("aria-current", "step");
+  await page.click('.flowlist [data-flow-item="specify"]');
+  await expect(page.locator("#steppanel")).toContainText("Step 1 of 20");
+});
+
+test("a released feature's checklist is a record and no longer changes", async ({ page }) => {
+  await page.goto("/features/staff-permissions/release?as=bohdan.r");
+  await ready(page);
+  await expect(page.locator("#checklist-locked")).toBeVisible();
+  await expect(page.locator("#checklist input").first()).toBeDisabled();
+  await expect(page.locator("#new-item")).toHaveCount(0);
 });
 
 test("another site cannot use the server", async ({ request }) => {

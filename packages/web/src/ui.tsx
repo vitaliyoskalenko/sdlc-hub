@@ -3,6 +3,7 @@
 import { createContext, type ComponentChildren } from "preact";
 import { useContext } from "preact/hooks";
 import type { Assistant, Person, ProjectInfo, Save, Session, StepStatus, Summary } from "./api.ts";
+import type { Seen } from "./attention.tsx";
 import type { Action } from "./home.tsx";
 import { roleOf, STATUS } from "./text.ts";
 
@@ -28,6 +29,8 @@ export interface AppState {
   /** Why saving is off, when the server says (an older hub than the repository's). */
   savesWhy?: string;
   addSave: (save: Save) => void;
+  /** The features that changed since this person last looked. */
+  seen: Seen;
 }
 
 export const App = createContext<AppState | null>(null);
@@ -91,19 +94,51 @@ export function names(project: ProjectInfo, users: string[] | undefined): string
   return (users ?? []).map((u) => personName(project, u)).join(", ");
 }
 
-async function copy(text: string, el: HTMLButtonElement) {
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+/** A short message at the bottom of the screen, read out by screen readers. */
+export function showToast(text: string) {
+  let el = document.getElementById("toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast";
+    el.setAttribute("role", "status");
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (el!.hidden = true), 2400);
+}
+
+async function copy(text: string, el: HTMLButtonElement, label: string) {
+  const short = text.length > 48 ? `${text.slice(0, 45)}…` : text;
+  let ok = false;
   try {
     await navigator.clipboard.writeText(text);
-    el.textContent = "copied";
+    ok = true;
   } catch {
-    el.textContent = "select and copy";
+    // Without the clipboard API: a hidden text area and the copy command.
+    const t = document.createElement("textarea");
+    t.value = text;
+    t.style.position = "fixed";
+    t.style.opacity = "0";
+    document.body.appendChild(t);
+    t.select();
+    try {
+      ok = document.execCommand("copy");
+    } catch {
+      ok = false;
+    }
+    t.remove();
   }
-  setTimeout(() => (el.textContent = "copy"), 1500);
+  el.textContent = ok ? "copied" : "not copied";
+  showToast(ok ? `Copied: ${short}` : "Could not copy: select the text and copy it.");
+  setTimeout(() => (el.textContent = label), 1500);
 }
 
 export function CopyButton({ text, label = "copy" }: { text: string; label?: string }) {
   return (
-    <button type="button" class="copy" onClick={(e) => copy(text, e.currentTarget)}>
+    <button type="button" class="copy" onClick={(e) => void copy(text, e.currentTarget, label)}>
       {label}
     </button>
   );

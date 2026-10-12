@@ -1,6 +1,7 @@
 // Home: project statistics, your next actions, your numbers and the features in progress.
 
 import type { Person, ProjectInfo, Summary } from "./api.ts";
+import { NotifyToggle } from "./attention.tsx";
 import { YourSaves } from "./saves.tsx";
 import { roleOf, STEP } from "./text.ts";
 import { Kpi, Link, listOf, names, personName, Pill, Progress, RoleChip, roleLabel, StatusPill, taskLabel, teamName, useApp, waitingTeams, waitText } from "./ui.tsx";
@@ -131,8 +132,24 @@ function NextMove({ f }: { f: Summary }) {
   );
 }
 
+/** How many features changed since this person last looked, and a way to take them all as seen. */
+export function ChangedBar({ list }: { list: Summary[] }) {
+  const { seen } = useApp();
+  const n = list.filter((f) => seen.changed(f.slug) !== null).length;
+  if (!n) return null;
+  return (
+    <p class="row changedbar" id="changedbar">
+      <span class="pill plain info">{n} changed</span>
+      <span class="muted">since you last looked. Opening a feature takes it as seen.</span>
+      <button type="button" class="linkbtn" id="mark-seen" onClick={seen.markAll}>
+        Mark all as seen
+      </button>
+    </p>
+  );
+}
+
 export function FeatureTable({ list }: { list: Summary[] }) {
-  const { project, go } = useApp();
+  const { project, go, seen } = useApp();
   const total = project.flow.steps.length;
   return (
     <div class="scroll">
@@ -157,6 +174,11 @@ export function FeatureTable({ list }: { list: Summary[] }) {
                   </Link>
                   <br />
                   <code>{f.slug}</code>
+                  {seen.changed(f.slug) && (
+                    <span class="pill plain info changed" data-changed={f.slug} title="Changed since you last looked">
+                      {seen.changed(f.slug)}
+                    </span>
+                  )}
                 </td>
                 <td class="nw">
                   {f.size ?? "?"} · {f.route}
@@ -238,7 +260,10 @@ export function Home() {
       </section>
       <div class="homegrid">
         <section>
-          <h2>Your next actions</h2>
+          <div class="row sp">
+            <h2>Your next actions</h2>
+            <NotifyToggle user={me.user} />
+          </div>
           {acts.length ? (
             <div class="alist">
               {acts.map((a, i) => (
@@ -270,6 +295,7 @@ export function Home() {
       </div>
       <section>
         <h2>Features in progress</h2>
+        <ChangedBar list={open} />
         {open.length ? <FeatureTable list={open} /> : <div class="lockbox">No feature is in progress.</div>}
       </section>
     </>
