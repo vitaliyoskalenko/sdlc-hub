@@ -150,6 +150,7 @@ test.describe.serial("saves from the site", () => {
   test("the admin overrides a model's price on Settings; it merges and shows as an override", async ({ page }) => {
     await page.goto(`${DEMO}/settings?as=nazar.t`);
     await page.waitForSelector("#set-prices");
+    await page.locator("#prices-table").evaluate((d) => ((d as HTMLDetailsElement).open = true));
     const row = page.locator('#set-prices tr[data-model="claude-opus-5-5"]');
     await row.locator("[data-edit-price]").click();
     await row.locator('input[aria-label="claude-opus-5-5 output"]').fill("18");

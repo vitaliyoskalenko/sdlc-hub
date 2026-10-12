@@ -77,7 +77,7 @@ export function QA({ detail }: { detail: FeatureDetail }) {
         {!matrix.criteria.length && <p class="muted">The spec has no acceptance criteria yet.</p>}
         <p class="muted">{matrix.complete ? "Every criterion passes or does not apply on every platform: QA can sign off verify." : `Still open: ${matrix.open.length} of ${matrix.criteria.length * matrix.platforms.length} cells.`} The newest verdict of a cell counts; earlier ones stay in hub/verification.yaml.</p>
         {qa ? <VerdictForm detail={detail} /> : <p class="reason">QA records the verdicts, with /hub:verify in the assistant or here.</p>}
-        {owner("verify") && <SignoffBox slug={slug} step="verify" />}
+        {owner("verify") && <SignoffBox slug={slug} step="verify" passWhy={matrix.complete ? undefined : `To sign off, every cell must be pass or n/a: ${matrix.open.length} ${matrix.open.length === 1 ? "is" : "are"} not yet.`} />}
       </section>
 
       <Bugs detail={detail} />

@@ -1,11 +1,12 @@
 // One feature: the Now strip and the Flow, Documents and Tasks tabs.
 
+import { Fragment } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { api, type FeatureDetail, type FlowStep, type StepState, type Summary } from "./api.ts";
 import { layout, Loop } from "./features.tsx";
 import { engineCmd, hubCmd, LEGEND, roleOf, STATUS, STEP } from "./text.ts";
 import { Costs } from "./costs.tsx";
-import { renderMarkdown } from "./markdown.ts";
+import { frontMatter, renderMarkdown } from "./markdown.ts";
 import { QA } from "./qa.tsx";
 import { ValidateCard } from "./validate.tsx";
 import { Release } from "./release.tsx";
@@ -568,6 +569,26 @@ const duration = (hours: number) => (hours < 48 ? `${Math.round(hours * 10) / 10
 
 const SIGNOFF: Record<string, [string, string]> = { current: ["ok", "signed off"], stale: ["warn", "changed since sign-off"], none: ["mute", "no sign-off"] };
 
+/** A markdown document, with its front matter as a short list above the text. */
+function MarkdownDoc({ text }: { text: string }) {
+  const { front, body } = frontMatter(text);
+  return (
+    <>
+      {front.length > 0 && (
+        <div class="kv front" id="front-matter">
+          {front.map(([k, v]) => (
+            <Fragment key={k}>
+              <span class="k">{k.replace(/_/g, " ")}</span>
+              <span>{v}</span>
+            </Fragment>
+          ))}
+        </div>
+      )}
+      <div class="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(body) }} />
+    </>
+  );
+}
+
 function Documents({ slug, detail, params }: { slug: string; detail: FeatureDetail; params: URLSearchParams }) {
   const { go, version } = useApp();
   const docs = detail.documents;
@@ -594,7 +615,7 @@ function Documents({ slug, detail, params }: { slug: string; detail: FeatureDeta
             <span class="fn">{x.path}</span>
             <span class="row">
               <RoleChip role={x.owner} />
-              <Pill kind={SIGNOFF[x.signoff]![0]}>{SIGNOFF[x.signoff]![1]}</Pill>
+              {x.signoff !== "none" && <Pill kind={SIGNOFF[x.signoff]![0]}>{SIGNOFF[x.signoff]![1]}</Pill>}
             </span>
           </button>
         ))}
@@ -613,11 +634,11 @@ function Documents({ slug, detail, params }: { slug: string; detail: FeatureDeta
         ) : text === null ? (
           <p class="muted">The file could not be read.</p>
         ) : isMd ? (
-          <div class="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }} />
+          <MarkdownDoc text={text} />
         ) : (
           <pre>{text}</pre>
         )}
-        <p class="reason">Light edits on the site are not built yet: change a document through its owner's stage in the assistant.</p>
+        <p class="reason">To change this document, run its owner's stage in the assistant.</p>
       </div>
     </div>
     </>

@@ -1,5 +1,6 @@
 // Features: every feature as a list, or as a graph with one track per feature on the role-lane flow.
 
+import { useState } from "preact/hooks";
 import type { FlowStep, StepStatus, Summary } from "./api.ts";
 import { FeatureTable } from "./home.tsx";
 import { LEGEND, roleOf, STATUS } from "./text.ts";
@@ -152,7 +153,9 @@ export function Features({ params }: { params: URLSearchParams }) {
   const { features, me, go, assistant } = useApp();
   const graph = params.get("view") === "graph";
   const flt = FILTERS.find((x) => x[0] === params.get("filter")) ?? FILTERS[0]!;
-  const list = features.filter((f) => flt[2](f, me.roles));
+  const [q, setQ] = useState("");
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const list = features.filter((f) => flt[2](f, me.roles) && words.every((w) => `${f.title} ${f.slug} ${f.current}`.toLowerCase().includes(w)));
   const set = (p: Record<string, string | undefined>) => go("/features", { view: graph ? "graph" : undefined, filter: flt[0] === "all" ? undefined : flt[0], ...p });
   return (
     <>
@@ -181,9 +184,10 @@ export function Features({ params }: { params: URLSearchParams }) {
             {label} · {features.filter((f) => test(f, me.roles)).length}
           </button>
         ))}
+        {features.length > 3 && <input type="search" id="fsearch" class="fsearch" placeholder="Find a feature" aria-label="Find a feature by title, slug or step" value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} />}
       </div>
       {!list.length ? (
-        <div class="lockbox">No feature matches this filter.</div>
+        <div class="lockbox">{q ? `No feature matches "${q}".` : "No feature matches this filter."}</div>
       ) : graph ? (
         <div class="card">
           <p class="scrollhint">Scroll sideways: the feature tracks are to the right of the lanes.</p>

@@ -264,65 +264,70 @@ function Prices() {
       <p class="muted">
         The hub's table is from the provider's price list as read on {asOf}. Costs are what the same work would cost at these prices; on seats it is not billed per token. An override in <code>config.yaml</code> wins for that model and every model id it starts.
       </p>
-      <div class="scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Model</th>
-              {PRICE_COLS.map(([, l]) => (
-                <th key={l} class="num">
-                  {l}
-                </th>
-              ))}
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {models.map((m) => {
-              const p = overrides[m] ?? defaults[m]!;
-              const mine = editing?.model === m;
-              return (
-                <tr key={m} data-model={m}>
-                  <td class="nw">
-                    <code>{m}</code> {overrides[m] && <Pill kind="info">override</Pill>}
-                  </td>
-                  {PRICE_COLS.map(([k]) => (
-                    <td key={k} class="num">
-                      {mine ? (
-                        <input type="number" min="0" step="0.01" class="price" aria-label={`${m} ${k}`} value={editing!.p[k]} onInput={(e) => setEditing({ model: m, p: { ...editing!.p, [k]: Number((e.target as HTMLInputElement).value) } })} />
-                      ) : (
-                        `$${p[k]}`
+      <details class="more" id="prices-table" open={Object.keys(overrides).length > 0 || editing !== null}>
+        <summary>
+          {models.length} models{Object.keys(overrides).length ? `, ${Object.keys(overrides).length} overridden` : ""}
+        </summary>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Model</th>
+                {PRICE_COLS.map(([, l]) => (
+                  <th key={l} class="num">
+                    {l}
+                  </th>
+                ))}
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {models.map((m) => {
+                const p = overrides[m] ?? defaults[m]!;
+                const mine = editing?.model === m;
+                return (
+                  <tr key={m} data-model={m}>
+                    <td class="nw">
+                      <code>{m}</code> {overrides[m] && <Pill kind="info">override</Pill>}
+                    </td>
+                    {PRICE_COLS.map(([k]) => (
+                      <td key={k} class="num">
+                        {mine ? (
+                          <input type="number" min="0" step="0.01" class="price" aria-label={`${m} ${k}`} value={editing!.p[k]} onInput={(e) => setEditing({ model: m, p: { ...editing!.p, [k]: Number((e.target as HTMLInputElement).value) } })} />
+                        ) : (
+                          `$${p[k]}`
+                        )}
+                      </td>
+                    ))}
+                    <td class="nw">
+                      {admin && !mine && (
+                        <button type="button" class="btn sm" data-edit-price={m} disabled={!savesEnabled || busy} onClick={() => setEditing({ model: m, p: { ...p } })}>
+                          Edit
+                        </button>
+                      )}
+                      {mine && (
+                        <>
+                          <button type="button" class="btn sm pri" data-save-price={m} disabled={busy} onClick={() => save(m, editing!.p)}>
+                            Save
+                          </button>{" "}
+                          <button type="button" class="btn sm" onClick={() => setEditing(null)}>
+                            Cancel
+                          </button>
+                        </>
+                      )}
+                      {admin && !mine && overrides[m] && defaults[m] && (
+                        <button type="button" class="btn sm" data-reset-price={m} disabled={!savesEnabled || busy} onClick={() => save(m, null)}>
+                          Use the hub's
+                        </button>
                       )}
                     </td>
-                  ))}
-                  <td class="nw">
-                    {admin && !mine && (
-                      <button type="button" class="btn sm" data-edit-price={m} disabled={!savesEnabled || busy} onClick={() => setEditing({ model: m, p: { ...p } })}>
-                        Edit
-                      </button>
-                    )}
-                    {mine && (
-                      <>
-                        <button type="button" class="btn sm pri" data-save-price={m} disabled={busy} onClick={() => save(m, editing!.p)}>
-                          Save
-                        </button>{" "}
-                        <button type="button" class="btn sm" onClick={() => setEditing(null)}>
-                          Cancel
-                        </button>
-                      </>
-                    )}
-                    {admin && !mine && overrides[m] && defaults[m] && (
-                      <button type="button" class="btn sm" data-reset-price={m} disabled={!savesEnabled || busy} onClick={() => save(m, null)}>
-                        Use the hub's
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </details>
       {problem}
     </div>
   );

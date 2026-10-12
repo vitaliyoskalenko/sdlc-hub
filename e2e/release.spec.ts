@@ -32,8 +32,8 @@ test("a feature goes from staging to released on the site", async ({ page }) => 
   // QA: a verdict for every criterion, then the sign-off of verify.
   await open(page, "iryna.s", "qa");
   await expect(page.locator("#qa")).toContainText("verify");
-  await page.click("#signoff");
-  await expect(page.locator(".problem")).toContainText("Not every criterion passes yet");
+  await expect(page.locator("#signoff")).toBeDisabled();
+  await expect(page.locator(".savebox")).toContainText("every cell must be pass or n/a");
   await page.selectOption("#vf-platform", "all");
   await page.click('[data-verdict="pass"]');
   await page.click("#vf-save");
