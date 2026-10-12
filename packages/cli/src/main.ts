@@ -93,9 +93,10 @@ const HELP = `SDLC Hub
       Serve the site for the product-specs checkout you are in.
       You are the person in .hub/roles.yaml that matches your git identity, or --as.
 
-  hub demo [--as <user>] [--fixture <name>] [--port <n>]
+  hub demo [--as <user>] [--fixture <name>] [--port <n>] [--open]
       Write a fixture repository to a temporary folder and serve it in demo mode.
       --as picks the person (default iryna.s); the site lets you switch person and assistant.
+      --open opens the site in the browser.
 `;
 
 function flags(argv: string[]): Record<string, string> {
@@ -230,6 +231,7 @@ async function demo(f: Record<string, string>) {
       `People: ${people}\n` +
       `Switch person with the "view as" control, or start again with --as <user>. Ctrl+C stops the demo and deletes the folder.`,
   );
+  if (f["open"]) openBrowser(`http://127.0.0.1:${server.port}/?as=${encodeURIComponent(user)}`);
   const stop = () => {
     rmSync(dir, { recursive: true, force: true });
     process.exit(0);

@@ -186,7 +186,7 @@ test("the page shows what the files say", async ({ page }) => {
   await page.goto("/features/bulk-order-export/tasks?as=maksym.d");
   await ready(page);
   await expect(page.locator(".note.bad")).toContainText("wait for another team");
-  await expect(page.locator(".srcnote")).toContainText("Android from your local copy");
+  await expect(page.locator(".srcnote")).toContainText("From your local copy: Android");
 });
 
 test("each feature's buttons open its own Jira issue, Confluence page, Figma file and staging address", async ({ page }) => {
@@ -276,7 +276,7 @@ test("Help shows the flow, every command, the statuses, the words and what to do
   await page.keyboard.press("Escape");
   await expect(page.locator("#help-statuses")).toContainText("Waiting for sign-off");
   await expect(page.locator("#help-trouble")).toContainText("My save was refused");
-  await page.locator('#help-roles [data-role-help="qa"] a').click();
+  await page.locator('#help-roles [data-role-help="qa"]').click();
   await expect(page.locator("h1")).toHaveText("Guide for QA");
 });
 

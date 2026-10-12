@@ -89,14 +89,12 @@ test.describe("waits between teams are visible beyond the Tasks screen", () => {
   test("in the Features list", async ({ page }) => {
     await open(page, `${DEMO}/features?as=maksym.d`);
     const row = page.locator("tr", { hasText: "bulk-order-export" });
-    await expect(row.locator(".waitmark")).toHaveText("⧗ 3 teams wait");
     await expect(row).toContainText("Web, Android and iOS wait for Backend T2");
-    await expect(page.locator("tr", { hasText: "returns-portal" }).locator(".waitmark")).toHaveCount(0);
+    await expect(page.locator("tr", { hasText: "returns-portal" }).locator(".waitline")).toHaveCount(0);
   });
 
   test("in the Now strip", async ({ page }) => {
     await open(page, `${DEMO}/features/bulk-order-export?as=maksym.d`);
-    await expect(page.locator(".now .waitmark")).toHaveText("⧗ 3 teams wait");
     await expect(page.locator(".now")).toContainText("Web, Android and iOS wait for Backend T2");
   });
 

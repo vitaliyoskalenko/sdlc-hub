@@ -9,6 +9,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "start": "./start.sh",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json && tsc -p packages/web/tsconfig.json && tsc -p e2e/tsconfig.json",

@@ -80,7 +80,6 @@ export function CommandHelp({ text, close }: { text: string; close: () => void }
         <div class="dsec">
           <span class="k">Example of the output for {roleLabel(me)}</span>
           <pre class="out">{c.output(me.user, roleLabel(me), slug)}</pre>
-          <p class="muted">An illustration: the hub plugin that prints it arrives in phase 2.</p>
         </div>
         <div class="dsec">
           <span class="k">What happens next</span>

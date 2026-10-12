@@ -115,7 +115,7 @@ export interface CommandHelp {
   args: [string, string][];
   examples: (slug: string) => string[];
   llm: boolean;
-  /** An example of what the command prints. Illustrative: the plugin arrives in phase 2. */
+  /** An example of what the command prints. */
   output: (me: string, role: string, slug: string) => string;
   then: string;
   raw?: boolean;

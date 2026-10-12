@@ -10,7 +10,7 @@ import { QA } from "./qa.tsx";
 import { ValidateCard } from "./validate.tsx";
 import { Release } from "./release.tsx";
 import { PendingList, SignoffBox, useAction, usePending } from "./saves.tsx";
-import { Cmd, CopyButton, jiraKey, Link, names, Pill, personName, RoleChip, StatusPill, teamName, useApp, WaitMark, waitText } from "./ui.tsx";
+import { Cmd, CopyButton, jiraKey, Link, names, Pill, personName, RoleChip, StatusPill, teamName, useApp, waitText } from "./ui.tsx";
 
 
 /** Steps recorded on the QA or Release screen. */
@@ -196,7 +196,6 @@ function NowStrip({ f, detail, tab }: { f: Summary; detail: FeatureDetail; tab: 
             step {i + 1} of {steps.length} · {f.current}
           </b>
           <StatusPill status={f.status} />
-          <WaitMark project={project} f={f} />
         </span>
         <span class="muted">
           {lead}
@@ -433,8 +432,7 @@ export function StepPanel({ detail, id }: { detail: FeatureDetail; id: string })
               ? "This command records a result. It does not call the LLM."
               : engine.length
                 ? `The hub checks the gate, then passes the stage to ${engine.join(" and ")} with the prompt below.`
-                : "A hub step: the hub runs it with the prompt below."}{" "}
-          The hub plugin arrives in phase 2; until then the prompt below can be pasted into the assistant.
+                : "A hub step: the hub runs it with the prompt below."}
         </p>
         {prompt && (
           <details class="more">
@@ -447,12 +445,6 @@ export function StepPanel({ detail, id }: { detail: FeatureDetail; id: string })
             </div>
           </details>
         )}
-        <div class="row">
-          <button type="button" class="btn" disabled>
-            Run from the site
-          </button>
-          <span class="reason">{project.headless ? "Headless runs arrive in phase 5." : "Off. The admin can turn headless runs on in Settings, from phase 5."}</span>
-        </div>
       </div>
     </>
   );
@@ -841,17 +833,11 @@ function Tasks({ detail, params }: { detail: FeatureDetail; params: URLSearchPar
 
 function SourceNote({ detail }: { detail: FeatureDetail }) {
   const { project } = useApp();
-  const from = { "hub-state": "the hub-state branch", "local-clone": "your local copy", none: "no data yet" } as const;
+  const from = { "hub-state": "From hub-state", "local-clone": "From your local copy", none: "No data yet" } as const;
+  const groups = (["hub-state", "local-clone", "none"] as const).map((s) => [s, detail.state.teams.filter((t) => t.source === s).map((t) => project.teams.find((x) => x.id === t.id)?.name ?? t.id)] as const).filter(([, n]) => n.length);
   return (
-    <p class="muted srcnote">
-      Read from each team's <code>tasks.json</code> and <code>tasks/tracker.md</code>:{" "}
-      {detail.state.teams.map((t, i) => (
-        <span key={t.id}>
-          {i ? "; " : ""}
-          {project.teams.find((x) => x.id === t.id)?.name ?? t.id} from {from[t.source]}
-        </span>
-      ))}
-      . <code>hub-report</code> publishes them to <code>hub-state</code>; a local copy is the fallback.
+    <p class="muted srcnote" title="Each team's tasks.json and tasks/tracker.md. hub-report publishes them to hub-state; a local copy of the team repository is the fallback.">
+      {groups.map(([s, n]) => `${from[s]}: ${n.join(", ")}.`).join(" ")}
     </p>
   );
 }

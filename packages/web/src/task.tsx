@@ -118,7 +118,7 @@ export function TaskPage({ action, close }: { action: Action; close: () => void 
                 <div class="card">
                   <span class="k">In your assistant</span>
                   <Cmd text={cmd} />
-                  <p class="muted">The hub checks that the step is yours and open, then runs it. The result shows up here after the next sync. The hub plugin arrives in phase 2.</p>
+                  <p class="muted">The hub checks that the step is yours and open, then runs it. The result shows up here after the next sync.</p>
                 </div>
               )}
               <div class="card">

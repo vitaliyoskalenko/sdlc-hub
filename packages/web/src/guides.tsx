@@ -9,8 +9,8 @@ import people from "../../../docs/guides/people.md?raw";
 import settings from "../../../docs/guides/settings.md?raw";
 import { Fragment } from "preact";
 import { Glossary } from "./guide.tsx";
-import { COMMANDS, hubCmd, ROLE_CMDS, ROLE_SITE, roleOf, STATUS, STEP } from "./text.ts";
-import { Link, Pill, RoleChip, StatusPill, useApp } from "./ui.tsx";
+import { COMMANDS, hubCmd, roleOf, STATUS, STEP } from "./text.ts";
+import { Link, RoleChip, StatusPill, useApp } from "./ui.tsx";
 
 export const GUIDES: Record<string, { title: string; text: string }> = {
   gitlab: { title: "Install on GitLab", text: gitlab },
@@ -89,7 +89,7 @@ export function GuideDoc({ name }: { name: string }) {
 
 /** Help: the guides, by who needs them, and what each role does in the assistant and on the site. */
 export function Help() {
-  const { me, assistant } = useApp();
+  const { me } = useApp();
   const roles = ["po", "pm", "designer", "dev", "qa", "ops"];
   const mine = roles.filter((r) => me.roles.includes(r));
   const ordered = [...mine, ...roles.filter((r) => !mine.includes(r))];
@@ -150,37 +150,22 @@ export function Help() {
       </div>
       <section id="help-roles">
         <h2>By role</h2>
-        <div class="grid2">
+        <p class="muted">Each role's guide: the commands to type in the assistant, what to look at on this site, and what the role may change.</p>
+        <nav class="rolepick" aria-label="Guide for each role">
           {ordered.map((r) => (
-            <div class="card" key={r} data-role-help={r}>
-              <h3>
-                {roleOf(r).n} {mine.includes(r) && <Pill kind="info">you</Pill>}
-              </h3>
-              <span class="k">In the assistant</span>
-              <ul class="cmdlist">
-                {(ROLE_CMDS[r] ?? []).map(([c, rest, what]) => (
-                  <li key={c + rest}>
-                    <code>{hubCmd(assistant, c, rest)}</code> <span class="muted">{what}</span>
-                  </li>
-                ))}
-              </ul>
-              <span class="k">On this site</span>
-              <ul>
-                {(ROLE_SITE[r] ?? []).map((x) => (
-                  <li key={x}>{x}</li>
-                ))}
-              </ul>
-              <Link to="/guide" params={{ role: r }}>
-                The full guide for {roleOf(r).n} ›
+            <span key={r} data-role-help={r}>
+              <Link class="chipbtn" to="/guide" params={{ role: r }}>
+                {roleOf(r).n}
+                {mine.includes(r) ? " · you" : ""}
               </Link>
-            </div>
+            </span>
           ))}
-        </div>
+        </nav>
       </section>
       <Flow />
       <Commands />
       <Statuses />
-      <section>
+      <section id="words">
         <h2>Words</h2>
         <Glossary />
       </section>

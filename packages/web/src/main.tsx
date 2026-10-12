@@ -246,6 +246,11 @@ function Root() {
                 </select>
               </span>
             )}
+            {!session.demo && (
+              <span class="me" id="me" title={saves.enabled ? "Your saves reach main through merge requests that merge by themselves when hub-guard passes." : undefined}>
+                {me.name} · {roleLabel(me)}
+              </span>
+            )}
             {me.roles.length > 1 && (
               <label class="workas">
                 <span>Working as</span>
@@ -274,7 +279,7 @@ function Root() {
                 {n !== null && <span class="cnt">{n}</span>}
               </a>
             ))}
-            <div class="grp">Admin{me.roles.includes("admin") ? "" : " · read only"}</div>
+            <div class="grp">Project</div>
             <a class="nb" data-page="people" href={href("/people")} aria-current={r.page === "people" || r.page === "script" ? "page" : undefined} onClick={(e) => (e.preventDefault(), go("/people"))}>
               <span>Team</span>
             </a>
@@ -289,6 +294,11 @@ function Root() {
             {saves.why && (
               <p class="note warn" id="hub-behind">
                 {saves.why}
+              </p>
+            )}
+            {!saves.enabled && !saves.why && (
+              <p class="note warn" id="read-only">
+                Read only: this checkout has no remote to save to.
               </p>
             )}
             {r.page === "home" && <Home />}
@@ -308,9 +318,6 @@ function Root() {
             )}
           </main>
         </div>
-        <p class="muted">
-          Signed in as {me.name} · {roleLabel(me)}. {saves.enabled ? "Your saves reach main through merge requests that merge by themselves when hub-guard passes." : saves.why ? "Read only until the site is started again with the newer hub." : "Read only: this checkout has no remote to save to."}
-        </p>
       </div>
       {task !== null && (
         <div inert={help !== null}>

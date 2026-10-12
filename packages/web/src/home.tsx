@@ -3,7 +3,7 @@
 import type { Person, ProjectInfo, Summary } from "./api.ts";
 import { YourSaves } from "./saves.tsx";
 import { roleOf, STEP } from "./text.ts";
-import { Kpi, Link, listOf, names, personName, Pill, Progress, RoleChip, roleLabel, StatusPill, taskLabel, teamName, useApp, WaitMark, waitingTeams, waitText } from "./ui.tsx";
+import { Kpi, Link, listOf, names, personName, Pill, Progress, RoleChip, roleLabel, StatusPill, taskLabel, teamName, useApp, waitingTeams, waitText } from "./ui.tsx";
 
 export interface Action {
   slug: string;
@@ -77,27 +77,26 @@ export function RepoLabels({ me }: { me: Person }) {
   );
 }
 
-function numbersFor(me: Person, role: string, features: Summary[]): [string, string, string?][] {
+/** Numbers for the role, beyond the project statistics and the action list above. */
+function numbersFor(role: string, features: Summary[]): [string, string, string?][] {
   const open = features.filter((f) => !f.released);
-  const waitingMe = open.filter((f) => f.waitingOn.includes(me.user));
   const at = (ids: string[]) => open.filter((f) => ids.includes(f.current)).length;
-  const bugs = open.reduce((n, f) => n + f.blockingBugs.length, 0);
   const waits = open.reduce((n, f) => n + f.waits, 0);
   switch (role) {
     case "po":
-      return [[String(waitingMe.filter((f) => f.status === "signoff" || f.status === "ready").length), "Waiting for you", waitingMe.length ? "warn" : "ok"], [String(waitingMe.filter((f) => f.status === "returned").length), "Returned to you"], [String(at(["accept"])), "In acceptance"], [String(open.length), "Features in progress"]];
+      return [[String(at(["specify", "clarify"])), "At specify or clarify"], [String(at(["accept"])), "In acceptance"]];
     case "pm":
-      return [[String(open.length), "Features in progress"], [String(open.filter((f) => f.status === "blocked" || f.status === "missed").length), "Blocked or missed", "bad"], [String(waits), "Tasks waiting for another team", waits ? "warn" : "ok"], [String(waitingMe.length), "Waiting for you"]];
+      return [[String(at(["epic", "sprint"])), "At epic or sprint"], [String(waits), "Tasks waiting for another team", waits ? "warn" : "ok"]];
     case "designer":
-      return [[String(at(["ux-flows", "screens"])), "Features at flows or screens"], [String(waitingMe.length), "Waiting for you", waitingMe.length ? "warn" : "ok"]];
+      return [[String(at(["ux-flows", "screens"])), "At flows or screens"]];
     case "dev":
-      return [[String(open.filter((f) => f.role === "dev").length), "Features at an Engineering step"], [String(waitingMe.length), "Waiting for you", waitingMe.length ? "warn" : "ok"], [String(waits), "Tasks waiting for another team", waits ? "warn" : "ok"], [String(bugs), "Blocking bugs", bugs ? "bad" : "ok"]];
+      return [[String(open.filter((f) => f.role === "dev").length), "At an Engineering step"], [String(waits), "Tasks waiting for another team", waits ? "warn" : "ok"]];
     case "qa":
-      return [[String(bugs), "Blocking bugs", bugs ? "bad" : "ok"], [String(at(["plan-tests", "verify", "autotests", "qa-final"])), "Features at a QA step"], [String(waitingMe.length), "Waiting for you", waitingMe.length ? "warn" : "ok"], [String(open.filter((f) => f.cycle > 1).length), "Features in a second cycle"]];
+      return [[String(at(["plan-tests", "verify", "autotests", "qa-final"])), "At a QA step"], [String(open.filter((f) => f.cycle > 1).length), "In a second QA cycle"]];
     case "ops":
-      return [[String(at(["staging"])), "Features at staging"], [String(at(["release"])), "Features in release"], [String(features.filter((f) => f.released).length), "Released"]];
+      return [[String(at(["staging"])), "At staging"], [String(at(["release"])), "In release"]];
     default:
-      return [[String(features.length), "Features"], [String(open.length), "In progress"], [String(features.reduce((n, f) => n + f.warnings, 0)), "Warnings from detection", "warn"]];
+      return [[String(features.reduce((n, f) => n + f.warnings, 0)), "Warnings from detection", "warn"]];
   }
 }
 
@@ -172,7 +171,7 @@ export function FeatureTable({ list }: { list: Summary[] }) {
                         Step {f.index} of {total} · <code>{f.current}</code>
                       </span>
                       <span class="row">
-                        <StatusPill status={f.status} /> <WaitMark project={project} f={f} />
+                        <StatusPill status={f.status} />
                       </span>
                     </div>
                   )}
@@ -210,7 +209,6 @@ export function Home() {
             {me.name} · {roleLabel(me)} · {acts.length ? `${acts.length} action${acts.length === 1 ? "" : "s"} waiting for you${urgent ? `, ${urgent} urgent` : ""}` : "nothing is waiting for you"}
           </p>
         </div>
-        <RepoLabels me={me} />
       </div>
       <YourSaves />
       <section>
@@ -264,7 +262,7 @@ export function Home() {
         <section>
           <h2>Your numbers</h2>
           <div class="kpis two">
-            {numbersFor(me, role, features).map(([v, l, t]) => (
+            {numbersFor(role, features).map(([v, l, t]) => (
               <Kpi key={l} value={v} label={l} tone={t} />
             ))}
           </div>

@@ -140,7 +140,7 @@ test.describe.serial("saves from the site", () => {
     await page.waitForSelector("#workas");
     await expect(page.locator("#workas option")).toHaveText(["Project manager", "QA"]);
     await page.selectOption("#workas", "qa");
-    await expect(page.locator("#main")).toContainText("Features at a QA step");
+    await expect(page.locator("#main")).toContainText("In a second QA cycle");
     await page.click("#guidebtn");
     await expect(page.locator("#other-roles")).toContainText("You also work as");
     await page.locator("#other-roles button").click();

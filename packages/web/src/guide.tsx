@@ -2,7 +2,7 @@
 
 import { RepoLabels } from "./home.tsx";
 import { hubCmd, ROLE_CMDS, ROLE_SITE, roleOf } from "./text.ts";
-import { Cmd, roleLabel, useApp } from "./ui.tsx";
+import { Cmd, Link, roleLabel, useApp } from "./ui.tsx";
 
 const ALL_ROLES = ["po", "pm", "designer", "dev", "qa", "ops", "admin"];
 
@@ -35,8 +35,8 @@ export function Guide() {
             {yours ? `How ${roleLabel(me)} works with the hub` : `How ${roleOf(shown).n} works with the hub`}: what to type in the assistant, what to look at on this site and how to start next time.
           </p>
         </div>
-        <RepoLabels me={me} />
       </div>
+      <RepoLabels me={me} />
       <nav class="rolepick" id="role-guides" aria-label="Guide for each role">
         <span class="k">Guide for each role</span>
         {ALL_ROLES.map((r) => (
@@ -119,7 +119,9 @@ export function Guide() {
           </ol>
         </div>
       </div>
-      <Glossary />
+      <p class="muted">
+        The flow, every command, the statuses and the words used on this site: <Link to="/help">Help</Link>.
+      </p>
     </>
   );
 }
@@ -127,8 +129,7 @@ export function Guide() {
 /** The words of the site, for Your guide and Help. */
 export function Glossary() {
   return (
-  <div class="card" id="words">
-      <h3>Words used on this site</h3>
+  <div class="card">
       <dl class="gloss">
         <dt>Step</dt>
         <dd>One of the 20 steps of the flow, named by its id, such as tech-design. Each step belongs to one role. Fix is the return path from verify, not a step.</dd>

@@ -63,7 +63,7 @@ export function Releases() {
                     <td class="nw">{r.go ? <Pill kind={r.go.value === "go" ? "ok" : "bad"}>{r.go.value}</Pill> : <span class="muted">not yet</span>}</td>
                     <td>{r.versions && Object.keys(r.versions).length ? Object.entries(r.versions).map(([t, v]) => `${t} ${v}`).join(", ") : <span class="muted">none</span>}</td>
                     <td class="nw">{r.rollout?.stage ?? 0}%</td>
-                    <td class="nw">{r.watchEnds ? (left !== null && left <= 0 ? <Pill kind="ok">over</Pill> : `until ${day(r.watchEnds)}`) : <span class="muted">at 100%</span>}</td>
+                    <td class="nw">{r.watchEnds ? (left !== null && left <= 0 ? <Pill kind="ok">over</Pill> : `until ${day(r.watchEnds)}`) : <span class="muted" title="The watch period starts when the rollout reaches 100%">not started</span>}</td>
                   </tr>
                 );
               })}
