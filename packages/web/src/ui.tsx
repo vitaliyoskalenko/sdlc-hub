@@ -6,6 +6,7 @@ import type { Assistant, Person, ProjectInfo, Save, Session, StepStatus, Summary
 import type { Seen } from "./attention.tsx";
 import type { Action } from "./home.tsx";
 import { roleOf, STATUS } from "./text.ts";
+import { hereQuery, toAddress } from "./where.ts";
 
 export interface AppState {
   session: Session;
@@ -39,8 +40,9 @@ export const useApp = (): AppState => useContext(App)!;
 /** The query parameters that follow the viewer from page to page in the demo. */
 const KEEP = ["as", "asst"];
 
-export function href(path: string, params: Record<string, string | undefined> = {}): string {
-  const now = new URLSearchParams(location.search);
+/** The page and its query, with the viewer's parameters kept, such as /features?as=iryna.s#section. */
+export function pageUrl(path: string, params: Record<string, string | undefined> = {}): string {
+  const now = hereQuery();
   const q = new URLSearchParams();
   for (const k of KEEP) if (now.get(k)) q.set(k, now.get(k)!);
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") q.set(k, v);
@@ -48,6 +50,11 @@ export function href(path: string, params: Record<string, string | undefined> = 
   // The query comes before a #section, or the browser reads it as part of the section.
   const [page, hash] = path.split("#");
   return page + (s ? `?${s}` : "") + (hash ? `#${hash}` : "");
+}
+
+/** The address of a page, for a link. */
+export function href(path: string, params: Record<string, string | undefined> = {}): string {
+  return toAddress(pageUrl(path, params));
 }
 
 export function Link(props: { to: string; params?: Record<string, string | undefined>; class?: string; children: ComponentChildren; label?: string }) {

@@ -6,6 +6,7 @@ import type { ProjectInfo, Summary } from "./api.ts";
 import type { Action } from "./home.tsx";
 import { STATUS } from "./text.ts";
 import { showToast } from "./ui.tsx";
+import { SAMPLE } from "./where.ts";
 
 const read = (k: string): string | null => {
   try {
@@ -107,7 +108,7 @@ export function useActionNotifications(acts: Action[] | null, user: string | und
 export function NotifyToggle({ user }: { user: string }) {
   const [on, setOn] = useState(() => canNotify() && Notification.permission === "granted" && read(notifyKey(user)) === "on");
   const [blocked, setBlocked] = useState(() => canNotify() && Notification.permission === "denied");
-  if (!canNotify()) return null;
+  if (!canNotify() || SAMPLE) return null;
   if (blocked) return <span class="reason">Notifications are blocked for this site in the browser's settings.</span>;
   const toggle = async () => {
     if (on) {

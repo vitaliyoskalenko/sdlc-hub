@@ -3,6 +3,7 @@
 import { RepoLabels } from "./home.tsx";
 import { hubCmd, ROLE_CMDS, ROLE_SITE, roleOf } from "./text.ts";
 import { Cmd, Link, roleLabel, useApp } from "./ui.tsx";
+import { hereQuery } from "./where.ts";
 
 const ALL_ROLES = ["po", "pm", "designer", "dev", "qa", "ops", "admin"];
 
@@ -10,7 +11,7 @@ export function Guide() {
   const { me, project, assistant, go, role, setRole } = useApp();
   const roles = me.roles;
   // ?role=qa shows the guide of any role; without it, the role being worked in.
-  const asked = new URLSearchParams(location.search).get("role");
+  const asked = hereQuery().get("role");
   const shown = asked && ALL_ROLES.includes(asked) ? asked : role;
   const yours = roles.includes(shown);
   const cmds = ROLE_CMDS[shown] ?? [];

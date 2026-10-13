@@ -16,7 +16,8 @@ import { GuideDoc, Help } from "./guides.tsx";
 import { TaskPage } from "./task.tsx";
 import "./styles.css";
 import { ASSISTANTS, roleOf } from "./text.ts";
-import { App, href, roleLabel, type AppState } from "./ui.tsx";
+import { App, href, pageUrl, roleLabel, type AppState } from "./ui.tsx";
+import { here, hereQuery, SAMPLE, toAddress } from "./where.ts";
 
 type Route =
   | { page: "home" }
@@ -54,7 +55,7 @@ export const SHORTCUT_PAGES: Record<string, string> = { h: "/", f: "/features", 
 const TITLE: Record<Route["page"], string> = { home: "Home", features: "Features", feature: "Feature", guide: "Your guide", people: "Team", settings: "Settings", releases: "Releases", help: "Help", "guide-doc": "Help", script: "Setup script", missing: "Not found" };
 
 function Root() {
-  const [loc, setLoc] = useState(location.pathname + location.search);
+  const [loc, setLoc] = useState(here());
   const [version, setVersion] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
   const [live, setLive] = useState(false);
@@ -97,7 +98,7 @@ function Root() {
   const as = params.get("as") ?? undefined;
 
   useEffect(() => {
-    const onPop = () => setLoc(location.pathname + location.search);
+    const onPop = () => setLoc(here());
     // Escape closes the command help wherever the focus is, so it is handled here, in the capture phase.
     // Escape closes the top layer: the command help first, then the task page.
     const onKey = (e: KeyboardEvent) => {
@@ -106,6 +107,8 @@ function Root() {
       else if (layers.current.task) setTask(null);
     };
     addEventListener("popstate", onPop);
+    // The sample's address after the #: typed or pasted by hand.
+    if (SAMPLE) addEventListener("hashchange", onPop);
     addEventListener("keydown", onKey, true);
     const stop = onChanges(() => setVersion((v) => v + 1), setLive);
     return () => {
@@ -155,8 +158,8 @@ function Root() {
   }, [loc]);
 
   const go = (path: string, p: Record<string, string | undefined> = {}) => {
-    const url = href(path, p);
-    history.pushState(null, "", url);
+    const url = pageUrl(path, p);
+    history.pushState(null, "", toAddress(url));
     // The #section stays in the address bar, not in the page's location: the query must not carry it.
     const [page, hash] = url.split("#");
     setLoc(page!);
@@ -180,7 +183,7 @@ function Root() {
       } else if (e.key === "g") g = Date.now();
       else if (e.key === "/") {
         e.preventDefault();
-        if (location.pathname !== "/features") goRef.current("/features");
+        if (here().split("?")[0] !== "/features") goRef.current("/features");
         setTimeout(() => document.getElementById("fsearch")?.focus(), 50);
       } else if (e.key === "?") {
         e.preventDefault();
@@ -192,10 +195,10 @@ function Root() {
   }, []);
 
   const setParam = (key: string, value: string) => {
-    const q = new URLSearchParams(location.search);
+    const q = hereQuery();
     q.set(key, value);
-    const url = `${location.pathname}?${q}`;
-    history.pushState(null, "", url);
+    const url = `${here().split("?")[0]}?${q}`;
+    history.pushState(null, "", toAddress(url));
     setLoc(url);
   };
 
@@ -262,8 +265,8 @@ function Root() {
       <div class="app" inert={help !== null || task !== null}>
         <header class="top">
           <div class="brand">
-            <span class="live" role="status" title={live ? "Live: the site updates when main or hub-state changes" : "Reconnecting to the local server"} aria-label={live ? "Live" : "Reconnecting"}>
-              <i class={`dot${live ? "" : " off"}`} />
+            <span class="live" role="status" title={SAMPLE ? "A static sample: recorded data, no server" : live ? "Live: the site updates when main or hub-state changes" : "Reconnecting to the local server"} aria-label={SAMPLE ? "Sample" : live ? "Live" : "Reconnecting"}>
+              <i class={`dot${live || SAMPLE ? "" : " off"}`} />
             </span>
             <b>SDLC Hub</b>
             <span class="proj" title={`${project.project.namespace}/${project.project.repo} on ${host}`}>

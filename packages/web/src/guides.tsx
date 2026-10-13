@@ -11,6 +11,7 @@ import { Fragment } from "preact";
 import { Glossary } from "./guide.tsx";
 import { COMMANDS, hubCmd, roleOf, STATUS, STEP } from "./text.ts";
 import { Link, RoleChip, StatusPill, useApp } from "./ui.tsx";
+import { hereSection } from "./where.ts";
 
 export const GUIDES: Record<string, { title: string; text: string }> = {
   gitlab: { title: "Install on GitLab", text: gitlab },
@@ -45,7 +46,7 @@ export function GuideDoc({ name }: { name: string }) {
   const g = GUIDES[name];
   // Opened at a section (/guides/people#every-day): go to that heading once the guide is on the page.
   useEffect(() => {
-    const id = decodeURIComponent(location.hash.slice(1));
+    const id = hereSection();
     if (id) setTimeout(() => document.getElementById(id)?.scrollIntoView(), 30);
   }, [name]);
   if (!g)

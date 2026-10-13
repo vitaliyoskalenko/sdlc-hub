@@ -1,5 +1,7 @@
 // The API of the local server, and the live change events. Saves go through actions that push a merge request.
 
+import { SAMPLE } from "./where.ts";
+
 export type StepStatus = "done" | "running" | "signoff" | "returned" | "blocked" | "ready" | "todo" | "skipped" | "missed";
 export type Assistant = "claude" | "codex" | "cursor";
 
@@ -292,7 +294,18 @@ export interface Costs {
 /** The answer to an action: the save, or why it was not made. */
 export type ActionResult = { ok: true; save: Save } | { ok: false; error: string; findings?: Finding[] };
 
+/** In the static sample: why nothing can be saved. */
+export const SAMPLE_WHY = "A static sample with made-up data: nothing is saved here. ./start.sh runs the demo, where saving works.";
+
+/** The sample's recorded answer for a request, or an error when it was not recorded. */
+function recorded<T>(path: string): T {
+  if (path.startsWith("/api/saves")) return { saves: [], enabled: false, why: SAMPLE_WHY } as T;
+  if (!(path in SAMPLE!.api)) throw new Error(`${path}: not in this sample`);
+  return SAMPLE!.api[path] as T;
+}
+
 async function get<T>(path: string): Promise<T> {
+  if (SAMPLE) return recorded<T>(path);
   const r = await fetch(path, { credentials: "same-origin" });
   if (!r.ok) throw new Error(`${path}: ${r.status} ${await r.text()}`);
   return (await r.json()) as T;
@@ -302,6 +315,7 @@ const asQuery = (as?: string) => (as ? `?as=${encodeURIComponent(as)}` : "");
 
 /** A save through the server: a branch whose merge request merges itself, or why it was not made. */
 async function action(name: string, as: string | undefined, body: unknown): Promise<ActionResult> {
+  if (SAMPLE) return { ok: false, error: SAMPLE_WHY };
   const r = await fetch(`/api/actions/${name}${asQuery(as)}`, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const data = (await r.json().catch(() => ({}))) as { save?: Save; error?: string; findings?: Finding[] };
   return r.ok && data.save ? { ok: true, save: data.save } : { ok: false, error: data.error ?? `The server answered ${r.status}`, ...(data.findings ? { findings: data.findings } : {}) };
@@ -321,6 +335,7 @@ export const api = {
   act: (name: "verdicts" | "bug" | "bug-edit" | "release" | "signoff" | "estimate" | "validation" | "settings" | "details", as: string | undefined, body: unknown) => action(name, as, body),
   /** A save in conflict: keep my version on the newest main, or drop it for the newer one. */
   async resolve(as: string | undefined, branch: string, choice: "mine" | "newer"): Promise<{ ok: boolean; error?: string }> {
+    if (SAMPLE) return { ok: false, error: SAMPLE_WHY };
     const r = await fetch(`/api/actions/resolve${asQuery(as)}`, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ branch, choice }) });
     const data = (await r.json().catch(() => ({}))) as { error?: string };
     return r.ok ? { ok: true } : { ok: false, error: data.error ?? `The server answered ${r.status}` };
@@ -334,6 +349,7 @@ export const api = {
   releases: () => get<{ releases: { summary: Summary; release: Omit<ReleaseInfo, "now"> }[]; now: string }>("/api/releases"),
   feature: (slug: string) => get<FeatureDetail>(`/api/features/${encodeURIComponent(slug)}`),
   async file(slug: string, path: string): Promise<string | null> {
+    if (SAMPLE) return (SAMPLE.api[`/api/features/${encodeURIComponent(slug)}/file?path=${encodeURIComponent(path)}`] as string | undefined) ?? null;
     const r = await fetch(`/api/features/${encodeURIComponent(slug)}/file?path=${encodeURIComponent(path)}`, { credentials: "same-origin" });
     return r.ok ? r.text() : null;
   },
@@ -341,6 +357,7 @@ export const api = {
 
 /** Calls `onChange` whenever the server says the files changed. Returns a function that stops listening. */
 export function onChanges(onChange: () => void, onLive: (live: boolean) => void): () => void {
+  if (SAMPLE) return () => undefined;
   const es = new EventSource("/api/events");
   es.addEventListener("changed", onChange);
   es.addEventListener("saves", onChange);

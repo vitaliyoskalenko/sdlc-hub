@@ -17,7 +17,8 @@
     "demo": "npm run -s build && node packages/cli/dist/cli.mjs demo",
     "e2e": "npm run -s build && playwright test",
     "test:gitlab": "npm run -s build && HUB_GITLAB_IT=1 vitest run packages/install/test/gitlab.int.test.ts",
-    "test:github": "npm run -s build && HUB_GITHUB_IT=1 vitest run packages/install/test/github.int.test.ts"
+    "test:github": "npm run -s build && HUB_GITHUB_IT=1 vitest run packages/install/test/github.int.test.ts",
+    "sample": "npm run -s build && node scripts/sample.mjs && node scripts/screenshots.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
