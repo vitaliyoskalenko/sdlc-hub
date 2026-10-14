@@ -416,7 +416,9 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
     // branch speaks for the feature's tests.
     const be = (await root.project("shop/backend"))!;
     const feat = "feat/bulk-order-export";
-    if (!(await root.branch(be.id, feat))) await fetch(`${URL_}/api/v4/projects/${be.id}/repository/branches?branch=${encodeURIComponent(feat)}&ref=main`, { method: "POST", headers: h });
+    // A fresh branch from main: an earlier run may have left another one.
+    if (await root.branch(be.id, feat)) await fetch(`${URL_}/api/v4/projects/${be.id}/repository/branches/${encodeURIComponent(feat)}`, { method: "DELETE", headers: h });
+    await fetch(`${URL_}/api/v4/projects/${be.id}/repository/branches?branch=${encodeURIComponent(feat)}&ref=main`, { method: "POST", headers: h });
     const touch = await root.commit(be.id, feat, "touch", [{ action: (await root.file(be.id, "touch.txt", feat)) === null ? "create" : "update", file_path: "touch.txt", content: `${Date.now()}\n` }]);
     expect(await waitFor("backend", await pipelineOf(be.id, touch.id))).toMatchObject({ source: "ci", team: "backend", result: "passed" });
 
