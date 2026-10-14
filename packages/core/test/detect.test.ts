@@ -151,3 +151,22 @@ describe("an optional step handed out and then passed by", () => {
     expect(detectFeature(loadProject(view.specs).value!, view, "order-notes-fix").steps.find((s) => s.id === "data-model")!.status).toBe("skipped");
   });
 });
+
+describe("a task tracker before work starts", () => {
+  it("is no sign that implement runs: a task blocked by another team is not progress", () => {
+    const f = fixtures["demo"]!;
+    const notStarted = (s: string) => (s === "blocked" ? "blocked" : "todo");
+    const hubState = Object.fromEntries(
+      Object.entries(f.hubState ?? {}).map(([p, text]) => {
+        if (!/^features\/bulk-order-export\/teams\//.test(p)) return [p, text];
+        const snap = JSON.parse(text) as { tracker?: { status: string }[] };
+        return [p, JSON.stringify({ ...snap, tracker: snap.tracker?.map((r) => ({ ...r, status: notStarted(r.status) })) })];
+      }),
+    );
+    const teams = Object.fromEntries(
+      Object.entries(f.teams ?? {}).map(([id, files]) => [id, Object.fromEntries(Object.entries(files).map(([p, t]) => [p, p.endsWith("tracker.md") ? t.replace(/\| (in_progress|review|done) \|/g, "| todo |") : t]))]),
+    );
+    const view = viewOf({ ...f, hubState, teams });
+    expect(detectFeature(loadProject(view.specs).value!, view, "bulk-order-export").steps.find((s) => s.id === "implement")!.status).not.toBe("running");
+  });
+});

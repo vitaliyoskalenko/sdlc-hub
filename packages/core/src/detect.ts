@@ -363,7 +363,8 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
         const ts = sourcesFor(where);
         const rows = ts.map((t) => t.snapshot?.tracker);
         const allDone = rows.every((r) => r && r.length > 0 && r.every((x) => x.status === "done"));
-        const anyDone = rows.some((r) => r?.some((x) => x.status !== "todo"));
+        // Progress is a task in progress, in review or done; one blocked by another team before work starts is not.
+        const anyDone = rows.some((r) => r?.some((x) => ["in_progress", "review", "done"].includes(x.status)));
         return { level: allDone ? "full" : anyDone ? "partial" : "none", source: teamSource(ts) };
       }
       case "review-pass": {
