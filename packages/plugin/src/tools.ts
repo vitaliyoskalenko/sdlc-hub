@@ -200,23 +200,22 @@ function started(ctx: ToolContext, l: Loaded, slug: string, plan: StepPlan) {
 }
 
 /** The stage the person ran has finished: recorded for the Running status and lead time. */
-/** The files changed in the checkout since its last commit: what an engine stage left there. */
-function changedFiles(root: string): { path: string; next?: string; base?: string }[] {
-  const out = execFileSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all"], { cwd: root, encoding: "utf8" });
-  const parts = out.split("\0").filter(Boolean);
-  const files: { path: string; next?: string; base?: string }[] = [];
-  for (let i = 0; i < parts.length; i++) {
-    const code = parts[i]!.slice(0, 2);
-    const path = parts[i]!.slice(3);
-    // A rename lists the old path next; both count.
-    const paths = /R|C/.test(code) ? [path, parts[++i]!] : [path];
-    for (const p of paths) {
-      const base = spawnSync("git", ["show", `HEAD:${p}`], { cwd: root, encoding: "utf8" });
-      const next = existsSync(join(root, p)) ? readFileSync(join(root, p), "utf8") : undefined;
-      files.push({ path: p, ...(base.status === 0 ? { base: base.stdout } : {}), ...(next !== undefined ? { next } : {}) });
-    }
-  }
-  return files;
+/**
+ * What an engine stage left in the checkout: every file changed since the point main of the remote and this checkout
+ * share, committed by the stage or not, and the new files. `since` is that point.
+ */
+function changedFiles(root: string): { since: string; files: { path: string; next?: string; base?: string }[] } {
+  const git = (...a: string[]) => spawnSync("git", a, { cwd: root, encoding: "utf8" });
+  const shared = git("merge-base", "HEAD", "refs/remotes/origin/main");
+  const since = shared.status === 0 ? shared.stdout.trim() : git("rev-parse", "HEAD").stdout.trim();
+  const listed = git("diff", "--name-only", "-z", "--no-renames", since).stdout.split("\0").filter(Boolean);
+  const added = git("ls-files", "--others", "--exclude-standard", "-z").stdout.split("\0").filter(Boolean);
+  const files = [...new Set([...listed, ...added])].map((p) => {
+    const base = git("show", `${since}:${p}`);
+    const next = existsSync(join(root, p)) ? readFileSync(join(root, p), "utf8") : undefined;
+    return { path: p, ...(base.status === 0 ? { base: base.stdout } : {}), ...(next !== undefined ? { next } : {}) };
+  });
+  return { since, files };
 }
 
 /**
@@ -238,7 +237,7 @@ export async function hubRecord(ctx: ToolContext, slug: string, step: string): P
     done = `Could not record that ${step} of ${slug} finished: ${(e as Error).message}.`;
   }
   const access = { config: l.project.config, roles: l.project.roles };
-  const files = changedFiles(l.open.root);
+  const { since, files } = changedFiles(l.open.root);
   const mine = files.filter((f) => checkChange(l.user, f, access).ok);
   const others = files.filter((f) => !mine.includes(f)).map((f) => f.path);
   const notMine = others.length ? `\nNot saved, because your role may not change them: ${others.join(", ")}.` : "";
@@ -246,6 +245,9 @@ export async function hubRecord(ctx: ToolContext, slug: string, step: string): P
   const r = await saveStage({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, step, at: iso(ctx.now()), files: mine.map(({ path, next }) => ({ path, ...(next !== undefined ? { next } : {}) })) });
   if (!r.ok && r.code === "unchanged") return { text: `${done} main has these files already, so there is nothing to save.${notMine}` };
   if (!r.ok) return fail(`${done} The files were not saved: ${outcomeText(r, "").text}${notMine}`);
+  // Commits the stage made here are in the merge request now: main goes back to where it was, and the files stay in
+  // the checkout until hub sync finds them on main.
+  if (execFileSync("git", ["rev-parse", "HEAD"], { cwd: l.open.root, encoding: "utf8" }).trim() !== since) execFileSync("git", ["reset", "-q", since], { cwd: l.open.root });
   const where = r.save.mr ? `merge request !${r.save.mr.iid} (${r.save.mr.url})` : `branch ${r.save.branch}`;
   return { text: `${done} Saved ${mine.length} file${mine.length === 1 ? "" : "s"} as ${where}. It merges by itself when hub-guard passes.${notMine}` };
 }

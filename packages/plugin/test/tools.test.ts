@@ -139,12 +139,32 @@ describe("the result of a stage", () => {
     expect(git(remote, "show", `${branch}:${dir}/spec.md`)).toContain("AC-03 has a time limit.");
     expect(git(remote, "log", "-1", "--format=%an", branch)).toBe("olena.k");
   });
+  it("includes what the stage committed itself, and leaves main where the remote has it", async () => {
+    const { ctx, remote } = demo("olena.k");
+    const root = ctx.open().root;
+    git(root, "fetch", "-q", "origin");
+    const before = git(root, "rev-parse", "HEAD");
+    writeFileSync(join(root, "CONTEXT.md"), "# Context\n");
+    git(root, "add", "CONTEXT.md");
+    git(root, "-c", "user.name=o", "-c", "user.email=o@x", "commit", "-q", "-m", "spec: returns-portal");
+    writeFileSync(join(root, "docs/features/returns-portal/CONTEXT.md"), "# Returns\n");
+    const r = await hubRecord(ctx, "returns-portal", "clarify");
+    expect(r.text).toMatch(/Saved 2 files as branch/);
+    const branch = git(remote, "branch", "--list", "hub/*").replace("*", "").trim();
+    expect(git(remote, "diff", "--name-only", `main...${branch}`).split("\n").sort()).toEqual(["CONTEXT.md", "docs/features/returns-portal/CONTEXT.md"]);
+    // The stage's commit is in the merge request now; the files stay in the checkout until main has them.
+    expect(git(root, "rev-parse", "HEAD")).toBe(before);
+    expect(readFileSync(join(root, "CONTEXT.md"), "utf8")).toBe("# Context\n");
+  });
   it("is not saved twice: once main has it, the checkout has nothing new", async () => {
     const { ctx } = demo("olena.k");
     const root = ctx.open().root;
+    // Her stage's file merged: main has it, and she pulled it.
     writeFileSync(join(root, "CONTEXT.md"), "# Context\n");
     git(root, "add", "CONTEXT.md");
     git(root, "-c", "user.name=x", "-c", "user.email=x@x", "commit", "-q", "-m", "merged");
+    git(root, "push", "-q", "origin", "HEAD:main");
+    git(root, "fetch", "-q", "origin");
     expect((await hubRecord(ctx, "returns-portal", "clarify")).text).toMatch(/nothing to save/);
   });
 });
