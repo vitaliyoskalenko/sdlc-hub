@@ -390,7 +390,7 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
     expect(parseTeamSnapshot(snap!, "backend.json").value).toMatchObject({ team: "backend", slug: "bulk-order-export", tracker: [{ id: "T1", status: "in_progress" }] });
   }, 360_000);
 
-  it("records each team pipeline's result for the autotests gate: green on main, red on a feature branch (claim 18)", async () => {
+  it("records each team pipeline's result for the autotests gate, from the feature's branch: green, and red (claim 18)", async () => {
     const specs = (await root.project("shop/product-specs"))!;
     const h = { "PRIVATE-TOKEN": secrets.rootToken };
     const waitFor = async (team: string, pipeline: number) => {
@@ -412,9 +412,12 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
       throw new Error(`no pipeline for ${sha}`);
     };
 
-    // Green: backend has no CI of its own, so the hub job is its pipeline, which counts as passed.
+    // Green: backend has no CI of its own, so the hub job is its pipeline, which counts as passed. Only the feature's
+    // branch speaks for the feature's tests.
     const be = (await root.project("shop/backend"))!;
-    const touch = await root.commit(be.id, "main", "touch", [{ action: (await root.file(be.id, "touch.txt", "main")) === null ? "create" : "update", file_path: "touch.txt", content: `${Date.now()}\n` }]);
+    const feat = "feat/bulk-order-export";
+    if (!(await root.branch(be.id, feat))) await fetch(`${URL_}/api/v4/projects/${be.id}/repository/branches?branch=${encodeURIComponent(feat)}&ref=main`, { method: "POST", headers: h });
+    const touch = await root.commit(be.id, feat, "touch", [{ action: (await root.file(be.id, "touch.txt", feat)) === null ? "create" : "update", file_path: "touch.txt", content: `${Date.now()}\n` }]);
     expect(await waitFor("backend", await pipelineOf(be.id, touch.id))).toMatchObject({ source: "ci", team: "backend", result: "passed" });
 
     // Red: web-admin has CI of its own. Its lead merges the hub job, then a feature branch with a failing test runs:
