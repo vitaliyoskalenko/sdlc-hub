@@ -112,7 +112,7 @@ product-specs/                             branch: main (human edits, through me
 └─ AGENTS.md  CLAUDE.md
 
 each team repository, docs/features/<slug>/ (written by the SDD stages there)
-├─ spec.md  ux-flows.md  screens.md  test-plan.md  contracts/   read-only copies from hub-fanout, with the handoff block
+├─ spec.md  .size  .route  CONTEXT.md  ux-flows.md  screens.md  test-plan.md  contracts/   read-only copies from hub-fanout
 ├─ sad.md  adr/                             the team's own design (client teams at the tasks step)
 ├─ tasks.json  tasks/_epic.md  tasks/tracker.md  tasks/<task>.md
 ├─ _review/review-<date>.md                 review record with the verdict PASS or CHANGES REQUESTED
@@ -847,7 +847,7 @@ guard:
 
 ### Team repositories and fan-out
 
-- `hub-fanout` brings the shared files of each feature to the repositories of the teams its `feature.yaml` names (set at the epic step): `spec.md`, `ux-flows.md`, `screens.md`, `test-plan.md` and `contracts/`, unchanged, and `_handoff.md`, which says where they come from and that they change in product-specs. They arrive as a merge request on the branch `hub/fanout`, which the team lead merges; a second run with the same files changes nothing.
+- `hub-fanout` brings the shared files of each feature to the repositories of the teams its `feature.yaml` names (set at the epic step): `spec.md`, `.size`, `.route`, `CONTEXT.md`, `ux-flows.md`, `screens.md`, `test-plan.md` and `contracts/`, unchanged, and `_handoff.md`, which says where they come from and that they change in product-specs. They arrive as a merge request on the branch `hub/fanout`, which the team lead merges; a second run with the same files changes nothing.
   - On GitLab, the job runs on `main` of `product-specs` and pushes with one project access token per team repository, the masked variable `HUB_FANOUT_TOKEN_<TEAM>`. Push options open the merge request.
   - On GitHub, a workflow in each team repository runs every hour and on demand. It reads `product-specs` with the deploy key it already has, and opens the pull request with its own token. Install allows the repository's workflows to open pull requests.
   - The hub command files of the assistants are not copied: the hub runs in product-specs.

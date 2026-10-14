@@ -25,6 +25,14 @@ describe("fan-out: the shared files each team gets", () => {
     expect(Object.keys(fanoutFiles(memorySource(main), project.config, "backend", "abc1234")).filter((p) => p.endsWith("_handoff.md")).sort()).toEqual([`${F}/returns/_handoff.md`, `${F}/tasks-issues/_handoff.md`]);
   });
 
+  it("copies the size, the route and the feature's glossary too, which every engine stage in the team reads", () => {
+    const withMore = { ...main, [`${F}/tasks-issues/.size`]: "M\n", [`${F}/tasks-issues/.route`]: "standard\n", [`${F}/tasks-issues/CONTEXT.md`]: "# Glossary\n" };
+    const web = fanoutFiles(memorySource(withMore), project.config, "web", "abc1234");
+    expect(web[`${F}/tasks-issues/.size`]).toBe("M\n");
+    expect(web[`${F}/tasks-issues/.route`]).toBe("standard\n");
+    expect(web[`${F}/tasks-issues/CONTEXT.md`]).toBe("# Glossary\n");
+  });
+
   it("gives nothing to a team no feature names yet, and names the branch it uses", () => {
     expect(fanoutFiles(memorySource(main), project.config, "ios", "abc1234")).toEqual({});
     expect(FANOUT_BRANCH).toBe("hub/fanout");

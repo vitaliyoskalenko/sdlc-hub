@@ -51,6 +51,7 @@ A feature run from `/hub:new` towards release with every role as its own person 
 - A sign-off is blocked only by an earlier sign-off of the same step that still waits, not by the stage's own saved result, and the check looks at the host first.
 - `hub sync` moves main on over a person's own changes when the newer main leaves those files alone.
 - Install ignores SDD's `.worktrees/`, so a stage leaves `.gitignore` as it was.
+- Fan-out copies the feature's `.size`, `.route` and `CONTEXT.md` too: without them SDD in a team repository took M and standard by default and had no glossary.
 
 ## 2026-10-10: Revision 71, the owner's review of the site
 

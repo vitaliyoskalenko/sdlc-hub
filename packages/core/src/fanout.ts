@@ -1,6 +1,7 @@
 // hub-fanout: the shared files of a feature, copied to the repository of each team the feature names, so the
-// assistant there reads the spec, the flows, the screens, the test plan and the contracts where it works. The copies
-// are unchanged (tools read them); _handoff.md says where they come from and that they change in product-specs.
+// assistant there reads the spec, its size, route and glossary, the flows, the screens, the test plan and the contracts
+// where it works. The copies are unchanged (tools read them); _handoff.md says where they come from and that they
+// change in product-specs.
 
 import { parseFeature } from "./files.ts";
 import { listFeatures } from "./detect.ts";
@@ -10,7 +11,8 @@ import type { FileSource } from "./source.ts";
 export const FANOUT_BRANCH = "hub/fanout";
 /** The masked CI variable of product-specs with a team's fan-out token, on GitLab. */
 export const fanoutTokenVariable = (team: string) => `HUB_FANOUT_TOKEN_${team.toUpperCase().replace(/[^A-Z0-9]/g, "_")}`;
-const SHARED = ["spec.md", "ux-flows.md", "screens.md", "test-plan.md"];
+// The size, the route and the glossary too: every SDD stage reads them, and without them it guesses M and standard.
+const SHARED = ["spec.md", ".size", ".route", "CONTEXT.md", "ux-flows.md", "screens.md", "test-plan.md"];
 
 /** The files a team's repository should have, by path, from main of product-specs at `sha`. */
 export function fanoutFiles(specs: FileSource, config: Config, team: string, sha: string): Record<string, string> {
