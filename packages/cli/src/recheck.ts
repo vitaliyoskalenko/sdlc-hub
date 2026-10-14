@@ -1,7 +1,8 @@
 // hub recheck: after .hub/ changes on main (a person's role, the guard settings), every open merge request into main
 // is judged again by the new rules. A guard result that passed under the old roles is not left to merge.
-// - GitLab: a job on main starts a new pipeline for each open merge request, with HUB_RECHECK_TOKEN (api, a protected
-//   variable: merge request pipelines never see it).
+// - GitLab: a job on main runs the hub-guard job of each open merge request again, in its latest pipeline, with
+//   HUB_RECHECK_TOKEN (api, a protected variable: merge request pipelines never see it). Not a new pipeline: the
+//   token's bot cannot read the CI configuration in hub-ci, so a pipeline it starts fails before any job runs.
 // - GitHub: a workflow on main runs the hub-guard job of each open pull request again (its check run has the job's id).
 
 import { GitHub, GitLab } from "@sdlc-hub/host";
@@ -12,7 +13,13 @@ export async function recheckGitLab(o: { gl: GitLab; project: string | number; t
   const open = await o.gl.mergeRequestsInto(o.project, o.target ?? "main");
   for (const mr of open)
     try {
-      await o.gl.mergeRequestPipeline(o.project, mr.iid);
+      const latest = (await o.gl.mergeRequestPipelines(o.project, mr.iid))[0];
+      const job = latest ? (await o.gl.pipelineJobs(o.project, latest.id)).find((j) => j.name === "hub-guard") : undefined;
+      if (!job) {
+        lines.push({ ok: true, text: `!${mr.iid}: no hub-guard job in its latest pipeline; it runs when the merge request's pipeline runs again`, blocking: false });
+        continue;
+      }
+      await o.gl.retryJob(o.project, job.id);
       lines.push({ ok: true, text: `!${mr.iid}: hub-guard runs again` });
     } catch (e) {
       lines.push({ ok: false, text: `!${mr.iid}: ${(e as Error).message.split("\n")[0]}`, blocking: false });

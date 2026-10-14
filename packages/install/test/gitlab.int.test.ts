@@ -321,14 +321,20 @@ describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
         expect((await settle(owner, id, m.iid)).state).toBe("merged");
       };
       try {
-        // The admin moves the PO to designer: hub-recheck on main runs the merge request's pipeline again, and it fails.
+        // The admin moves the PO to designer: hub-recheck on main runs the merge request's hub-guard job again, in
+        // the same pipeline, and the guard refuses. (A new pipeline would fail before any job: the recheck token's
+        // bot cannot read the configuration in hub-ci.)
+        const guardJobs = async () => ((await fetch(`${URL_}/api/v4/projects/${id}/pipelines/${first}/jobs?include_retried=true`, { headers: { "PRIVATE-TOKEN": secrets.rootToken } }).then((r) => r.json())) as { id: number; name: string; status: string }[]).filter((j) => j.name === "hub-guard");
+        const before = (await guardJobs()).map((j) => j.id);
         await set(roles.replace("{ user: olena.k, name: Olena K., role: po }", "{ user: olena.k, name: Olena K., role: designer }"), "designer");
-        let next = await pipelines();
-        for (let i = 0; i < 72 && !next.some((p) => p.id !== first && ["success", "failed"].includes(p.status)); i++) {
+        let again = (await guardJobs()).find((j) => !before.includes(j.id));
+        for (let i = 0; i < 72 && !(again && ["success", "failed"].includes(again.status)); i++) {
           await wait(5000);
-          next = await pipelines();
+          again = (await guardJobs()).find((j) => !before.includes(j.id));
         }
-        expect(next.find((p) => p.id !== first)?.status).toBe("failed");
+        expect(again?.status).toBe("failed");
+        expect((await pipelines()).map((p) => p.id)).toEqual([first]);
+        expect(await fetch(`${URL_}/api/v4/projects/${id}/jobs/${again!.id}/trace`, { headers: { "PRIVATE-TOKEN": secrets.rootToken } }).then((r) => r.text())).toMatch(/hub-guard: refused/);
       } finally {
         await set(roles, "po");
         await root.updateMergeRequest(id, mr.iid, { state_event: "close" }).catch(() => undefined);

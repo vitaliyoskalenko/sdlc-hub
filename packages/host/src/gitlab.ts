@@ -179,6 +179,11 @@ export class GitLab {
     }
     return out;
   }
+  /** The pipelines of a merge request, newest first. */
+  mergeRequestPipelines = (projectId: number | string, iid: number) => this.call<{ id: number; status: string }[]>("GET", `/projects/${enc(String(projectId))}/merge_requests/${iid}/pipelines`);
+  pipelineJobs = (projectId: number | string, pipelineId: number) => this.call<{ id: number; name: string; status: string }[]>("GET", `/projects/${enc(String(projectId))}/pipelines/${pipelineId}/jobs?include_retried=false&per_page=100`);
+  /** Runs a job again in its own pipeline, with the configuration that pipeline was made from. */
+  retryJob = (projectId: number | string, jobId: number) => this.call<{ id: number }>("POST", `/projects/${enc(String(projectId))}/jobs/${jobId}/retry`);
   /** A new pipeline for a merge request: its jobs, hub-guard among them, run again. */
   mergeRequestPipeline = (projectId: number | string, iid: number) => this.call<{ id: number }>("POST", `/projects/${enc(String(projectId))}/merge_requests/${iid}/pipelines`);
   createMergeRequest = (projectId: number, source: string, target: string, title: string, description: string) =>
