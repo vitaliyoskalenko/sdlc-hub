@@ -32,7 +32,7 @@ describe("what a person does next on a feature", () => {
     const p = loadProject(v.specs).value!;
     const state = detectFeature(p, v, "order-webhooks");
     const withDesignDone = { ...state, steps: state.steps.map((s) => (s.id === "tech-design" ? { ...s, status: "done" as const } : s.id === "data-model" ? { ...s, status: "ready" as const, waitingOn: [] } : s)) };
-    expect(nextFor(p, withDesignDone, "petro.v", "data-model")).toMatchObject({ kind: "not-yours", step: "data-model" });
+    expect(nextFor(p, withDesignDone, "petro.v", "data-model")).toMatchObject({ kind: "not-yours", step: "data-model", teams: ["backend"] });
     expect(nextFor(p, withDesignDone, "taras.m", "data-model")).toMatchObject({ kind: "run", step: "data-model", where: "contract" });
     // data-model is optional on the standard route: asking for api skips it, and says so.
     expect(nextFor(p, withDesignDone, "taras.m", "api")).toMatchObject({ kind: "run", step: "api", skips: ["data-model"] });

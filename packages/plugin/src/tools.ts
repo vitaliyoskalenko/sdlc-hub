@@ -88,6 +88,7 @@ function planText(ctx: ToolContext, l: Loaded, s: FeatureState, plan: StepPlan):
       return `${plan.step} of ${slug} is ${plan.kind === "done" ? "done" : "skipped on this route"}.`;
     case "not-yours": {
       const person = l.project.roles.people.find((p) => p.user === l.user);
+      if (plan.teams) return `${plan.step} of ${slug} is the ${plan.teams.join(" and ")} team's${plan.waitingOn.length ? ` (${l.names(plan.waitingOn)})` : ""}, not ${person?.team ? `the ${person.team} team's` : "yours"}.`;
       return `${plan.step} of ${slug} is not yours: it belongs to ${plan.role}${plan.waitingOn.length ? ` (${l.names(plan.waitingOn)})` : ""}. You are ${person?.roles.join(", ")}.`;
     }
     case "waiting":

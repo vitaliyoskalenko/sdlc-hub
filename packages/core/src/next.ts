@@ -9,7 +9,8 @@ export type StepPlan =
   | { kind: "released" }
   | { kind: "unknown-step"; step: string }
   | { kind: "done" | "skipped"; step: string }
-  | { kind: "not-yours"; step: string; role: string; waitingOn: string[] }
+  /** `teams` when the person has the role but the step belongs to other teams of the feature. */
+  | { kind: "not-yours"; step: string; role: string; waitingOn: string[]; teams?: string[] }
   | { kind: "waiting"; step: string; on: { step: string; status: StepStatus }[] }
   | { kind: "signoff"; step: string }
   | { kind: "hub-step"; step: string; status: StepStatus }
@@ -32,7 +33,8 @@ export function nextFor(project: Project, state: FeatureState, user: string, ste
   // A step in the contract team's repository is that team's alone.
   const teams = project.engine.steps[id]?.in === "contract" && state.contractTeam ? [state.contractTeam] : state.teams.map((t) => t.id);
   const owns = !!person && person.roles.includes(step.role) && (step.role !== "dev" || !teams.length || (!!person.team && teams.includes(person.team)));
-  if (!owns && !gateOwner) return { kind: "not-yours", step: id, role: st.status === "signoff" && step.gate ? step.gate.role : step.role, waitingOn: st.waitingOn ?? [] };
+  const otherTeam = !!person && person.roles.includes(step.role) && step.role === "dev" && st.status !== "signoff";
+  if (!owns && !gateOwner) return { kind: "not-yours", step: id, role: st.status === "signoff" && step.gate ? step.gate.role : step.role, waitingOn: st.waitingOn ?? [], ...(otherTeam ? { teams } : {}) };
 
   // Steps of the same role before this one, optional on the feature's route and not done, may be skipped by going on: a
   // lead who skips data-model asks for api, even after hub_next handed data-model out. Another role's step is theirs.
