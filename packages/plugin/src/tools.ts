@@ -3,7 +3,7 @@
 // request merges itself when hub-guard passes.
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { checkChange, detectFeature, listFeatures, nextFor, parseSignoffs, platformsOf, releaseView, verificationMatrix, type FeatureState, type Project, type StepPlan } from "@sdlc-hub/core";
 import type { OpenProject } from "@sdlc-hub/git";
@@ -165,6 +165,27 @@ export function hubNext(ctx: ToolContext, slug?: string, step?: string): ToolRes
   started(ctx, l, s.slug, plan);
   const ok = plan.kind === "run" || plan.kind === "signoff";
   return { text: planText(ctx, l, s, plan), ...(ok ? {} : { isError: true }) };
+}
+
+const ROLE: Record<string, string> = { po: "the PO's", pm: "the PM's", designer: "the designer's", dev: "Engineering's", qa: "QA's", ops: "Ops'" };
+
+/**
+ * Starts a feature: its folder and hub/feature.yaml in this checkout, then the first step through the engine, as
+ * hub_next hands it out. The files reach main with the first stage's result (hub_record).
+ */
+export function hubNew(ctx: ToolContext, slug: string, title: string): ToolResult {
+  const l = load(ctx);
+  if (isResult(l)) return l;
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) return fail(`Name the feature in kebab-case, for example order-notes, not "${slug}".`);
+  const dir = join(l.open.root, "docs/features", slug);
+  if (existsSync(dir) || listFeatures(l.open.view.specs).includes(slug)) return fail(`${slug} exists already: ${hubCmd(ctx.assistant, "next", slug)} runs its next step.`);
+  const first = l.project.flow.steps[0]!;
+  const person = l.project.roles.people.find((p) => p.user === l.user)!;
+  if (!person.roles.includes(first.role)) return fail(`A new feature starts with ${first.id}, which is ${ROLE[first.role] ?? `the ${first.role}`} step. Ask them to start ${slug}.`);
+  mkdirSync(join(dir, "hub"), { recursive: true });
+  writeFileSync(join(dir, "hub/feature.yaml"), `title: ${JSON.stringify(title.trim() || slug)}\nowner: ${l.user}\n`);
+  const r = hubNext(ctx, slug);
+  return r.isError ? r : { text: `Started ${slug}: docs/features/${slug}/hub/feature.yaml. It reaches main with the result of ${first.id}.\n${r.text}` };
 }
 
 /** A stage handed out to run starts now, unless it is running already. A failure to record never stops the work. */

@@ -3,7 +3,7 @@
 
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { hubBug, hubDecide, hubValidation, hubNext, hubRecord, hubQa, hubRelease, hubReleaseEdit, hubSignoff, hubStatus, hubTest, hubVerdicts, type ToolContext, type ToolResult } from "./tools.ts";
+import { hubBug, hubNew, hubDecide, hubValidation, hubNext, hubRecord, hubQa, hubRelease, hubReleaseEdit, hubSignoff, hubStatus, hubTest, hubVerdicts, type ToolContext, type ToolResult } from "./tools.ts";
 
 const text = (r: ToolResult) => ({ content: [{ type: "text" as const, text: r.text }], ...(r.isError ? { isError: true } : {}) });
 const slug = z.string().regex(/^[a-z0-9][a-z0-9-]*$/).describe("The feature's folder name under docs/features, for example tasks-issues");
@@ -33,6 +33,18 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async ({ slug: s, step: st }) => text(hubNext(ctx, s, st)),
+  );
+
+  server.registerTool(
+    "hub_new",
+    {
+      title: "Start a feature",
+      description:
+        "Starts a feature, for the person who owns the first step (the PO): its folder and hub/feature.yaml with the title, in this checkout, then the engine command of that step to run unchanged, as hub_next gives it. The files reach main with the stage's result, through hub_record.",
+      inputSchema: z.object({ slug, title: z.string().min(1).describe("The feature's title, as people call it") }),
+      annotations: { destructiveHint: false },
+    },
+    async ({ slug: s, title }) => text(hubNew(ctx, s, title)),
   );
 
   server.registerTool(

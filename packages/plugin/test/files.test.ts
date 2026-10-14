@@ -13,7 +13,12 @@ describe("the Claude Code plugin files", () => {
   });
   it("give the phase 2 commands, and only the person starts the ones that save", () => {
     const skills = Object.keys(files).filter((p) => p.endsWith("SKILL.md")).map((p) => p.split("/")[3]).sort();
-    expect(skills).toEqual(["bug", "decide", "next", "release", "return", "signoff", "stage", "start", "status", "test", "validate", "verify"]);
+    // Every command of the specification's table.
+    expect(skills).toEqual(["bug", "decide", "doctor", "new", "next", "release", "return", "run", "signoff", "stage", "start", "status", "sync", "test", "validate", "verify"]);
+    expect(front("hub/plugin/skills/new/SKILL.md")["allowed-tools"]).toContain(tool("hub_new"));
+    expect(files["hub/plugin/skills/run/SKILL.md"]).toContain("Call `hub_next` with the slug and the step");
+    expect(front("hub/plugin/skills/sync/SKILL.md")["allowed-tools"]).toBe("Bash(node hub/cli.js sync)");
+    expect(front("hub/plugin/skills/doctor/SKILL.md")["allowed-tools"]).toBe("Bash(node hub/cli.js doctor)");
     for (const s of ["signoff", "return", "bug", "verify", "decide", "release"]) {
       expect(front(`hub/plugin/skills/${s}/SKILL.md`)["disable-model-invocation"]).toBe(true);
       // Their save is not pre-allowed, and the person confirms in the chat first: in auto mode no prompt appears.

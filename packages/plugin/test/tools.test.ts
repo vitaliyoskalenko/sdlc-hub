@@ -1,13 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { parseBugFile, parseSignoffs } from "@sdlc-hub/core";
+import { parseBugFile, parseFeature, parseSignoffs } from "@sdlc-hub/core";
 import { fixtures, materialize } from "@sdlc-hub/fixtures";
 import { openProject } from "@sdlc-hub/git";
 import { createSaver } from "@sdlc-hub/save";
-import { hubBug, hubDecide, hubNext, hubRecord, hubQa, hubRelease, hubReleaseEdit, hubSignoff, hubStatus, hubVerdicts, sessionContext, type ToolContext } from "../src/index.ts";
+import { hubBug, hubDecide, hubNew, hubNext, hubRecord, hubQa, hubRelease, hubReleaseEdit, hubSignoff, hubStatus, hubVerdicts, sessionContext, type ToolContext } from "../src/index.ts";
 
 const temp: string[] = [];
 afterAll(() => temp.forEach((d) => rmSync(d, { recursive: true, force: true })));
@@ -90,6 +90,33 @@ describe("stage events", () => {
     expect((await hubRecord(rec, "returns-portal", "clarify")).text).toBe("Recorded: clarify of returns-portal finished. No file of yours changed here, so there is nothing to save.");
     expect(events.at(-1)).toMatchObject({ step: "clarify", event: "finished" });
     expect((await hubRecord(rec, "returns-portal", "nope")).isError).toBe(true);
+  });
+});
+
+describe("hub_new", () => {
+  it("starts a feature for the PO: its folder and feature.yaml, then the engine's specify, recorded as started", () => {
+    const { ctx } = demo("olena.k");
+    const events: unknown[] = [];
+    const rec = { ...ctx, record: (slug: string, e: unknown) => void events.push({ slug, ...(e as object) }) };
+    const r = hubNew(rec, "order-notes", "Internal notes on an order");
+    expect(r.isError).toBeUndefined();
+    expect(r.text).toContain("/sdd:specify order-notes");
+    expect(r.text).toContain("Run it here, in product-specs.");
+    const yaml = readFileSync(join(ctx.open().root, "docs/features/order-notes/hub/feature.yaml"), "utf8");
+    expect(parseFeature(yaml, "f").value).toEqual({ title: "Internal notes on an order", owner: "olena.k" });
+    expect(events).toEqual([expect.objectContaining({ slug: "order-notes", step: "specify", event: "started" })]);
+  });
+  it("is the PO's: anyone else is told whose it is, and nothing is written", () => {
+    const { ctx } = demo("maksym.d");
+    const r = hubNew(ctx, "order-notes", "Notes");
+    expect(r.isError).toBe(true);
+    expect(r.text).toMatch(/A new feature starts with specify, which is the PO's step/);
+    expect(existsSync(join(ctx.open().root, "docs/features/order-notes"))).toBe(false);
+  });
+  it("needs a free slug in kebab-case", () => {
+    const { ctx } = demo("olena.k");
+    expect(hubNew(ctx, "returns-portal", "x").text).toMatch(/returns-portal exists already: \/hub:next returns-portal/);
+    expect(hubNew(ctx, "Order Notes", "x").text).toMatch(/kebab-case/);
   });
 });
 
