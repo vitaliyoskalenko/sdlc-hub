@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { base } from "@sdlc-hub/fixtures";
-import { estimateChange, featureDetailsChange, guard, validationChange, loadProject, memorySource, parseRelease, releaseChange, releaseView } from "../src/index.ts";
+import { estimateChange, featureDetailsChange, guard, parseFeature, validationChange, loadProject, memorySource, parseRelease, releaseChange, releaseView } from "../src/index.ts";
 
 const slug = "tasks-issues";
 const path = `docs/features/${slug}/hub/release.yaml`;
@@ -62,6 +62,18 @@ describe("the release of a feature", () => {
     expect(featureDetailsChange(memorySource(main), slug, { links: { jira: "SHOP-412" } }, jira).next).toContain("jira: https://jira.example.com/browse/SHOP-412");
     expect(() => featureDetailsChange(memorySource(main), slug, { links: { jira: "https://other.atlassian.net/browse/X-1" } }, jira)).toThrow(/not on this project's Jira \(jira\.example\.com\)/);
     expect(() => featureDetailsChange(memorySource(main), slug, { links: { jira: "SHOP-412" } })).toThrow(/Jira is not set up/);
+  });
+  it("names the teams and their leads, and whether the feature has a user interface, at the epic step", () => {
+    const main = { ...base(), [`docs/features/${slug}/hub/feature.yaml`]: "title: Tasks\nowner: olena.k\n" };
+    const known = { teams: ["backend", "web"], people: [{ user: "taras.m", roles: ["dev"], team: "backend" }, { user: "petro.v", roles: ["dev"], team: "web" }, { user: "olena.k", roles: ["po"], team: null }] };
+    const next = featureDetailsChange(memorySource(main), slug, { teams: { backend: { lead: "taras.m" }, web: { lead: "petro.v" } }, ui: true }, undefined, known).next!;
+    expect(parseFeature(next, "f").value).toEqual({ title: "Tasks", owner: "olena.k", teams: { backend: { lead: "taras.m" }, web: { lead: "petro.v" } }, ui: true });
+    expect(() => featureDetailsChange(memorySource(main), slug, { teams: { ios: { lead: "taras.m" } } }, undefined, known)).toThrow(/There is no team ios in config\.yaml/);
+    expect(() => featureDetailsChange(memorySource(main), slug, { teams: { web: { lead: "taras.m" } } }, undefined, known)).toThrow(/taras\.m is not in the team web/);
+    expect(() => featureDetailsChange(memorySource(main), slug, { teams: { web: { lead: "olena.k" } } }, undefined, known)).toThrow(/olena\.k is not in the team web/);
+    // No teams at all: the key goes.
+    const withTeams = { ...main, [`docs/features/${slug}/hub/feature.yaml`]: next };
+    expect(parseFeature(featureDetailsChange(memorySource(withTeams), slug, { teams: {}, ui: false }, undefined, known).next!, "f").value).toEqual({ title: "Tasks", owner: "olena.k", ui: false });
   });
   it("leaves the go to the PM and the rest to Ops", () => {
     const go = releaseChange(memorySource(base()), project.flow, slug, { kind: "go", value: "no-go" }, "maksym.d", at);

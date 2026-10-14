@@ -119,7 +119,7 @@ export function Feature({ slug, tab, params }: { slug: string; tab: string; para
             )}
           </div>
         </div>
-        {editing && <DetailsForm slug={slug} title={f.title} links={links} jira={project.tracker.type === "jira" ? project.tracker : undefined} close={() => setEditing(false)} />}
+        {editing && <DetailsForm slug={slug} title={f.title} links={links} teams={feature?.teams ?? {}} ui={feature?.ui !== false} jira={project.tracker.type === "jira" ? project.tracker : undefined} close={() => setEditing(false)} />}
         <PendingList saves={detailsPending} />
         <NowStrip f={f} detail={d} tab={tab} />
         {notes.length > 0 && (
@@ -522,13 +522,24 @@ const LINKS = [
 ] as const;
 
 /** The PM's light edits: the title and the links, saved to feature.yaml through a merge request. */
-function DetailsForm({ slug, title, links, jira, close }: { slug: string; title: string; links: Partial<Record<(typeof LINKS)[number][0], string>>; jira: { url?: string; project_key?: string } | undefined; close: () => void }) {
+function DetailsForm({ slug, title, links, teams, ui, jira, close }: { slug: string; title: string; links: Partial<Record<(typeof LINKS)[number][0], string>>; teams: Record<string, { lead: string }>; ui: boolean; jira: { url?: string; project_key?: string } | undefined; close: () => void }) {
   const { run, busy, problem } = useAction();
+  const { project } = useApp();
+  // The engineers of each team; its lead first.
+  const crew = (team: string) => project.people.filter((p) => p.roles.includes("dev") && p.team === team).sort((a, b) => Number(b.lead) - Number(a.lead));
+  const [tm, setTm] = useState<Record<string, string>>(Object.fromEntries(Object.entries(teams).map(([id, t]) => [id, t.lead])));
+  const [hasUi, setHasUi] = useState(ui);
+  const teamsChanged = JSON.stringify(Object.entries(tm).sort()) !== JSON.stringify(Object.entries(teams).map(([id, t]) => [id, t.lead]).sort());
   const [t, setT] = useState(title);
   const [l, setL] = useState<Record<string, string>>(Object.fromEntries(LINKS.map(([k]) => [k, links[k] ?? ""])));
   const key = jira?.url ? `${jira.project_key ?? "SHOP"}-123` : undefined;
   const changedLinks = Object.fromEntries(LINKS.filter(([k]) => l[k]!.trim() !== (links[k] ?? "")).map(([k]) => [k, l[k]!.trim()]));
-  const edit = { ...(t.trim() !== title ? { title: t.trim() } : {}), ...(Object.keys(changedLinks).length ? { links: changedLinks } : {}) };
+  const edit = {
+    ...(t.trim() !== title ? { title: t.trim() } : {}),
+    ...(Object.keys(changedLinks).length ? { links: changedLinks } : {}),
+    ...(teamsChanged ? { teams: Object.fromEntries(Object.entries(tm).map(([id, lead]) => [id, { lead }])) } : {}),
+    ...(hasUi !== ui ? { ui: hasUi } : {}),
+  };
   const changed = Object.keys(edit).length > 0;
   return (
     <div class="card" id="details-form">
@@ -544,8 +555,42 @@ function DetailsForm({ slug, title, links, jira, close }: { slug: string; title:
           </label>
         ))}
       </div>
+      <fieldset class="fld" id="df-teams">
+        <span>Teams and leads</span>
+        {project.teams.map((team) => {
+          const people = crew(team.id);
+          const on = team.id in tm;
+          return (
+            <div class="row" key={team.id}>
+              <label class="check-inline">
+                <input type="checkbox" data-team={team.id} checked={on} disabled={!people.length} onChange={(e) => {
+                  const next = { ...tm };
+                  if ((e.target as HTMLInputElement).checked) next[team.id] = people[0]!.user;
+                  else delete next[team.id];
+                  setTm(next);
+                }} />{" "}
+                {team.name}
+              </label>
+              {on && (
+                <select aria-label={`Lead of ${team.name}`} data-lead={team.id} value={tm[team.id]} onChange={(e) => setTm({ ...tm, [team.id]: e.currentTarget.value })}>
+                  {people.map((p) => (
+                    <option key={p.user} value={p.user}>
+                      {p.name}
+                      {p.lead ? " · team lead" : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {!people.length && <span class="reason">No engineer in {team.name} yet: add one on the Team page.</span>}
+            </div>
+          );
+        })}
+        <label class="check-inline">
+          <input type="checkbox" id="df-ui" checked={hasUi} onChange={(e) => setHasUi((e.target as HTMLInputElement).checked)} /> It has a user interface (without one, ux-flows and screens are skipped)
+        </label>
+      </fieldset>
       <p class="note">
-        Each link opens this feature's own page: its Jira issue, its Confluence page, its Figma file, its staging address.
+        The PM names the teams and their leads, and whether there is a user interface, at the epic step. Each link opens this feature's own page: its Jira issue, its Confluence page, its Figma file, its staging address.
         {key && (
           <>
             {" "}
@@ -560,7 +605,7 @@ function DetailsForm({ slug, title, links, jira, close }: { slug: string; title:
         <button type="button" class="btn" onClick={close}>
           Cancel
         </button>
-        {!changed && <span class="reason">Change the title or a link first.</span>}
+        {!changed && <span class="reason">Change something first.</span>}
       </div>
       {problem}
     </div>

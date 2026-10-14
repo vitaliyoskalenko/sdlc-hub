@@ -116,6 +116,16 @@ export interface FeatureDetailsEdit {
   title?: string;
   /** An empty link is removed. */
   links?: Partial<Record<(typeof LINK_KINDS)[number], string>>;
+  /** Set at the epic step: the teams of the feature and the lead of each. Empty removes them. */
+  teams?: Record<string, { lead: string }>;
+  /** Set at the epic step: false for a feature with no user interface. */
+  ui?: boolean;
+}
+
+/** The teams in config.yaml and the people in roles.yaml, to check the teams and leads an edit names. */
+export interface KnownTeams {
+  teams: string[];
+  people: { user: string; roles: string[]; team?: string | null | undefined }[];
 }
 
 /** The PM's light edits of a feature: its title and links in feature.yaml. The rest of the file stays as it is. */
@@ -134,7 +144,7 @@ export function jiraLink(value: string, jira?: { url?: string }): string {
   return v;
 }
 
-export function featureDetailsChange(specs: FileSource, slug: string, edit: FeatureDetailsEdit, jira?: { url?: string }): Change {
+export function featureDetailsChange(specs: FileSource, slug: string, edit: FeatureDetailsEdit, jira?: { url?: string }, known?: KnownTeams): Change {
   const path = `docs/features/${slug}/hub/feature.yaml`;
   const base = specs.read(path);
   if (base === undefined) throw new Error(`${slug} has no feature.yaml`);
@@ -159,6 +169,18 @@ export function featureDetailsChange(specs: FileSource, slug: string, edit: Feat
   }
   const links = doc.get("links");
   if (isMap(links) && !links.items.length) doc.delete("links");
+  if (edit.teams !== undefined) {
+    for (const [id, t] of Object.entries(edit.teams)) {
+      if (known && !known.teams.includes(id)) throw new Error(`There is no team ${id} in config.yaml`);
+      const lead = known?.people.find((p) => p.user === t.lead);
+      if (known && !(lead && lead.roles.includes("dev") && lead.team === id)) throw new Error(`${t.lead} is not in the team ${id}: the lead is one of its engineers`);
+    }
+    if (Object.keys(edit.teams).length) doc.set("teams", doc.createNode(Object.fromEntries(Object.entries(edit.teams).map(([id, t]) => [id, { lead: t.lead }]))));
+    else doc.delete("teams");
+    const teams = doc.get("teams");
+    if (isMap(teams)) for (const item of teams.items) if (isMap(item.value)) item.value.flow = true;
+  }
+  if (edit.ui !== undefined) doc.set("ui", edit.ui);
   const next = doc.toString({ lineWidth: 0 });
   if (next === base) throw new Error("Nothing to change");
   const check = parseFeature(next, path);

@@ -1,7 +1,7 @@
 // A sign-off or a return of a gate, saved: checked with the same guard that runs at merge, on main as it is on the
 // remote, and only then pushed. The site's action and the plugin's hub_signoff and hub_return both use this.
 
-import { awaitsSignoff, blocks, bugChange, featureDetailsChange, LINK_KINDS, settingsChange, settingsEdit, bugEditChange, estimateChange, guard, guardSettings, validationChange, loadProject, peopleChange, platformsOf, releaseChange, signoffChange, verdictChange, verificationMatrix, type BugEdit, type BugInput, type PeopleEdit, type ReleaseEdit, type VerdictInput, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
+import { awaitsSignoff, blocks, bugChange, featureDetailsChange, LINK_KINDS, settingsChange, settingsEdit, bugEditChange, estimateChange, guard, guardSettings, validationChange, loadProject, peopleChange, platformsOf, releaseChange, signoffChange, verdictChange, verificationMatrix, type BugEdit, type BugInput, type FeatureDetailsEdit, type PeopleEdit, type ReleaseEdit, type VerdictInput, type Change, type FeatureState, type FileSource, type Finding, type Project, type SignoffAction } from "@sdlc-hub/core";
 import { Pending, Unchanged, type Save, type Saver } from "./index.ts";
 
 export type SaveOutcome =
@@ -299,15 +299,19 @@ export async function saveFeatureDetails(i: FeatureSaveInput & { edit: unknown }
   if (isOutcome(f)) return f;
   const e = (i.edit ?? {}) as Record<string, unknown>;
   const links = (e["links"] ?? {}) as Record<string, unknown>;
+  const teams = e["teams"];
   const ok =
     (e["title"] === undefined || typeof e["title"] === "string") &&
     !!links && typeof links === "object" &&
     Object.entries(links).every(([k, v]) => (LINK_KINDS as readonly string[]).includes(k) && typeof v === "string") &&
-    Object.keys(e).every((k) => k === "title" || k === "links");
-  if (!ok) return { ok: false, code: "bad-input", error: "Change the title or the links" };
-  const edit = e as { title?: string; links?: Record<string, string> };
+    (teams === undefined || (!!teams && typeof teams === "object" && Object.values(teams).every((t) => !!t && typeof (t as { lead?: unknown }).lead === "string"))) &&
+    (e["ui"] === undefined || typeof e["ui"] === "boolean") &&
+    Object.keys(e).every((k) => ["title", "links", "teams", "ui"].includes(k));
+  if (!ok) return { ok: false, code: "bad-input", error: "Change the title, the links, the teams or whether it has a user interface" };
+  const edit = e as FeatureDetailsEdit;
+  const known = { teams: i.project.config.teams.map((t) => t.id), people: i.project.roles.people };
   try {
-    featureDetailsChange(i.local, f.slug, edit, i.project.config.tracker);
+    featureDetailsChange(i.local, f.slug, edit, i.project.config.tracker, known);
   } catch (err) {
     const msg = (err as Error).message;
     return { ok: false, code: msg === "Nothing to change" ? "unchanged" : "bad-input", error: msg };
@@ -316,7 +320,7 @@ export async function saveFeatureDetails(i: FeatureSaveInput & { edit: unknown }
     label: `details-${f.slug}`,
     title: `Details of ${f.slug}`,
     meta: { kind: "details", slug: f.slug },
-    build: (main) => featureDetailsChange(main, f.slug, edit, i.project.config.tracker),
+    build: (main) => featureDetailsChange(main, f.slug, edit, i.project.config.tracker, known),
     fallback: i.project,
   });
 }

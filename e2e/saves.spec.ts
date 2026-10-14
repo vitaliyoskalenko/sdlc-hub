@@ -139,6 +139,27 @@ test.describe.serial("saves from the site", () => {
     await expect(page.locator('a.btn[href="https://jira.example.com/browse/SHOP-499"]')).toHaveText("SHOP-499 ↗");
   });
 
+  test("the PM names the teams and leads and the user interface at epic; it merges and the form shows them", async ({ page }) => {
+    await page.goto(`${DEMO}/features/order-webhooks?as=maksym.d`);
+    await page.waitForSelector("#steph");
+    await page.click("#edit-details");
+    await expect(page.locator('#df-teams [data-team="backend"]')).toBeChecked();
+    await expect(page.locator("#df-ui")).not.toBeChecked();
+    await page.check('#df-teams [data-team="web"]');
+    await expect(page.locator('#df-teams [data-lead="web"]')).toHaveValue("petro.v");
+    await page.check("#df-ui");
+    await page.click("#df-save");
+    await expect(page.locator("#details-form")).toHaveCount(0, { timeout: 5_000 });
+    // Merged: feature.yaml on main has the teams and the user interface.
+    const merged = () => page.evaluate(() => fetch("/api/features/order-webhooks").then((r) => r.json()).then((d: { feature: { teams: object; ui: boolean } }) => d.feature));
+    await expect.poll(merged, { timeout: 20_000 }).toEqual(expect.objectContaining({ teams: { backend: { lead: "taras.m" }, web: { lead: "petro.v" } }, ui: true }));
+    await page.reload();
+    await page.waitForSelector("#steph");
+    await page.click("#edit-details");
+    await expect(page.locator('#df-teams [data-team="web"]')).toBeChecked();
+    await expect(page.locator("#df-ui")).toBeChecked();
+  });
+
   test("someone other than the PM or the admin sees no Edit details", async ({ page }) => {
     await page.goto(`${DEMO}/features/returns-portal?as=daria.l`);
     await page.waitForSelector("#steph");
