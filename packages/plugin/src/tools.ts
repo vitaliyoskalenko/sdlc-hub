@@ -2,9 +2,12 @@
 // They read the product-specs checkout directly and save through the same code as the site: a branch whose merge
 // request merges itself when hub-guard passes.
 
-import { detectFeature, listFeatures, nextFor, parseSignoffs, platformsOf, releaseView, verificationMatrix, type FeatureState, type Project, type StepPlan } from "@sdlc-hub/core";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { checkChange, detectFeature, listFeatures, nextFor, parseSignoffs, platformsOf, releaseView, verificationMatrix, type FeatureState, type Project, type StepPlan } from "@sdlc-hub/core";
 import type { OpenProject } from "@sdlc-hub/git";
-import { localTests, saveBug, saveRelease, saveSignoff, saveValidation, saveVerdicts, type Save, type SaveOutcome, type Saver } from "@sdlc-hub/save";
+import { localTests, saveBug, saveRelease, saveSignoff, saveStage, saveValidation, saveVerdicts, type Save, type SaveOutcome, type Saver } from "@sdlc-hub/save";
 
 export type Assistant = "claude" | "codex" | "cursor";
 
@@ -176,20 +179,54 @@ function started(ctx: ToolContext, l: Loaded, slug: string, plan: StepPlan) {
 }
 
 /** The stage the person ran has finished: recorded for the Running status and lead time. */
-export function hubRecord(ctx: ToolContext, slug: string, step: string): ToolResult {
+/** The files changed in the checkout since its last commit: what an engine stage left there. */
+function changedFiles(root: string): { path: string; next?: string; base?: string }[] {
+  const out = execFileSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all"], { cwd: root, encoding: "utf8" });
+  const parts = out.split("\0").filter(Boolean);
+  const files: { path: string; next?: string; base?: string }[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const code = parts[i]!.slice(0, 2);
+    const path = parts[i]!.slice(3);
+    // A rename lists the old path next; both count.
+    const paths = /R|C/.test(code) ? [path, parts[++i]!] : [path];
+    for (const p of paths) {
+      const base = spawnSync("git", ["show", `HEAD:${p}`], { cwd: root, encoding: "utf8" });
+      const next = existsSync(join(root, p)) ? readFileSync(join(root, p), "utf8") : undefined;
+      files.push({ path: p, ...(base.status === 0 ? { base: base.stdout } : {}), ...(next !== undefined ? { next } : {}) });
+    }
+  }
+  return files;
+}
+
+/**
+ * The stage has run to its end: records the event, then saves what the stage left in this checkout as one merge
+ * request in the person's name, the files their role may change. A stage run in a team repository leaves nothing
+ * here; the team's own merge request carries it.
+ */
+export async function hubRecord(ctx: ToolContext, slug: string, step: string): Promise<ToolResult> {
   const l = load(ctx);
   if (isResult(l)) return l;
   const s = featureOrList(l, slug);
   if ("text" in s) return s;
   const flowStep = l.project.flow.steps.find((x) => x.id === step);
   if (!flowStep) return fail(`There is no step ${step}.`);
-  if (!ctx.record) return fail("This assistant cannot record events here.");
+  let done = `Recorded: ${step} of ${slug} finished.`;
   try {
-    ctx.record(slug, { step, event: "finished", role: flowStep.role, assistant: ctx.assistant, at: iso(ctx.now()) });
+    ctx.record?.(slug, { step, event: "finished", role: flowStep.role, assistant: ctx.assistant, at: iso(ctx.now()) });
   } catch (e) {
-    return fail(`Could not record it: ${(e as Error).message}`);
+    done = `Could not record that ${step} of ${slug} finished: ${(e as Error).message}.`;
   }
-  return { text: `Recorded: ${step} of ${slug} finished.` };
+  const access = { config: l.project.config, roles: l.project.roles };
+  const files = changedFiles(l.open.root);
+  const mine = files.filter((f) => checkChange(l.user, f, access).ok);
+  const others = files.filter((f) => !mine.includes(f)).map((f) => f.path);
+  const notMine = others.length ? `\nNot saved, because your role may not change them: ${others.join(", ")}.` : "";
+  if (!mine.length) return { text: `${done} No file of yours changed here, so there is nothing to save.${notMine}` };
+  const r = await saveStage({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, step, at: iso(ctx.now()), files: mine.map(({ path, next }) => ({ path, ...(next !== undefined ? { next } : {}) })) });
+  if (!r.ok && r.code === "unchanged") return { text: `${done} main has these files already, so there is nothing to save.${notMine}` };
+  if (!r.ok) return fail(`${done} The files were not saved: ${outcomeText(r, "").text}${notMine}`);
+  const where = r.save.mr ? `merge request !${r.save.mr.iid} (${r.save.mr.url})` : `branch ${r.save.branch}`;
+  return { text: `${done} Saved ${mine.length} file${mine.length === 1 ? "" : "s"} as ${where}. It merges by itself when hub-guard passes.${notMine}` };
 }
 
 export async function hubSignoff(ctx: ToolContext, step: string, slug: string, decision: "pass" | "return", reason?: string): Promise<ToolResult> {

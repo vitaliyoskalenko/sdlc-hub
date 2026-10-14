@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -20,6 +20,44 @@ const record = (slug: string, step: string, role: string, output: number): Usage
 });
 
 describe("hub sync", () => {
+  it("moves main on over the files of a stage that merged, and keeps a change of the person's own", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "hub-sync-"));
+    temp.push(dir);
+    const { root } = materialize(fixtures["demo"]!, join(dir, "seed"));
+    const remote = join(dir, "remote.git");
+    git(dir, "clone", "-q", "--bare", root, remote);
+    const clone = join(dir, "olena");
+    git(dir, "clone", "-q", remote, clone);
+    git(clone, "config", "hub.user", "olena.k");
+    // What the stage left in her checkout: a changed spec and a new file. Its merge request merged on the host.
+    const spec = "docs/features/returns-portal/spec.md";
+    const specText = `${readFileSync(join(clone, spec), "utf8")}\n## Clarified\n`;
+    writeFileSync(join(clone, spec), specText);
+    writeFileSync(join(clone, "CONTEXT.md"), "# Context\n");
+    const host = join(dir, "host");
+    git(dir, "clone", "-q", remote, host);
+    writeFileSync(join(host, spec), specText);
+    writeFileSync(join(host, "CONTEXT.md"), "# Context\n");
+    git(host, "add", "-A");
+    git(host, "-c", "user.name=o", "-c", "user.email=o@x", "commit", "-q", "-m", "clarify of returns-portal");
+    git(host, "push", "-q", "origin", "HEAD:main");
+    process.env["HUB_KEYS_DIR"] = join(dir, "keys");
+    const r = await sync({ root: clone });
+    expect(print(r.lines)).toContain("main is up to date");
+    expect(git(clone, "status", "--porcelain")).toBe("");
+    expect(git(clone, "rev-parse", "HEAD")).toBe(git(remote, "rev-parse", "main"));
+
+    // A change that main does not have stays, and main waits.
+    writeFileSync(join(clone, spec), `${specText}\nMy own note.\n`);
+    writeFileSync(join(host, "docs/features/returns-portal/notes.md"), "# Notes\n");
+    git(host, "add", "-A");
+    git(host, "-c", "user.name=o", "-c", "user.email=o@x", "commit", "-q", "-m", "route");
+    git(host, "push", "-q", "origin", "HEAD:main");
+    const kept = await sync({ root: clone });
+    expect(print(kept.lines)).toContain("main has changes of your own");
+    expect(readFileSync(join(clone, spec), "utf8")).toContain("My own note.");
+  });
+
   it("publishes each person's usage encrypted, and the PM's machine the open totals", async () => {
     const dir = mkdtempSync(join(tmpdir(), "hub-sync-"));
     temp.push(dir);

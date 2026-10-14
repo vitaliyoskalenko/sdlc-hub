@@ -336,7 +336,35 @@ export async function saveValidation(i: FeatureSaveInput & { report: unknown }):
 }
 
 /** Builds one change from main of the remote, checks it with the guard as the author, and pushes it. */
-async function checkedSave(saver: Saver, user: string, o: { label: string; title: string; meta: Record<string, string>; build: (main: FileSource, p: Project) => Change; fallback: Project }): Promise<SaveOutcome> {
+/** A file an engine stage left in the checkout: its content now, or absent when the stage deleted it. */
+export interface StageFile {
+  path: string;
+  next?: string;
+}
+
+/** The result of an engine stage in product-specs, saved as one merge request in the person's name. */
+export async function saveStage(i: FeatureSaveInput & { step: string; files: StageFile[] }): Promise<SaveOutcome> {
+  const f = feature(i);
+  if (isOutcome(f)) return f;
+  if (!i.files.length) return { ok: false, code: "unchanged", error: "Nothing to save" };
+  return checkedSave(i.saver, i.user, {
+    label: `stage-${i.step}-${f.slug}`,
+    title: `${i.step} of ${f.slug}`,
+    meta: { kind: "stage", slug: f.slug, step: i.step },
+    build: (main) => {
+      const changes = i.files.map((x): Change => {
+        const base = main.read(x.path);
+        return { path: x.path, ...(base !== undefined ? { base } : {}), ...(x.next !== undefined ? { next: x.next } : {}) };
+      });
+      const changed = changes.filter((c) => c.base !== c.next);
+      if (!changed.length) throw new Unchanged("main has these files already");
+      return changed;
+    },
+    fallback: i.project,
+  });
+}
+
+async function checkedSave(saver: Saver, user: string, o: { label: string; title: string; meta: Record<string, string>; build: (main: FileSource, p: Project) => Change | Change[]; fallback: Project }): Promise<SaveOutcome> {
   try {
     let warned: Finding[] | undefined;
     const save = await saver.save({
@@ -348,12 +376,13 @@ async function checkedSave(saver: Saver, user: string, o: { label: string; title
       build(main) {
         // Judge the change as hub-guard will: by the files on main of the remote, not this checkout.
         const p = loadProject(main).value ?? o.fallback;
-        const change = o.build(main, p);
-        const r = guard({ author: user, pushers: [user], changes: [change] }, { config: p.config, roles: p.roles, flow: p.flow, feature: (x) => main.read(`docs/features/${x}/hub/feature.yaml`), main });
+        const built = o.build(main, p);
+        const changes = Array.isArray(built) ? built : [built];
+        const r = guard({ author: user, pushers: [user], changes }, { config: p.config, roles: p.roles, flow: p.flow, feature: (x) => main.read(`docs/features/${x}/hub/feature.yaml`), main });
         // In advisory mode the guard only warns: the save goes ahead and carries the warnings.
         if (blocks(r, guardSettings(p.config).mode)) throw new Refused(r.findings);
         if (!r.ok) warned = r.findings;
-        return [change];
+        return changes;
       },
     });
     return { ok: true, save };

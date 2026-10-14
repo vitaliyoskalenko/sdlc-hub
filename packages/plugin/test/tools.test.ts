@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -78,7 +78,7 @@ describe("hub_next", () => {
 });
 
 describe("stage events", () => {
-  it("records that a stage started when hub_next hands it out, and finished from hub_record", () => {
+  it("records that a stage started when hub_next hands it out, and finished from hub_record", async () => {
     const { ctx } = demo("olena.k");
     const events: unknown[] = [];
     const rec = { ...ctx, record: (slug: string, e: unknown) => void events.push({ slug, ...(e as object) }) };
@@ -87,9 +87,38 @@ describe("stage events", () => {
     // Not for a step that is not the person's.
     hubNext({ ...rec, user: () => "maksym.d" }, "returns-portal");
     expect(events).toHaveLength(1);
-    expect(hubRecord(rec, "returns-portal", "clarify").text).toBe("Recorded: clarify of returns-portal finished.");
+    expect((await hubRecord(rec, "returns-portal", "clarify")).text).toBe("Recorded: clarify of returns-portal finished. No file of yours changed here, so there is nothing to save.");
     expect(events.at(-1)).toMatchObject({ step: "clarify", event: "finished" });
-    expect(hubRecord(rec, "returns-portal", "nope").isError).toBe(true);
+    expect((await hubRecord(rec, "returns-portal", "nope")).isError).toBe(true);
+  });
+});
+
+describe("the result of a stage", () => {
+  it("is saved from the checkout as one merge request in the person's name, with only the files their role may change", async () => {
+    const { ctx, remote } = demo("olena.k");
+    const root = ctx.open().root;
+    const dir = "docs/features/returns-portal";
+    // What the engine's stage left in the checkout: a changed spec, a new file, and a file the PO may not change.
+    writeFileSync(join(root, dir, "spec.md"), `${readFileSync(join(root, dir, "spec.md"), "utf8")}\n## Clarified\n\nAC-03 has a time limit.\n`);
+    writeFileSync(join(root, "CONTEXT.md"), "# Context\n\nReturns: a customer sends goods back.\n");
+    mkdirSync(join(root, ".hub/prompts"), { recursive: true });
+    writeFileSync(join(root, ".hub/prompts/clarify.md"), "A prompt\n");
+    const r = await hubRecord(ctx, "returns-portal", "clarify");
+    expect(r.isError).toBeUndefined();
+    expect(r.text).toMatch(/^Recorded: clarify of returns-portal finished\. Saved 2 files as branch hub\/olena\.k\/stage-clarify-returns-portal-/);
+    expect(r.text).toContain("Not saved, because your role may not change them: .hub/prompts/clarify.md");
+    const branch = git(remote, "branch", "--list", "hub/*").replace("*", "").trim();
+    expect(git(remote, "diff", "--name-only", `main...${branch}`).split("\n").sort()).toEqual(["CONTEXT.md", `${dir}/spec.md`]);
+    expect(git(remote, "show", `${branch}:${dir}/spec.md`)).toContain("AC-03 has a time limit.");
+    expect(git(remote, "log", "-1", "--format=%an", branch)).toBe("olena.k");
+  });
+  it("is not saved twice: once main has it, the checkout has nothing new", async () => {
+    const { ctx } = demo("olena.k");
+    const root = ctx.open().root;
+    writeFileSync(join(root, "CONTEXT.md"), "# Context\n");
+    git(root, "add", "CONTEXT.md");
+    git(root, "-c", "user.name=x", "-c", "user.email=x@x", "commit", "-q", "-m", "merged");
+    expect((await hubRecord(ctx, "returns-portal", "clarify")).text).toMatch(/nothing to save/);
   });
 });
 

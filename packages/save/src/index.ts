@@ -352,6 +352,7 @@ export function createSaver(o: SaverOptions) {
 }
 
 export type Saver = ReturnType<typeof createSaver>;
+export { saveStage, type StageFile } from "./signoff.ts";
 export { saveBug, saveBugEdit, saveEstimate, saveFeatureDetails, savePeople, saveRelease, saveSettings, saveSignoff, saveValidation, saveVerdicts, type BugSaveInput, type FeatureSaveInput, type PeopleSaveInput, type SaveOutcome, type SignoffInput } from "./signoff.ts";
 export { tokenEnv, writeHubState, type HubStateWrite } from "./hub-state.ts";
 export { flushEvents, queueEvent, queuedEvents, type QueuedEvent } from "./events.ts";

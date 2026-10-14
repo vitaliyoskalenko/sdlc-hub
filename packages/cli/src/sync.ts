@@ -1,8 +1,9 @@
 // hub sync: pull both branches, publish this machine's usage, encrypted, and on the admin's or the PM's machine the
 // open totals for everyone. It also refreshes Claude Code's copy of the hub plugin when hub/plugin changed.
 
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { identityToRecipient } from "age-encryption";
 import { gitIdentity, openProject, personOf, refSource } from "@sdlc-hub/git";
@@ -35,6 +36,29 @@ const records = (text: string): UsageRecord[] =>
       }
     });
 
+/**
+ * A stage's files, saved through a merge request, stay in the checkout until main has them. Each file whose content
+ * main now has goes back to the last commit, so main can move on; any other change of the person's own stays.
+ */
+function dropMerged(root: string, run: Run) {
+  // Read as it is: the shared runner trims the output, and the status lines start with a space.
+  const parts = spawnSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all"], { cwd: root, encoding: "utf8" }).stdout.split("\0").filter(Boolean);
+  for (let i = 0; i < parts.length; i++) {
+    const code = parts[i]!.slice(0, 2);
+    const path = parts[i]!.slice(3);
+    if (/R|C/.test(code)) {
+      i++;
+      continue;
+    }
+    const local = existsSync(join(root, path)) ? readFileSync(join(root, path), "utf8") : undefined;
+    const merged = spawnSync("git", ["show", `refs/remotes/origin/main:${path}`], { cwd: root, encoding: "utf8" });
+    const onMain = merged.status === 0 ? merged.stdout : undefined;
+    if (local !== onMain) continue;
+    if (code === "??") rmSync(join(root, path));
+    else run("git", ["checkout", "-q", "HEAD", "--", path], root);
+  }
+}
+
 export async function sync(o: SyncOptions): Promise<{ ok: boolean; lines: Line[] }> {
   const run = o.run ?? runCommand;
   const lines: Line[] = [];
@@ -47,6 +71,7 @@ export async function sync(o: SyncOptions): Promise<{ ok: boolean; lines: Line[]
     return { ok: false, lines };
   }
   const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"], o.root).out.trim();
+  if (branch === "main") dropMerged(o.root, run);
   const dirty = run("git", ["status", "--porcelain", "--untracked-files=no"], o.root).out.trim();
   if (branch !== "main") say(false, `You are on ${branch}, not main: main was fetched but not checked out`, false);
   else if (dirty) say(false, "main has changes of your own, so it was fetched but not moved; commit or stash them, then sync again", false);

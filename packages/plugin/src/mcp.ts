@@ -39,11 +39,11 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
     "hub_record",
     {
       title: "Record that a stage finished",
-      description: "Records that the stage hub_next handed out has finished, for the site's Running status and lead time. Call it once the engine command has run to its end. It changes no file.",
+      description: "Records that the stage hub_next handed out has finished, for the site's Running status and lead time, and saves what the stage left in this checkout (the files the person's role may change) as one merge request in their name that merges itself when hub-guard passes. Call it once the engine command has run to its end, in product-specs.",
       inputSchema: z.object({ slug, step }),
       annotations: { destructiveHint: false },
     },
-    async ({ slug: s, step: st }) => text(hubRecord(ctx, s, st)),
+    async ({ slug: s, step: st }) => text(await hubRecord(ctx, s, st)),
   );
 
   server.registerTool(
