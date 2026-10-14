@@ -36,6 +36,8 @@ describe("what a person does next on a feature", () => {
     expect(nextFor(p, withDesignDone, "taras.m", "data-model")).toMatchObject({ kind: "run", step: "data-model", where: "contract" });
     // data-model is optional on the standard route: asking for api skips it, and says so.
     expect(nextFor(p, withDesignDone, "taras.m", "api")).toMatchObject({ kind: "run", step: "api", skips: ["data-model"] });
+    const handedOut = { ...withDesignDone, steps: withDesignDone.steps.map((s) => (s.id === "data-model" ? { ...s, status: "running" as const } : s)) };
+    expect(nextFor(p, handedOut, "taras.m", "api")).toMatchObject({ kind: "run", step: "api", skips: ["data-model"] });
     expect(nextFor(p, withDesignDone, "taras.m", "tasks")).toMatchObject({ kind: "run", step: "tasks", skips: ["data-model", "api"] });
     // A step the route requires is not skipped that way, nor another role's.
     expect(nextFor(p, withDesignDone, "taras.m", "implement")).toMatchObject({ kind: "waiting", on: [{ step: "tasks" }, { step: "sprint" }, { step: "plan-tests" }] });

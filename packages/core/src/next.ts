@@ -34,11 +34,11 @@ export function nextFor(project: Project, state: FeatureState, user: string, ste
   const owns = !!person && person.roles.includes(step.role) && (step.role !== "dev" || !teams.length || (!!person.team && teams.includes(person.team)));
   if (!owns && !gateOwner) return { kind: "not-yours", step: id, role: st.status === "signoff" && step.gate ? step.gate.role : step.role, waitingOn: st.waitingOn ?? [] };
 
-  // Steps of the same role before this one, optional on the feature's route and not started, may be skipped by going
-  // on: a lead who skips data-model asks for api. Another role's step is theirs to skip.
+  // Steps of the same role before this one, optional on the feature's route and not done, may be skipped by going on: a
+  // lead who skips data-model asks for api, even after hub_next handed data-model out. Another role's step is theirs.
   const open = state.steps.slice(0, i).filter((s) => !OPEN.includes(s.status));
   const skippable = (s: (typeof open)[number]) =>
-    (s.status === "ready" || s.status === "todo") && (project.engine.steps[s.id]?.skippable_on ?? []).includes(state.route) && project.flow.steps.find((x) => x.id === s.id)?.role === step.role;
+    ["ready", "todo", "running"].includes(s.status) && (project.engine.steps[s.id]?.skippable_on ?? []).includes(state.route) && project.flow.steps.find((x) => x.id === s.id)?.role === step.role;
   const before = stepId ? open.filter((s) => !skippable(s)) : open;
   const skips = stepId ? open.filter(skippable).map((s) => s.id) : [];
   if (before.length) return { kind: "waiting", step: id, on: before.map((s) => ({ step: s.id, status: s.status })) };
