@@ -141,3 +141,13 @@ describe("the user interface of a feature with several teams", () => {
     expect(s.warnings.filter((w) => /declares no user interface/.test(w))).toEqual([]);
   });
 });
+
+describe("an optional step handed out and then passed by", () => {
+  it("is skipped once a later step has its evidence, though hub_next recorded its start", () => {
+    const f = fixtures["demo"]!;
+    const path = "features/order-notes-fix/events.jsonl";
+    const started = '{"step":"data-model","event":"started","role":"dev","assistant":"claude","at":"2026-10-01T09:00:00Z"}\n';
+    const view = viewOf({ ...f, hubState: { ...f.hubState, [path]: `${f.hubState?.[path] ?? ""}${started}` } });
+    expect(detectFeature(loadProject(view.specs).value!, view, "order-notes-fix").steps.find((s) => s.id === "data-model")!.status).toBe("skipped");
+  });
+});

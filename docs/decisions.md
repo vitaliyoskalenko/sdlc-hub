@@ -43,6 +43,7 @@ A feature run from `/hub:new` towards release with every role as its own person 
 
 ### Skipping an optional step through the hub
 - **Decision:** `/hub:run <step>` hands out a step when the open steps before it are of the same role, optional on the feature's route and not started; the answer says which it skips. Another role's step, or one the route requires, still holds it back.
+- **Also:** A step "running" only because hub_next handed it out, with no evidence, shows as skipped once a later step has evidence, when the route allows the skip.
 - **Why:** On the standard route SDD itself proposed skipping data-model, but the hub handed out api only once data-model was done or skipped, and "skipped" was inferred only from a later step's evidence.
 - **By:** Specification (the person chooses on standard).
 

@@ -489,9 +489,13 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
   const impliesProgress = (i: number) =>
     !(flow.steps[i]!.evidence ?? []).every((r) => r.anyOf.every((a) => a.kind === "tests-ci-green")) || !!engine.steps[flow.steps[i]!.id];
   states.forEach((s, i) => {
-    if (s.status !== "todo") return;
+    // A step "running" only because hub_next handed it out, with no evidence, counts as not started here: the person
+    // may have passed it by for a later step.
+    const handedOutOnly = s.status === "running" && evidenceOf[i] === "none" && !!engine.steps[s.id]?.skippable_on?.includes(route);
+    if (s.status !== "todo" && !handedOutOnly) return;
     const later = states.some((o, j) => j > i && impliesProgress(j) && (evidenceOf[j] !== "none" || ["done", "running", "signoff", "returned", "blocked"].includes(o.status)));
     if (!later) return;
+    if (handedOutOnly) delete s.by;
     const skippable = engine.steps[s.id]?.skippable_on ?? [];
     if (skippable.includes(route)) {
       s.status = "skipped";
