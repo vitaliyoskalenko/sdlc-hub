@@ -59,6 +59,11 @@ A feature run from `/hub:new` towards release with every role as its own person 
 - **Why:** The install test showed both. A second run rewrote `.hub/` with the defaults, losing what Settings had changed, and put a new adapter rule in the same merge request as the new hub, which the old hub on main could not read. And a branch the guard once refused and deleted (with the hub's token) was refused again for ever: the token's bot counted as someone who pushed to it.
 - **By:** Proposed.
 
+### The verify gate holds at merge too
+- **Decision:** `hub-guard` refuses QA's sign-off of verify while a criterion fails or has no verdict on a platform, read from main. The assistant's `hub_signoff` checks the same before it saves, as the site does.
+- **Why:** In the cycle QA signed verify through the assistant with AC-03 failing and its bug open: the tool skipped the check, and the guard had none, so the step was done with a failing criterion.
+- **By:** Specification (the verify gate).
+
 ### Smaller fixes
 - A finished stage whose only evidence is a sign-off (clarify) waits for that sign-off instead of showing ready to start.
 - A sign-off is blocked only by an earlier sign-off of the same step that still waits, not by the stage's own saved result, and the check looks at the host first.

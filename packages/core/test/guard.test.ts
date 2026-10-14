@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_FLOW_YAML, DEFAULT_SDD_ENGINE_YAML, blocks, guard, guardSettings, memorySource, parseConfig, parseFlow, parseRoles, type GuardContext } from "../src/index.ts";
-import { CONFIG, ROLES } from "@sdlc-hub/fixtures";
+import { CONFIG, fixtures, ROLES } from "@sdlc-hub/fixtures";
 
 const F = "docs/features/tasks-issues";
 const FEATURE = "title: Tasks\nowner: olena.k\nteams:\n  backend: { lead: taras.m }\n  web: { lead: petro.v }\n";
@@ -35,6 +35,14 @@ describe("hub-guard", () => {
     expect(guard({ author: "nazar.t", pushers: [], changes: [{ path: ".hub/roles.yaml", base: ROLES, next: `${ROLES}# reviewed\n` }] }, ctx).ok).toBe(true);
   });
 
+  it("refuses QA's sign-off of verify while a criterion fails or has no verdict on a platform", () => {
+    // The demo's tasks-issues: AC-04 fails on every client with BUG-0012.
+    const main = memorySource(fixtures["demo"]!.main);
+    const signoffs = main.read(`${F}/hub/signoffs.yaml`) ?? "";
+    const r = guard({ author: "iryna.s", pushers: ["iryna.s"], changes: [{ path: `${F}/hub/signoffs.yaml`, base: signoffs, next: `${signoffs}${entry("verify", "iryna.s", "  decision: pass\n")}` }] }, { ...ctx, main });
+    expect(r.ok).toBe(false);
+    expect(r.findings[0]?.reason).toMatch(/verify is signed while not every criterion passes or does not apply: AC-04 on web/);
+  });
   describe("signoffs.yaml", () => {
     const save = (author: string, add: string) => guard({ author, pushers: [author], changes: [{ path: `${F}/hub/signoffs.yaml`, base, next: base + add }] }, ctx);
     it("accepts a sign-off at a gate the author owns, in the author's name", () => {

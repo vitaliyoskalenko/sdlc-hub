@@ -257,7 +257,8 @@ export async function hubRecord(ctx: ToolContext, slug: string, step: string): P
 export async function hubSignoff(ctx: ToolContext, step: string, slug: string, decision: "pass" | "return", reason?: string): Promise<ToolResult> {
   const l = load(ctx);
   if (isResult(l)) return l;
-  const r = await saveSignoff({ saver: ctx.saver(l.user), project: l.project, state: l.state, user: l.user, slug, step, decision, reason, at: iso(ctx.now()) });
+  // With the checkout's files: the verify gate checks the verdicts before anything is saved.
+  const r = await saveSignoff({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, step, decision, reason, at: iso(ctx.now()) });
   return outcomeText(r, decision === "pass" ? `Your sign-off of ${step}` : `Your return of ${step}`);
 }
 

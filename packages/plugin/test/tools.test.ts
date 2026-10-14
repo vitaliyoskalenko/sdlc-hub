@@ -186,6 +186,13 @@ describe("hub_signoff, hub_return and hub_bug", () => {
     // A second sign-off while the first waits is still refused.
     expect((await hubSignoff(ctx, "clarify", "returns-portal", "pass")).text).toMatch(/still waiting to merge/);
   });
+  it("refuses QA's sign-off of verify while a criterion fails, before anything is saved", async () => {
+    const { ctx, remote } = demo("iryna.s");
+    const r = await hubSignoff(ctx, "verify", "tasks-issues", "pass");
+    expect(r.isError).toBe(true);
+    expect(r.text).toMatch(/Not every criterion passes yet: AC-04/);
+    expect(git(remote, "branch", "--list", "hub/*")).toBe("");
+  });
   it("explains a refusal without pushing", async () => {
     const { ctx, remote } = demo("maksym.d");
     const r = await hubSignoff(ctx, "clarify", "returns-portal", "pass");

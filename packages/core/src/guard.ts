@@ -6,6 +6,8 @@ import { checkChange, type AccessContext, type Change } from "./access.ts";
 import type { FileSource } from "./source.ts";
 import { invalidFiles } from "./validate.ts";
 import { parseFeature, parseSignoffs } from "./files.ts";
+import type { FeatureState } from "./detect.ts";
+import { platformsOf, verificationMatrix } from "./verification.ts";
 import { contractTeam, guardSettings, type Flow, type Person } from "./schema/project.ts";
 
 export interface GuardContext extends AccessContext {
@@ -122,6 +124,12 @@ function entries(slug: string, change: Change, author: string, ctx: GuardContext
       continue;
     }
     if (!signs(person, step.gate, feature, ctx)) at(`${step.id} is signed by ${ROLE_NAME[step.gate.role] ?? step.gate.role}${byText(step.gate.by)}; ${author} is not`);
+    // The verify gate is the verdicts themselves: every criterion passes or does not apply on every platform.
+    else if (step.id === "verify" && e.decision === "pass" && ctx.main) {
+      const teams = Object.keys(feature?.teams ?? {}).map((id) => ({ id }));
+      const m = verificationMatrix(ctx.main, slug, platformsOf(ctx.config, { teams } as unknown as FeatureState));
+      if (!m.complete) at(`verify is signed while not every criterion passes or does not apply: ${m.open.slice(0, 4).join("; ")}${m.open.length > 4 ? "; …" : ""}`);
+    }
   }
   return out;
 }
