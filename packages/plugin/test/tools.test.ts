@@ -95,6 +95,9 @@ describe("stage events", () => {
     expect((await hubRecord(rec, "returns-portal", "clarify")).text).toBe("Recorded: clarify of returns-portal finished. No file of yours changed here, so there is nothing to save.");
     expect(events.at(-1)).toMatchObject({ step: "clarify", event: "finished" });
     expect((await hubRecord(rec, "returns-portal", "nope")).isError).toBe(true);
+    // A return path of the adapter, such as fix, is recorded too.
+    expect((await hubRecord(rec, "returns-portal", "fix")).text).toMatch(/^Recorded: fix of returns-portal finished\./);
+    expect(events.at(-1)).toMatchObject({ step: "fix", event: "finished", role: "dev" });
   });
 });
 

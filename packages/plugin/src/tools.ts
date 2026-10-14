@@ -200,7 +200,7 @@ export function hubNew(ctx: ToolContext, slug: string, title: string): ToolResul
 /** A stage handed out to run starts now, unless it is running already. A failure to record never stops the work. */
 function started(ctx: ToolContext, l: Loaded, slug: string, plan: StepPlan) {
   if (plan.kind !== "run" || plan.running || !ctx.record) return;
-  const role = l.project.flow.steps.find((x) => x.id === plan.step)?.role ?? "";
+  const role = l.project.flow.steps.find((x) => x.id === plan.step)?.role ?? (l.project.engine.returns?.[plan.step] ? "dev" : "");
   try {
     ctx.record(slug, { step: plan.step, event: "started", role, assistant: ctx.assistant, at: iso(ctx.now()) });
   } catch {
@@ -237,7 +237,8 @@ export async function hubRecord(ctx: ToolContext, slug: string, step: string): P
   if (isResult(l)) return l;
   const s = featureOrList(l, slug);
   if ("text" in s) return s;
-  const flowStep = l.project.flow.steps.find((x) => x.id === step);
+  // A step of the flow, or a return path of the engine (fix), which Engineering runs.
+  const flowStep = l.project.flow.steps.find((x) => x.id === step) ?? (l.project.engine.returns?.[step] ? { role: "dev" } : undefined);
   if (!flowStep) return fail(`There is no step ${step}.`);
   let done = `Recorded: ${step} of ${slug} finished.`;
   try {
