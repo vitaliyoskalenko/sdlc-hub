@@ -1,6 +1,6 @@
 # Settings
 
-For the admin. The hub's settings live in `.hub/config.yaml` in `product-specs`. The admin changes them on the site's **Settings** page; everyone else can read the page. A change is a save: a merge request on `config.yaml` that only the admin role passes, and that merges by itself. Repositories, teams and the engine are set at install; run setup again to change them.
+For the admin. The hub's settings live in `.hub/config.yaml` in `product-specs`. The admin changes them on the site's **Settings** page; everyone else can read the page. A change is a save: a merge request on `config.yaml` that only the admin role passes, and that merges by itself. Repositories and the engine are set at install, and teams can be added, edited and removed here (see below). To change the engine, add its adapter under `.hub/engines/` and set `engine` in `.hub/config.yaml`.
 
 ## How strict hub-guard is
 

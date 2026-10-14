@@ -13,7 +13,7 @@ import { hubFiles, teamId, type SetupAnswers } from "./answers.ts";
 import { FANOUT_WORKFLOW, hubFanoutWorkflow, hubReportWorkflow, REPORT_WORKFLOW } from "./github-ci.ts";
 import { pushOrphan, type Check, type InstallOptions, type InstallResult, type Preflight, type StepEvent, type StepState } from "./install.ts";
 import { pushFiles } from "./push.ts";
-import { hubOwnedFiles } from "./hub-files.ts";
+import { hubOwnedFiles, keepAdminFiles } from "./hub-files.ts";
 
 const HUB_STATE = "hub-state";
 const INSTALL_BRANCH = "sdlc-hub/install";
@@ -142,9 +142,10 @@ export async function installGitHub(a: SetupAnswers, gh: GitHub, opts: InstallOp
 
   // 1. The hub and its settings, pushed with git; through a pull request once the ruleset protects main.
   const ok1 = await step("files", `wrote .hub/, hub/cli.js, the hub plugin, the hub-guard workflow and CLAUDE.md to ${org}/${name}`, async () => {
-    const { files, issues } = hubFiles(a, { user: me.login, name: me.name ?? me.login });
-    if (issues.some((i) => i.level === "error")) throw new Error(issues.map((i) => i.message).join("; "));
-    if (await gh.file(org, name, ".hub/roles.yaml", main)) delete files[".hub/roles.yaml"];
+    const made = hubFiles(a, { user: me.login, name: me.name ?? me.login });
+    if (made.issues.some((i) => i.level === "error")) throw new Error(made.issues.map((i) => i.message).join("; "));
+    // A second run keeps the admin's .hub/ (the people, the settings, the engine adapter) as main has it.
+    const files = (await gh.file(org, name, ".hub/roles.yaml", main)) ? await keepAdminFiles(made.files, (path) => gh.file(org, name, path, main)) : made.files;
     Object.assign(files, await hubOwnedFiles({ host: "github", assistants: a.assistants, engine: a.engine, marketplace: a.project.trim() || name, bundle: opts.hubBundle, read: (path) => gh.file(org, name, path, main) }));
     const changed: Record<string, string> = {};
     for (const [path, content] of Object.entries(files)) if ((await gh.file(org, name, path, main)) !== content) changed[path] = content;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { guardSettings, loadProject, memorySource, parseConfig } from "@sdlc-hub/core";
-import { configYaml, hubFiles, hubOwnedFiles, hubGuardCi, hubReportJob, problem, reportStage, teamId, withBlock, withIgnore, withInclude, type SetupAnswers } from "../src/index.ts";
+import { configYaml, hubFiles, hubOwnedFiles, keepAdminFiles, hubGuardCi, hubReportJob, problem, reportStage, teamId, withBlock, withIgnore, withInclude, type SetupAnswers } from "../src/index.ts";
 
 export const ANSWERS: SetupAnswers = {
   host: "gitlab",
@@ -76,6 +76,11 @@ describe("sections in files the hub does not own", () => {
     const files = await hubOwnedFiles({ host: "gitlab", assistants: { codex: false, cursor: false }, engine: "sdd", marketplace: "product-specs", bundle: "", read: async (p) => (p === ".gitignore" ? "node_modules\n" : null) });
     // SDD's own patch: its settings file and its worktrees.
     expect(files[".gitignore"]).toBe("node_modules\n.claude/*.local.md\n.claude/settings.local.json\n.worktrees/\n");
+  });
+  it("keep the admin's .hub/ files on a second run: only the missing ones are written", async () => {
+    const onMain: Record<string, string> = { ".hub/config.yaml": "edited by the admin\n", ".hub/roles.yaml": "people\n" };
+    const files = { ".hub/config.yaml": "default\n", ".hub/roles.yaml": "default\n", ".hub/flow.yaml": "default\n", "hub/cli.js": "new hub\n" };
+    expect(await keepAdminFiles(files, async (p) => onMain[p] ?? null)).toEqual({ ".hub/flow.yaml": "default\n", "hub/cli.js": "new hub\n" });
   });
   it("add a .gitignore line once", () => {
     expect(withIgnore(null, ".claude/*.local.md")).toBe(".claude/*.local.md\n");

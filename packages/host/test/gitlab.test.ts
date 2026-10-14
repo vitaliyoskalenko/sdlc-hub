@@ -34,3 +34,15 @@ describe("GitLab that is not itself", () => {
     await expect(new GitLab("https://gitlab.example.com", "t", page).me()).rejects.toThrow(/with a page, not data: it may be starting or overloaded/);
   });
 });
+
+describe("who pushed to a branch", () => {
+  it("leaves out a deletion of the branch: removing a refused branch is no contribution to the one pushed again", async () => {
+    const events = [
+      { author_username: "nazar.t", created_at: "2026-10-14T10:05:00Z", push_data: { ref: "sdlc-hub/install", ref_type: "branch", action: "pushed" } },
+      { author_username: "project_1_bot", created_at: "2026-10-14T10:03:00Z", push_data: { ref: "sdlc-hub/install", ref_type: "branch", action: "removed" } },
+      { author_username: "olena.k", created_at: "2026-10-14T10:04:00Z", push_data: { ref: "other", ref_type: "branch", action: "pushed" } },
+    ];
+    const fetcher = (async () => new Response(JSON.stringify(events), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+    expect(await new GitLab("https://gl", "t", fetcher).pushers(1, "sdlc-hub/install", "2026-10-14T10:00:00Z")).toEqual(["nazar.t"]);
+  });
+});

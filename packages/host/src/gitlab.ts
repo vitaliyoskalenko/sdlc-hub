@@ -74,7 +74,8 @@ export interface MergeRequest {
 export interface PushEvent {
   author_username: string;
   created_at: string;
-  push_data?: { ref: string; ref_type: string };
+  /** action: "pushed", "created" or "removed" (the branch was deleted). */
+  push_data?: { ref: string; ref_type: string; action?: string };
 }
 
 const enc = encodeURIComponent;
@@ -232,7 +233,8 @@ export class GitLab {
     const day = new Date(Date.parse(since) - 86_400_000).toISOString().slice(0, 10);
     for (let page = 1; page <= 50; page++) {
       const list = await this.call<PushEvent[]>("GET", `/projects/${enc(String(projectId))}/events?action=pushed&after=${day}&per_page=100&page=${page}`);
-      for (const e of list) if (e.push_data?.ref_type === "branch" && e.push_data.ref === branch && e.created_at >= since) users.add(e.author_username);
+      // Deleting the branch is no contribution to it: the guard deletes a refused branch with the hub's token.
+      for (const e of list) if (e.push_data?.ref_type === "branch" && e.push_data.ref === branch && e.push_data.action !== "removed" && e.created_at >= since) users.add(e.author_username);
       if (list.length < 100) break;
     }
     return [...users].sort();

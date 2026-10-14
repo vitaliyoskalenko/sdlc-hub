@@ -53,6 +53,11 @@ A feature run from `/hub:new` towards release with every role as its own person 
 - **Why:** SDD's tasks refuses without `sad.md` and an accepted ADR, and the web team had neither: the specification has client teams write their own short `sad.md` at step 9, but the hub handed out only `/sdd:tasks`.
 - **By:** Specification.
 
+### A second install keeps the admin's .hub/, and a branch's deletion is not a push
+- **Decision:** Setup run again writes only the `.hub/` files that are missing; the admin's (settings, people, the engine adapter) stay as main has them. The guard's list of who pushed to a branch leaves out the branch's deletion.
+- **Why:** The install test showed both. A second run rewrote `.hub/` with the defaults, losing what Settings had changed, and put a new adapter rule in the same merge request as the new hub, which the old hub on main could not read. And a branch the guard once refused and deleted (with the hub's token) was refused again for ever: the token's bot counted as someone who pushed to it.
+- **By:** Proposed.
+
 ### Smaller fixes
 - A finished stage whose only evidence is a sign-off (clarify) waits for that sign-off instead of showing ready to start.
 - A sign-off is blocked only by an earlier sign-off of the same step that still waits, not by the stage's own saved result, and the check looks at the host first.

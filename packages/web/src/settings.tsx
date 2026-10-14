@@ -203,7 +203,7 @@ function AddTeam({ host }: { host: { n: string; cr: string } }) {
         <button type="button" class="btn" id="add-team" disabled={!savesEnabled} onClick={() => setOpen(true)}>
           Add a team
         </button>
-        <span class="muted">The engine is set at install; run setup again to change it.</span>
+        <span class="muted">The engine is set at install. To change it, add its adapter under <code>.hub/engines/</code> and set <code>engine</code> in <code>.hub/config.yaml</code>.</span>
       </div>
     );
   return (

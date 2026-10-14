@@ -20,6 +20,16 @@ export interface HubOwnedInput {
   read: (path: string) => Promise<string | null | undefined>;
 }
 
+/**
+ * On a second run, the admin's .hub/ files stay as main has them (Settings, the Team page and the admin's own edits
+ * changed them); only the missing ones are written. The hub's own files are written again.
+ */
+export async function keepAdminFiles(files: Record<string, string>, onMain: (path: string) => Promise<string | null | undefined>): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const [path, content] of Object.entries(files)) if (!path.startsWith(".hub/") || (await onMain(path)) == null) out[path] = content;
+  return out;
+}
+
 export async function hubOwnedFiles(o: HubOwnedInput): Promise<Record<string, string>> {
   const files: Record<string, string> = {};
   files["hub/cli.js"] = o.bundle;

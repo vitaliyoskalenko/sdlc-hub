@@ -114,6 +114,8 @@ npx sdlc-hub@<version> upgrade
 
 It proposes the newer `hub/cli.js`, its version, the plugin and the assistants' files as one pull request in your name. The pull request merges itself when `hub-guard` passes. `.hub/` stays as you wrote it, and the hub never goes back to an older version.
 
+When a release changes the default engine adapter (`.hub/engines/sdd.yaml`) or another `.hub/` file, its release note says what changed. Make the change in your `.hub/` yourself, once the upgrade merged: the hub on `main` then reads the new rules. Setup run again also keeps your `.hub/` and adds only the files that are missing.
+
 Everyone gets the upgrade with `node hub/cli.js sync`. A site still running the older hub turns read only, and says to sync and start it again.
 
 The upgrade also carries the `hub-guard` workflow of the new version.

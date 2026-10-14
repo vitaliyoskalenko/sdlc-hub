@@ -12,7 +12,7 @@ import { GitLab, HostError, WORDS, type GitLabGroup, type GitLabProject, type Gi
 import { hostUrl, hubFiles, teamId, type SetupAnswers } from "./answers.ts";
 import { fanoutTokenVariable } from "@sdlc-hub/core";
 import { pushFiles } from "./push.ts";
-import { hubOwnedFiles } from "./hub-files.ts";
+import { hubOwnedFiles, keepAdminFiles } from "./hub-files.ts";
 import { HUB_CI_FILE, HUB_CI_PROJECT, HUB_REPORT_FILE, hubGuardCi, hubReportJob, reportStage, withInclude } from "./ci.ts";
 
 export interface Check {
@@ -183,9 +183,10 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
   const locked = isProtected(await gl.protectedBranch(p.id, main), NO_ONE, DEVELOPER);
   const ok1 = await step("files", `wrote .hub/, hub/cli.js, the hub plugin, CLAUDE.md${a.assistants.codex || a.assistants.cursor ? ", AGENTS.md" : ""} and .gitignore to ${specsPath}`, async () => {
     const existingRoles = await gl.file(p.id, ".hub/roles.yaml", main);
-    const { files, issues } = hubFiles(a, { user: user.username, name: user.name });
-    if (issues.some((i) => i.level === "error")) throw new Error(issues.map((i) => i.message).join("; "));
-    if (existingRoles) delete files[".hub/roles.yaml"]; // a second run keeps the people the admin added
+    const made = hubFiles(a, { user: user.username, name: user.name });
+    if (made.issues.some((i) => i.level === "error")) throw new Error(made.issues.map((i) => i.message).join("; "));
+    // A second run keeps the admin's .hub/ (the people, the settings, the engine adapter) as main has it.
+    const files = existingRoles ? await keepAdminFiles(made.files, (path) => gl.file(p.id, path, main)) : made.files;
     Object.assign(files, await hubOwnedFiles({ host: "gitlab", assistants: a.assistants, engine: a.engine, marketplace: a.project.trim() || a.repo.trim(), bundle: opts.hubBundle, read: (path) => gl.file(p.id, path, main) }));
     // An install merge request still waiting for its pipeline already carries some of the files.
     const pending = locked ? (await gl.openMergeRequests(p.id, INSTALL_BRANCH))[0] : undefined;
