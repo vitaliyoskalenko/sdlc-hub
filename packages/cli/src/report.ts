@@ -1,6 +1,7 @@
 // hub report: run by the hub-report CI job in a team repository. It builds the team's snapshot of each feature and
 // publishes it to hub-state of product-specs. Git gets its credentials from the environment the job sets up.
 
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { buildTeamSnapshot, parseTeamSnapshot, type TeamSnapshot, carryWaits } from "@sdlc-hub/core";
@@ -14,9 +15,11 @@ export interface ReportOptions {
   /** product-specs, as git reaches it. */
   specsUrl: string;
   push: boolean;
-  /** GitLab CI variables: CI_COMMIT_REF_NAME, CI_COMMIT_SHA, CI_OPEN_MERGE_REQUESTS. */
+  /** GitLab CI variables: CI_COMMIT_REF_NAME, CI_DEFAULT_BRANCH, CI_COMMIT_SHA, CI_OPEN_MERGE_REQUESTS. */
   env: Record<string, string | undefined>;
   now: string;
+  /** The team repository's branches; by default asked of its origin. */
+  branches?: () => string[];
 }
 
 export interface ReportResult {
@@ -25,16 +28,35 @@ export interface ReportResult {
   pushed: boolean;
 }
 
-/** The features to report: the one of a feat/<slug> branch, or every feature folder on other branches. */
-function slugsOf(cwd: string, branch: string | undefined): string[] {
-  const dir = join(cwd, "docs/features");
-  const all = existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort() : [];
-  const m = /^feat\/([a-z0-9][a-z0-9-]*)$/.exec(branch ?? "");
-  return m ? all.filter((s) => s === m[1]) : all;
+/** The feature a feat/<slug> branch is for. */
+const featureOf = (branch: string | undefined) => /^feat\/([a-z0-9][a-z0-9-]*)$/.exec(branch ?? "")?.[1];
+
+/** The branches of the team repository: HUB_BRANCHES (the GitHub workflow asks the API), or as the job's checkout reaches them; none when it cannot ask. */
+function remoteBranches(cwd: string, env: ReportOptions["env"]): string[] {
+  if (env["HUB_BRANCHES"] !== undefined) return env["HUB_BRANCHES"].split("\n").map((b) => b.trim()).filter(Boolean);
+  const r = spawnSync("git", ["ls-remote", "--heads", "origin"], { cwd, encoding: "utf8", timeout: 60_000 });
+  return r.status === 0 ? r.stdout.split("\n").flatMap((l) => /refs\/heads\/(\S+)$/.exec(l)?.[1] ?? []) : [];
 }
 
-/** The open merge request of this branch, from CI_OPEN_MERGE_REQUESTS ("group/project!12,..."). */
+/**
+ * The features this pipeline speaks for. A feat/<slug> branch speaks for its feature. The default branch speaks for
+ * the features that have no branch of their own (before work starts, and once it merged), so it never replaces what
+ * a feature's branch said. Any other branch, such as hub/fanout with the shared files, speaks for none.
+ */
+function slugsOf(cwd: string, env: ReportOptions["env"], branches: () => string[]): string[] {
+  const dir = join(cwd, "docs/features");
+  const all = existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort() : [];
+  const branch = env.CI_COMMIT_REF_NAME;
+  const feature = featureOf(branch);
+  if (feature) return all.filter((s) => s === feature);
+  if (branch !== (env.CI_DEFAULT_BRANCH ?? "main")) return [];
+  const own = new Set(branches().flatMap((b) => featureOf(b) ?? []));
+  return all.filter((s) => !own.has(s));
+}
+
+/** The open merge request of the feature's branch, from CI_OPEN_MERGE_REQUESTS ("group/project!12,..."). */
 function mrOf(env: ReportOptions["env"]): TeamSnapshot["mr"] {
+  if (!featureOf(env.CI_COMMIT_REF_NAME)) return null;
   const first = env.CI_OPEN_MERGE_REQUESTS?.split(",")[0];
   const iid = first ? Number(first.split("!")[1]) : NaN;
   return Number.isInteger(iid) ? { iid, state: "opened" } : null;
@@ -51,7 +73,7 @@ const withoutTime = (s: string) => {
 
 export function report(o: ReportOptions): ReportResult {
   const source = workingTreeSource(o.cwd);
-  const slugs = slugsOf(o.cwd, o.env.CI_COMMIT_REF_NAME);
+  const slugs = slugsOf(o.cwd, o.env, o.branches ?? (() => remoteBranches(o.cwd, o.env)));
   const snapshots: TeamSnapshot[] = [];
   for (const slug of slugs) {
     const r = buildTeamSnapshot({ team: o.team, slug, source, commit: o.env.CI_COMMIT_SHA ?? null, now: o.now, mr: mrOf(o.env) });
@@ -100,7 +122,9 @@ export interface TestsOptions {
  * pipeline so a retried job does not add a second one. The hub-tests-passed and hub-tests-failed jobs run it.
  */
 export function reportTests(o: TestsOptions): { slugs: string[]; pushed: boolean } {
-  const slugs = slugsOf(o.cwd, o.env.CI_COMMIT_REF_NAME);
+  // Only a feature's own branch runs that feature's tests.
+  const feature = featureOf(o.env.CI_COMMIT_REF_NAME);
+  const slugs = feature && existsSync(join(o.cwd, "docs/features", feature)) ? [feature] : [];
   if (!slugs.length) return { slugs, pushed: false };
   const id = o.env.CI_PIPELINE_ID ?? o.now.replace(/\D/g, "");
   const branch = o.env.CI_COMMIT_REF_NAME;

@@ -173,10 +173,14 @@ jobs:
         if: env.HUB_STATE_KEY != ''
         env:
           CI_COMMIT_REF_NAME: ${branch}
+          CI_DEFAULT_BRANCH: \${{ github.event.repository.default_branch }}
           CI_COMMIT_SHA: ${sha}
           CI_PIPELINE_ID: ${runId}
           CI_PIPELINE_URL: ${runUrl}
+          GH_TOKEN: \${{ github.token }}
         run: |
+          # The repository's branches: a feature with a branch of its own is reported from that branch only.
+          export HUB_BRANCHES="$(gh api "repos/\${{ github.repository }}/branches" --paginate --jq '.[].name' 2>/dev/null || true)"
           install -m 600 /dev/null /tmp/hub-key && printf '%s\\n' "$HUB_STATE_KEY" > /tmp/hub-key
           export GIT_SSH_COMMAND="ssh -i /tmp/hub-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
           git clone --quiet --depth 1 --branch main "git@${host}:${opts.specs}.git" /tmp/hub-specs
