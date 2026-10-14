@@ -64,6 +64,12 @@ describe("hub report", () => {
     expect(parseTeamSnapshot(read(specs, "features/other/teams/web.json"), "web.json").value?.mr).toBeNull();
   });
 
+  it("says nothing from main when it cannot learn the branches: a wrong snapshot would replace the branch's", () => {
+    const { specs, team } = repos();
+    const r = report({ team: "web", cwd: team, specsUrl: specs, push: true, env: { CI_COMMIT_REF_NAME: "main", CI_DEFAULT_BRANCH: "main" }, now: "2026-10-08T10:00:00Z", branches: () => null });
+    expect(r).toMatchObject({ slugs: [], pushed: false });
+  });
+
   it("says nothing from any other branch, such as the merge request of shared files", () => {
     const { specs, team } = repos();
     const r = report({ team: "web", cwd: team, specsUrl: specs, push: true, env: { CI_COMMIT_REF_NAME: "hub/fanout", CI_DEFAULT_BRANCH: "main", CI_OPEN_MERGE_REQUESTS: "shop/web-admin!2" }, now: "2026-10-08T10:00:00Z" });
@@ -72,8 +78,8 @@ describe("hub report", () => {
 
   it("does not commit when nothing changed", () => {
     const { specs, team } = repos();
-    const opts = { team: "web", cwd: team, specsUrl: specs, push: true, env: { CI_COMMIT_REF_NAME: "main", CI_COMMIT_SHA: "abc123" }, now: "2026-10-08T10:00:00Z" };
-    report(opts);
+    const opts = { team: "web", cwd: team, specsUrl: specs, push: true, env: { CI_COMMIT_REF_NAME: "main", CI_COMMIT_SHA: "abc123" }, now: "2026-10-08T10:00:00Z", branches: () => ["main"] };
+    expect(report(opts).pushed).toBe(true);
     const before = execFileSync("git", ["--git-dir", specs, "rev-parse", "hub-state"], { encoding: "utf8" });
     expect(report({ ...opts, now: "2026-10-08T11:00:00Z" }).pushed).toBe(false);
     expect(execFileSync("git", ["--git-dir", specs, "rev-parse", "hub-state"], { encoding: "utf8" })).toBe(before);
@@ -83,7 +89,7 @@ describe("hub report", () => {
 describe("hub report and waits on other teams", () => {
   it("keeps a wait's start from report to report, and records it when it ends", () => {
     const { specs, team } = repos();
-    const opts = { team: "web", cwd: team, specsUrl: specs, push: true, env: { CI_COMMIT_REF_NAME: "main", CI_COMMIT_SHA: "abc123" } };
+    const opts = { team: "web", cwd: team, specsUrl: specs, push: true, env: { CI_COMMIT_REF_NAME: "main", CI_COMMIT_SHA: "abc123" }, branches: () => ["main"] };
     report({ ...opts, now: "2026-10-08T10:00:00Z" });
     report({ ...opts, now: "2026-10-09T10:00:00Z" });
     const path = "features/bulk-order-export/teams/web.json";

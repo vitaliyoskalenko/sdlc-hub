@@ -18,8 +18,8 @@ export interface ReportOptions {
   /** GitLab CI variables: CI_COMMIT_REF_NAME, CI_DEFAULT_BRANCH, CI_COMMIT_SHA, CI_OPEN_MERGE_REQUESTS. */
   env: Record<string, string | undefined>;
   now: string;
-  /** The team repository's branches; by default asked of its origin. */
-  branches?: () => string[];
+  /** The team repository's branches, or null when unknown; by default asked of its origin. */
+  branches?: () => string[] | null;
 }
 
 export interface ReportResult {
@@ -31,11 +31,15 @@ export interface ReportResult {
 /** The feature a feat/<slug> branch is for. */
 const featureOf = (branch: string | undefined) => /^feat\/([a-z0-9][a-z0-9-]*)$/.exec(branch ?? "")?.[1];
 
-/** The branches of the team repository: HUB_BRANCHES (the GitHub workflow asks the API), or as the job's checkout reaches them; none when it cannot ask. */
-function remoteBranches(cwd: string, env: ReportOptions["env"]): string[] {
+/**
+ * The branches of the team repository, or null when they cannot be learned. HUB_BRANCHES on GitHub (the workflow asks
+ * the API); on GitLab the job's own address with its job token, with the hub-state token's header turned off (the
+ * job sets it for every git call, and it does not open the team repository).
+ */
+function remoteBranches(cwd: string, env: ReportOptions["env"]): string[] | null {
   if (env["HUB_BRANCHES"] !== undefined) return env["HUB_BRANCHES"].split("\n").map((b) => b.trim()).filter(Boolean);
-  const r = spawnSync("git", ["ls-remote", "--heads", "origin"], { cwd, encoding: "utf8", timeout: 60_000 });
-  return r.status === 0 ? r.stdout.split("\n").flatMap((l) => /refs\/heads\/(\S+)$/.exec(l)?.[1] ?? []) : [];
+  const r = spawnSync("git", ["-c", "http.extraHeader=", "ls-remote", "--heads", env["CI_REPOSITORY_URL"] ?? "origin"], { cwd, encoding: "utf8", timeout: 60_000 });
+  return r.status === 0 ? r.stdout.split("\n").flatMap((l) => /refs\/heads\/(\S+)$/.exec(l)?.[1] ?? []) : null;
 }
 
 /**
@@ -43,14 +47,17 @@ function remoteBranches(cwd: string, env: ReportOptions["env"]): string[] {
  * the features that have no branch of their own (before work starts, and once it merged), so it never replaces what
  * a feature's branch said. Any other branch, such as hub/fanout with the shared files, speaks for none.
  */
-function slugsOf(cwd: string, env: ReportOptions["env"], branches: () => string[]): string[] {
+function slugsOf(cwd: string, env: ReportOptions["env"], branches: () => string[] | null): string[] {
   const dir = join(cwd, "docs/features");
   const all = existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort() : [];
   const branch = env.CI_COMMIT_REF_NAME;
   const feature = featureOf(branch);
   if (feature) return all.filter((s) => s === feature);
   if (branch !== (env.CI_DEFAULT_BRANCH ?? "main")) return [];
-  const own = new Set(branches().flatMap((b) => featureOf(b) ?? []));
+  // Not knowing the branches, main says nothing: it could replace what a feature's branch said.
+  const known = branches();
+  if (!known) return [];
+  const own = new Set(known.flatMap((b) => featureOf(b) ?? []));
   return all.filter((s) => !own.has(s));
 }
 
