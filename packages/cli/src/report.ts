@@ -26,6 +26,8 @@ export interface ReportResult {
   slugs: string[];
   snapshots: TeamSnapshot[];
   pushed: boolean;
+  /** Why no feature was reported, when it is not that there are none. */
+  why?: string;
 }
 
 /** The feature a feat/<slug> branch is for. */
@@ -38,8 +40,13 @@ const featureOf = (branch: string | undefined) => /^feat\/([a-z0-9][a-z0-9-]*)$/
  */
 function remoteBranches(cwd: string, env: ReportOptions["env"]): string[] | null {
   if (env["HUB_BRANCHES"] !== undefined) return env["HUB_BRANCHES"].split("\n").map((b) => b.trim()).filter(Boolean);
-  const r = spawnSync("git", ["-c", "http.extraHeader=", "ls-remote", "--heads", env["CI_REPOSITORY_URL"] ?? "origin"], { cwd, encoding: "utf8", timeout: 60_000 });
-  return r.status === 0 ? r.stdout.split("\n").flatMap((l) => /refs\/heads\/(\S+)$/.exec(l)?.[1] ?? []) : null;
+  // The job's git settings in GIT_CONFIG_* (the hub-state header) would win over -c: leave them out here.
+  const own = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+)$/.test(k)));
+  for (const url of ["origin", env["CI_REPOSITORY_URL"]].filter((u): u is string => !!u)) {
+    const r = spawnSync("git", ["ls-remote", "--heads", url], { cwd, encoding: "utf8", timeout: 60_000, env: own });
+    if (r.status === 0) return r.stdout.split("\n").flatMap((l) => /refs\/heads\/(\S+)$/.exec(l)?.[1] ?? []);
+  }
+  return null;
 }
 
 /**
@@ -47,7 +54,8 @@ function remoteBranches(cwd: string, env: ReportOptions["env"]): string[] | null
  * the features that have no branch of their own (before work starts, and once it merged), so it never replaces what
  * a feature's branch said. Any other branch, such as hub/fanout with the shared files, speaks for none.
  */
-function slugsOf(cwd: string, env: ReportOptions["env"], branches: () => string[] | null): string[] {
+/** null: the default branch could not learn the branches, so it reports none. */
+function slugsOf(cwd: string, env: ReportOptions["env"], branches: () => string[] | null): string[] | null {
   const dir = join(cwd, "docs/features");
   const all = existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort() : [];
   const branch = env.CI_COMMIT_REF_NAME;
@@ -56,7 +64,7 @@ function slugsOf(cwd: string, env: ReportOptions["env"], branches: () => string[
   if (branch !== (env.CI_DEFAULT_BRANCH ?? "main")) return [];
   // Not knowing the branches, main says nothing: it could replace what a feature's branch said.
   const known = branches();
-  if (!known) return [];
+  if (!known) return null;
   const own = new Set(known.flatMap((b) => featureOf(b) ?? []));
   return all.filter((s) => !own.has(s));
 }
@@ -80,7 +88,10 @@ const withoutTime = (s: string) => {
 
 export function report(o: ReportOptions): ReportResult {
   const source = workingTreeSource(o.cwd);
-  const slugs = slugsOf(o.cwd, o.env, o.branches ?? (() => remoteBranches(o.cwd, o.env)));
+  const found = slugsOf(o.cwd, o.env, o.branches ?? (() => remoteBranches(o.cwd, o.env)));
+  if (!found) return { slugs: [], snapshots: [], pushed: false, why: "could not learn this repository's branches, so main reports no feature" };
+  const slugs = found;
+  const onMain = !featureOf(o.env.CI_COMMIT_REF_NAME);
   const snapshots: TeamSnapshot[] = [];
   for (const slug of slugs) {
     const r = buildTeamSnapshot({ team: o.team, slug, source, commit: o.env.CI_COMMIT_SHA ?? null, now: o.now, mr: mrOf(o.env) });
@@ -101,7 +112,9 @@ export function report(o: ReportOptions): ReportResult {
         const path = join(dir, "features", fresh.slug, "teams", `${o.team}.json`);
         // The waits on other teams keep their start from the snapshot before this one.
         const prev = existsSync(path) ? parseTeamSnapshot(readFileSync(path, "utf8"), path).value : undefined;
-        const s = carryWaits(prev, fresh, o.now);
+        // On main, after the feature's branch merged and went: its merge request is merged, not gone.
+        const merged = onMain && !fresh.mr && prev?.mr?.state === "opened" ? { ...fresh, mr: { ...prev.mr, state: "merged" as const } } : fresh;
+        const s = carryWaits(prev, merged, o.now);
         const text = JSON.stringify(s, null, 2) + "\n";
         if (existsSync(path) && withoutTime(readFileSync(path, "utf8")) === withoutTime(text)) continue;
         mkdirSync(dirname(path), { recursive: true });

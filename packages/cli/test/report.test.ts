@@ -67,7 +67,15 @@ describe("hub report", () => {
   it("says nothing from main when it cannot learn the branches: a wrong snapshot would replace the branch's", () => {
     const { specs, team } = repos();
     const r = report({ team: "web", cwd: team, specsUrl: specs, push: true, env: { CI_COMMIT_REF_NAME: "main", CI_DEFAULT_BRANCH: "main" }, now: "2026-10-08T10:00:00Z", branches: () => null });
-    expect(r).toMatchObject({ slugs: [], pushed: false });
+    expect(r).toMatchObject({ slugs: [], pushed: false, why: "could not learn this repository's branches, so main reports no feature" });
+  });
+
+  it("keeps the feature's merge request as merged once main has it and the branch is gone", () => {
+    const { specs, team } = repos();
+    const opts = { team: "web", cwd: team, specsUrl: specs, push: true, now: "2026-10-08T10:00:00Z" };
+    report({ ...opts, env: { CI_COMMIT_REF_NAME: "feat/bulk-order-export", CI_OPEN_MERGE_REQUESTS: "shop/web-admin!6" } });
+    report({ ...opts, env: { CI_COMMIT_REF_NAME: "main", CI_DEFAULT_BRANCH: "main" }, branches: () => ["main"], now: "2026-10-09T10:00:00Z" });
+    expect(parseTeamSnapshot(read(specs, "features/bulk-order-export/teams/web.json"), "web.json").value?.mr).toEqual({ iid: 6, state: "merged" });
   });
 
   it("says nothing from any other branch, such as the merge request of shared files", () => {

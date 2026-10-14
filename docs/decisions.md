@@ -28,6 +28,7 @@ A feature run from `/hub:new` towards release with every role as its own person 
 
 ### Which branch of a team speaks for a feature
 - **Decision:** A team's report speaks for a feature from `feat/<slug>`; the default branch speaks only for features with no branch of their own; any other branch (the fan-out merge request, for one) speaks for none. Test runs are recorded from the feature's branch only.
+- **Also:** Once a feature's branch merged and went, main's report keeps its merge request as merged, so ship keeps its evidence. A report that says nothing says why.
 - **Also:** On GitLab the branches are asked with the job's own token (the job's hub-state header is turned off for it); when they cannot be learned, the default branch says nothing.
 - **Why:** The fan-out merge request's pipeline reported its own merge request as the feature's, so the feature jumped to ship, and its tests counted for autotests. A snapshot from main also replaced what the feature's branch said.
 - **By:** Proposed.
