@@ -106,8 +106,21 @@ function cells(line: string): string[] {
 // --- _review/review-<date>.md
 // @assumed-sdd-format: <date> is YYYY-MM-DD, so the newest record sorts last.
 
+// A later review the same day carries a suffix: review-2026-10-14-2.md or review-2026-10-14-r2.md (seen in the
+// full cycle). The newest is the latest date, then the highest round; no suffix is the first round.
 export function latestReviewFile(featureFiles: string[]): string | undefined {
-  return featureFiles.filter((f) => /^_review\/review-\d{4}-\d{2}-\d{2}[^/]*\.md$/.test(f)).sort().at(-1);
+  const key = (f: string) => {
+    const m = /^_review\/review-(\d{4}-\d{2}-\d{2})(.*)\.md$/.exec(f)!;
+    return { date: m[1]!, round: m[2] ? Number(/\d+/.exec(m[2])?.[0] ?? 1) : 1, suffix: m[2]! };
+  };
+  return featureFiles
+    .filter((f) => /^_review\/review-\d{4}-\d{2}-\d{2}[^/]*\.md$/.test(f))
+    .sort((a, b) => {
+      const x = key(a);
+      const y = key(b);
+      return x.date !== y.date ? (x.date < y.date ? -1 : 1) : x.round !== y.round ? x.round - y.round : x.suffix < y.suffix ? -1 : x.suffix > y.suffix ? 1 : 0;
+    })
+    .at(-1);
 }
 
 const VERDICTS = ["CHANGES REQUESTED", "PASS"] as const;

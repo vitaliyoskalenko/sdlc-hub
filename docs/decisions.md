@@ -58,6 +58,7 @@ A feature run from `/hub:new` towards release with every role as its own person 
 - A sign-off is blocked only by an earlier sign-off of the same step that still waits, not by the stage's own saved result, and the check looks at the host first.
 - `hub sync` moves main on over a person's own changes when the newer main leaves those files alone.
 - Install ignores SDD's `.worktrees/`, so a stage leaves `.gitignore` as it was.
+- The newest review record is the latest date, then the highest round: SDD names a second review the same day `review-<date>-2.md` or `review-<date>-r2.md`, which sorted before the first one by name. The record's place and its verdict line (`Gate result` or `## Verdict`) are now seen in real output.
 - hub_next tells the person who runs a step when its gate is theirs to sign afterwards (the QA's test plan), not only once it waits.
 - When main brings a new `hub/cli.js`, `hub sync` hands the rest over to it: the old hub could not read the newer `.hub/` and said ".hub/ does not load".
 - A task tracker shows implement running only when a task is in progress, in review or done: the web team's task blocked by the backend from the start made implement "running", sprint "missed" and plan-tests "skipped".

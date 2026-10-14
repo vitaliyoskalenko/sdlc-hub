@@ -92,6 +92,10 @@ describe("review records", () => {
   it("picks the latest record by the date in its name", () => {
     expect(latestReviewFile(["_review/review-2026-09-30.md", "_review/review-2026-10-02.md", "_review/notes.md"])).toBe("_review/review-2026-10-02.md");
     expect(latestReviewFile(["spec.md"])).toBeUndefined();
+    // A second review the same day, as SDD 2.3 names it (seen in the full cycle): -2 or -r2 after the date.
+    expect(latestReviewFile(["_review/review-2026-10-14.md", "_review/review-2026-10-14-2.md"])).toBe("_review/review-2026-10-14-2.md");
+    expect(latestReviewFile(["_review/review-2026-10-14-r2.md", "_review/review-2026-10-14.md"])).toBe("_review/review-2026-10-14-r2.md");
+    expect(latestReviewFile(["_review/review-2026-10-14-r10.md", "_review/review-2026-10-14-r9.md", "_review/review-2026-10-13-r3.md"])).toBe("_review/review-2026-10-14-r10.md");
   });
   it("@assumed-sdd-format reads the gate result", () => {
     expect(readReviewVerdict("# Review\n\nFindings: none.\n\n**Gate result:** PASS\n")).toBe("PASS");
