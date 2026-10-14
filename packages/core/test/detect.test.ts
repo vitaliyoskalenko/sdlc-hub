@@ -117,3 +117,27 @@ describe("tech-design without the sequences log", () => {
     expect(step({ ...noLog, "features/order-webhooks/events.jsonl": finished })).toBe("signoff");
   });
 });
+
+describe("a gate that only reads CI", () => {
+  it("is not reached by a green pipeline while the steps before it are open", () => {
+    const f = fixtures["demo"]!;
+    const run = JSON.stringify({ source: "ci", team: "backend", result: "passed", at: "2026-10-08T09:00:00Z" });
+    const view = viewOf({ ...f, hubState: { ...f.hubState, "features/returns-portal/tests/ci-backend-9.json": run } });
+    const s = detectFeature(loadProject(view.specs).value!, view, "returns-portal");
+    expect(s.steps.find((x) => x.id === "autotests")!.status).toBe("todo");
+    expect(s.current).toBe("clarify");
+  });
+});
+
+describe("the user interface of a feature with several teams", () => {
+  it("comes from every team's design: the contract team's backend alone is no reason to warn", () => {
+    const f = fixtures["demo"]!;
+    const path = "features/bulk-order-export/teams/backend.json";
+    const backend = JSON.parse(f.hubState![path]!) as Record<string, unknown>;
+    // sad.md lives in the contract team's repository only, as SDD's design writes it there.
+    const main = Object.fromEntries(Object.entries(f.main).filter(([p]) => p !== "docs/features/bulk-order-export/sad.md"));
+    const view = viewOf({ ...f, main, hubState: { ...f.hubState, [path]: JSON.stringify({ ...backend, target_surfaces: ["backend-service"] }) } });
+    const s = detectFeature(loadProject(view.specs).value!, view, "bulk-order-export");
+    expect(s.warnings.filter((w) => /declares no user interface/.test(w))).toEqual([]);
+  });
+});

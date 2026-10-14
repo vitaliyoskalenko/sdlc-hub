@@ -24,6 +24,19 @@ describe("what a person does next on a feature", () => {
   it("a step that runs in the team repositories says so", () => {
     expect(plan("petro.v", "order-notes-fix")).toMatchObject({ kind: "run", step: "review", where: "teams", running: true });
   });
+  it("a step in the contract team's repository is that team's, not every team's of the feature", () => {
+    // order-webhooks with the web team added: the backend publishes the contract.
+    const yaml = "docs/features/order-webhooks/hub/feature.yaml";
+    const main = { ...f.main, [yaml]: f.main[yaml]!.replace(/teams:\n/, "teams:\n  web: { lead: petro.v }\n") };
+    const v = { ...view, specs: memorySource(main) };
+    const p = loadProject(v.specs).value!;
+    const state = detectFeature(p, v, "order-webhooks");
+    const withDesignDone = { ...state, steps: state.steps.map((s) => (s.id === "tech-design" ? { ...s, status: "done" as const } : s.id === "data-model" ? { ...s, status: "ready" as const, waitingOn: [] } : s)) };
+    expect(nextFor(p, withDesignDone, "petro.v", "data-model")).toMatchObject({ kind: "not-yours", step: "data-model" });
+    expect(nextFor(p, withDesignDone, "taras.m", "data-model")).toMatchObject({ kind: "run", step: "data-model", where: "contract" });
+    // Once tech-design is signed, data-model waits for the backend lead alone.
+    expect(state.steps.find((s) => s.id === "tech-design")!.waitingOn).toEqual(["petro.v"]);
+  });
   it("a hub step has no engine stage", () => {
     expect(plan("iryna.s", "tasks-issues")).toMatchObject({ kind: "hub-step", step: "verify" });
   });

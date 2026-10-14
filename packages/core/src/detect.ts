@@ -292,7 +292,9 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
         return orAllLeads(leads(contractId ? [contractId] : teamIds));
     }
   }
-  const stepPeople = (step: FlowStep): string[] => (step.role === "dev" ? leads(teamIds) : peopleWithRole(step.role));
+  // A step that runs in the contract team's repository is that team's; any other Engineering step every team's.
+  const stepPeople = (step: FlowStep): string[] =>
+    step.role !== "dev" ? peopleWithRole(step.role) : leads(engine.steps[step.id]?.in === "contract" && contractId ? [contractId] : teamIds);
 
   // --- evidence
 
@@ -501,6 +503,17 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
     }
   });
 
+  // A gate that only reads CI (autotests) counts once the engine's stages before it are done (the code is written,
+  // reviewed and shipped): a green pipeline on a feature's branch while it is still being designed says nothing. QA's
+  // own steps may still be open: CI runs alongside verify.
+  states.forEach((s, i) => {
+    if (impliesProgress(i) || !["running", "done"].includes(s.status)) return;
+    if (states.slice(0, i).every((o) => !engine.steps[o.id] || ["done", "skipped"].includes(o.status))) return;
+    s.status = "todo";
+    delete s.by;
+    delete s.reason;
+  });
+
   // Ready: the first step still to do whose earlier steps are all done or skipped.
   const firstOpen = states.findIndex((s) => !["done", "skipped"].includes(s.status));
   if (firstOpen >= 0 && states[firstOpen]!.status === "todo") {
@@ -517,11 +530,13 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
   if (routeText === undefined && feature) warnings.push("No .route: the route counts as standard");
 
   // SDD's own no-UI signal for screens is target_surfaces in sad.md; check it against feature.yaml.
+  // Each team designs its own surfaces (the contract team's backend, the web team's web app): the feature's are all
+  // of them, and they say "no user interface" only once every team declared its own.
   const specsSad = view.specs.read(`${dir}/sad.md`);
+  const declared = teams.map((t) => t.snapshot?.target_surfaces);
   const surfaces =
     (specsSad === undefined ? undefined : readTargetSurfaces(specsSad)) ??
-    (contractId ? teams.find((t) => t.id === contractId) : teams.find((t) => t.snapshot?.target_surfaces))?.snapshot?.target_surfaces ??
-    undefined;
+    (declared.length && declared.every((d) => d) ? [...new Set(declared.flatMap((d) => d!))] : declared.some((d) => d?.some((x) => (UI_SURFACES as readonly string[]).includes(x))) ? [...new Set(declared.flatMap((d) => d ?? []))] : undefined);
   if (surfaces) {
     const hasUi = surfaces.some((s) => (UI_SURFACES as readonly string[]).includes(s));
     if (feature?.ui === false && hasUi)

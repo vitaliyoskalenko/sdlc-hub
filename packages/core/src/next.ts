@@ -29,7 +29,8 @@ export function nextFor(project: Project, state: FeatureState, user: string, ste
   const person = project.roles.people.find((p) => p.user === user);
   const gateOwner = (st.waitingOn ?? []).includes(user);
   if (st.status === "signoff" && gateOwner) return { kind: "signoff", step: id };
-  const teams = state.teams.map((t) => t.id);
+  // A step in the contract team's repository is that team's alone.
+  const teams = project.engine.steps[id]?.in === "contract" && state.contractTeam ? [state.contractTeam] : state.teams.map((t) => t.id);
   const owns = !!person && person.roles.includes(step.role) && (step.role !== "dev" || !teams.length || (!!person.team && teams.includes(person.team)));
   if (!owns && !gateOwner) return { kind: "not-yours", step: id, role: st.status === "signoff" && step.gate ? step.gate.role : step.role, waitingOn: st.waitingOn ?? [] };
 

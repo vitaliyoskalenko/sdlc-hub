@@ -36,6 +36,11 @@ A feature run from `/hub:new` towards release with every role as its own person 
 - **Why:** SDD's sequences leaves `_sequences-log.md` only when it asked the person something; at the easy depth it leaves none, and tech-design waited for ever.
 - **By:** Proposed.
 
+### Steps that a green pipeline or a contract team do not decide alone
+- **Decision:** A gate that only reads CI (autotests) counts once the engine's stages before it are done; QA's own steps may still be open. A step that runs in the contract team's repository (tech-design, data-model, api) waits for and belongs to that team, not every team of the feature. The feature's user interface comes from every team's design, and "no user interface" is said only once every team declared its surfaces.
+- **Why:** In the cycle, the backend's first pipeline (on the design commit) made autotests "running" and the current step jumped to it; data-model waited for the web lead too; and the backend's own `backend-service` made the hub ask for `ui: false` on a feature whose web team builds the interface.
+- **By:** Proposed.
+
 ### Smaller fixes
 - A finished stage whose only evidence is a sign-off (clarify) waits for that sign-off instead of showing ready to start.
 - A sign-off is blocked only by an earlier sign-off of the same step that still waits, not by the stage's own saved result, and the check looks at the host first.
