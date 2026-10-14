@@ -45,6 +45,10 @@ describe("what a person does next on a feature", () => {
     const atTasks = { ...withDesignDone, steps: withDesignDone.steps.map((s) => (["data-model", "api", "screens"].includes(s.id) ? { ...s, status: "skipped" as const } : s.id === "tasks" ? { ...s, status: "ready" as const } : s)) };
     expect(nextFor(p, atTasks, "petro.v", "tasks")).toMatchObject({ kind: "run", stages: ["design", "tasks"] });
     expect(nextFor(p, atTasks, "taras.m", "tasks")).toMatchObject({ kind: "run", stages: ["tasks"] });
+    // The person who runs a step learns that its gate is theirs to sign afterwards, unless other teams sign it.
+    const atPlan = { ...atTasks, steps: atTasks.steps.map((s) => (["tasks", "sprint"].includes(s.id) ? { ...s, status: "done" as const } : s.id === "plan-tests" ? { ...s, status: "ready" as const } : s)) };
+    expect(nextFor(p, atPlan, "iryna.s", "plan-tests")).toMatchObject({ kind: "run", thenSignoff: true });
+    expect(nextFor(p, handedOut, "taras.m", "api")).toMatchObject({ kind: "run", thenSignoff: false });
     // Once tech-design is signed, data-model waits for the backend lead alone.
     expect(state.steps.find((s) => s.id === "tech-design")!.waitingOn).toEqual(["petro.v"]);
   });

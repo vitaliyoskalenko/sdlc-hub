@@ -50,5 +50,5 @@ export function nextFor(project: Project, state: FeatureState, user: string, ste
   if (!es) return { kind: "hub-step", step: id, status: st.status };
   // A client team (not the one that publishes the contract) designs its own part before the tasks.
   const client = es.client_stages && state.contractTeam && person?.team && person.team !== state.contractTeam;
-  return { kind: "run", step: id, stages: client ? es.client_stages! : es.stages, where: es.in, running: st.status === "running", returned: st.status === "returned", thenSignoff: awaitsSignoff(project, state, id), ...(skips.length ? { skips } : {}) };
+  return { kind: "run", step: id, stages: client ? es.client_stages! : es.stages, where: es.in, running: st.status === "running", returned: st.status === "returned", thenSignoff: awaitsSignoff(project, state, id) || (!!step.gate && step.gate.role !== "auto" && !!person?.roles.includes(step.gate.role) && step.gate.by !== "other-team-leads"), ...(skips.length ? { skips } : {}) };
 }
