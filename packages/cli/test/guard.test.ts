@@ -83,6 +83,11 @@ describe("the people of a merge request", () => {
     expect(r).toEqual({ author: "olena.k", pushers: ["daria.l", "olena.k"] });
   });
 
+  it("leaves out a token's bot that started the pipeline: hub recheck runs the job again with HUB_RECHECK_TOKEN", async () => {
+    const r = await mergeRequestPeople(gl, { CI_MERGE_REQUEST_IID: "3", CI_PROJECT_ID: "7", GITLAB_USER_LOGIN: "project_8_bot_fbe05bb70ddd70638898163738b38ad7" }, "2026-10-07T00:00:00.000Z");
+    expect(r.pushers).not.toContain("project_8_bot_fbe05bb70ddd70638898163738b38ad7");
+  });
+
   it("refuses to run outside a merge request pipeline", async () => {
     await expect(mergeRequestPeople(gl, {}, "2026-10-07T00:00:00Z")).rejects.toThrow(/merge request pipeline/);
   });

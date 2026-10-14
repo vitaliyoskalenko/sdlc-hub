@@ -80,6 +80,9 @@ export interface GuardEnv {
  * The people the guard judges: the merge request author, from the API (a branch name or commit author can be
  * anything), and everyone who pushed to the branch since it was opened, from the project's push events.
  */
+/** A token's bot, which starts or reruns a job: GitLab's project_<id>_bot_… and group_<id>_bot_…, GitHub's …[bot]. */
+const isBot = (user: string) => /^(project|group)_\d+_bot_\w+$/.test(user) || /\[bot\]$/.test(user);
+
 export async function mergeRequestPeople(gl: GitLab, env: GuardEnv, since: string): Promise<{ author: string; pushers: string[] }> {
   const iid = Number(env.CI_MERGE_REQUEST_IID);
   const project = env.CI_PROJECT_ID;
@@ -87,7 +90,9 @@ export async function mergeRequestPeople(gl: GitLab, env: GuardEnv, since: strin
   const mr = await gl.mergeRequest(project, iid);
   if (!mr.author) throw new Error(`GitLab did not name the author of merge request !${iid}`);
   const pushed = await gl.pushers(project, mr.source_branch, since);
-  return { author: mr.author.username, pushers: [...new Set([...(env.GITLAB_USER_LOGIN ? [env.GITLAB_USER_LOGIN] : []), ...pushed])].sort() };
+  // The pipeline's user, unless a token's bot started it: hub recheck runs the job again with HUB_RECHECK_TOKEN.
+  const starter = env.GITLAB_USER_LOGIN && !isBot(env.GITLAB_USER_LOGIN) ? [env.GITLAB_USER_LOGIN] : [];
+  return { author: mr.author.username, pushers: [...new Set([...starter, ...pushed])].sort() };
 }
 
 /** The commit time of the merge request's base: pushes to a branch of the same name before it are not this branch's. */
@@ -139,5 +144,6 @@ export async function pullRequestPeople(gh: GitHub, env: GitHubGuardEnv, event: 
   const [owner, name] = (env.GITHUB_REPOSITORY ?? "").split("/");
   if (!pr?.user?.login || !pr.head?.ref || !owner || !name) throw new Error("hub guard --github runs in a pull_request_target workflow of product-specs");
   const pushed = await gh.pushers(owner, name, pr.head.ref);
-  return { author: pr.user.login, pushers: [...new Set([...(env.GITHUB_ACTOR ? [env.GITHUB_ACTOR] : []), ...pushed])].sort(), branch: pr.head.ref, number: pr.number ?? 0 };
+  const starter = env.GITHUB_ACTOR && !isBot(env.GITHUB_ACTOR) ? [env.GITHUB_ACTOR] : [];
+  return { author: pr.user.login, pushers: [...new Set([...starter, ...pushed])].sort(), branch: pr.head.ref, number: pr.number ?? 0 };
 }

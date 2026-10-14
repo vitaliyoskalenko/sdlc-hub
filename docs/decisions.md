@@ -22,7 +22,7 @@ A feature run from `/hub:new` towards release with every role as its own person 
 - **By:** Specification.
 
 ### hub recheck runs the guard job again
-- **Decision:** On GitLab, `hub recheck` retries the hub-guard job in each open merge request's latest pipeline instead of starting a pipeline.
+- **Decision:** On GitLab, `hub recheck` retries the hub-guard job in each open merge request's latest pipeline instead of starting a pipeline. The guard leaves a token's bot that started or reran the job (GitLab's `project_<id>_bot_…` and `group_<id>_bot_…`, GitHub's `…[bot]`) out of the people who pushed.
 - **Why:** A pipeline started with `HUB_RECHECK_TOKEN` fails before any job: its bot cannot read the configuration in `hub-ci`. Every change of `.hub/` left the open merge requests failed and unmerged. The install test of claim 14 passed only because it expected a failure of any kind; it now checks the guard's own refusal.
 - **By:** Proposed.
 
