@@ -460,7 +460,9 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
     } else {
       const blocked = evals.find((e) => e.blocked)?.blocked ?? (step.id === "implement" ? implementBlocked() : undefined);
       const running = runningEvent(step.id);
-      const humanOnly = level === "partial" && evals.every((e) => e.level === "full" || (e.humanMissing && !e.blocked));
+      // A stage that finished and lacks only people's sign-offs waits for them (clarify's evidence is its sign-off).
+      const finished = lastEvent(step.id)?.event === "finished";
+      const humanOnly = (level === "partial" || (finished && evals.some((e) => e.missingSigners?.length))) && evals.every((e) => e.level === "full" || (e.humanMissing && !e.blocked));
       if (blocked) Object.assign(state, { status: "blocked", reason: blocked });
       else if (humanOnly) {
         const missing = evals.filter((e) => e.level !== "full");
@@ -551,9 +553,12 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
 
   // --- helpers that read the state above
 
+  function lastEvent(stepId: string): HubEventLine | undefined {
+    return events.filter((e) => e.step === stepId).sort(byTime).at(-1);
+  }
+
   function runningEvent(stepId: string): HubEventLine | undefined {
-    const mine = events.filter((e) => e.step === stepId).sort(byTime);
-    const last = mine.at(-1);
+    const last = lastEvent(stepId);
     return last?.event === "started" ? last : undefined;
   }
 

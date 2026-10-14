@@ -89,3 +89,14 @@ describe.each(Object.entries(fixtures))("fixture %s", (name, f) => {
 
   it(`(${name}) is described`, () => expect(f.description.length).toBeGreaterThan(10));
 });
+
+describe("a stage whose only evidence is its sign-off", () => {
+  it("waits for that sign-off once the stage finished, instead of showing ready to start", () => {
+    const f = fixtures["demo"]!;
+    const path = "features/returns-portal/events.jsonl";
+    const events = ['{"step":"clarify","event":"started","role":"po","assistant":"claude","at":"2026-10-08T09:00:00Z"}', '{"step":"clarify","event":"finished","role":"po","assistant":"claude","at":"2026-10-08T09:20:00Z"}'];
+    const view = viewOf({ ...f, hubState: { ...f.hubState, [path]: `${f.hubState?.[path] ?? ""}${events.join("\n")}\n` } });
+    const clarify = detectFeature(loadProject(view.specs).value!, view, "returns-portal").steps.find((s) => s.id === "clarify")!;
+    expect(clarify).toMatchObject({ status: "signoff", waitingOn: ["olena.k"] });
+  });
+});

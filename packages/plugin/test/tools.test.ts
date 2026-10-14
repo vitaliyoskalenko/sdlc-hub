@@ -177,6 +177,15 @@ describe("hub_signoff, hub_return and hub_bug", () => {
     const branch = git(remote, "branch", "--list", "hub/*").replace("*", "").trim();
     expect(parseSignoffs(git(remote, "show", `${branch}:docs/features/returns-portal/hub/signoffs.yaml`), "s").value!.at(-1)).toMatchObject({ step: "clarify", user: "olena.k" });
   });
+  it("signs off a step whose stage result is still waiting to merge: that save is not a sign-off", async () => {
+    const { ctx } = demo("olena.k");
+    writeFileSync(join(ctx.open().root, "CONTEXT.md"), "# Context\n");
+    expect((await hubRecord(ctx, "returns-portal", "clarify")).text).toMatch(/Saved 1 file/);
+    const r = await hubSignoff(ctx, "clarify", "returns-portal", "pass");
+    expect(r.text).toMatch(/saved as branch hub\/olena\.k\/signoff-clarify-returns-portal-/);
+    // A second sign-off while the first waits is still refused.
+    expect((await hubSignoff(ctx, "clarify", "returns-portal", "pass")).text).toMatch(/still waiting to merge/);
+  });
   it("explains a refusal without pushing", async () => {
     const { ctx, remote } = demo("maksym.d");
     const r = await hubSignoff(ctx, "clarify", "returns-portal", "pass");

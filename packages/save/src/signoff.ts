@@ -51,7 +51,8 @@ export async function saveSignoff(i: SignoffInput): Promise<SaveOutcome> {
     const m = verificationMatrix(i.local, slug, platformsOf(i.project.config, state));
     if (!m.complete) return { ok: false, code: "not-waiting", error: m.criteria.length ? `Not every criterion passes yet: ${m.open.slice(0, 6).join("; ")}${m.open.length > 6 ? "; …" : ""}` : `The spec of ${slug} has no criteria to verify` };
   }
-  if (i.saver.list().some((x) => x.state === "pending" && x.user === i.user && x.meta?.["slug"] === slug && x.meta?.["step"] === step))
+  // Only an earlier sign-off or return of the same step blocks this one, and only while it truly waits.
+  if (i.saver.refresh().some((x) => x.state === "pending" && x.user === i.user && x.meta?.["kind"] === "signoff" && x.meta?.["slug"] === slug && x.meta?.["step"] === step))
     return { ok: false, code: "pending", error: `Your save for ${step} of ${slug} is still waiting to merge` };
 
   return checkedSave(i.saver, i.user, {
