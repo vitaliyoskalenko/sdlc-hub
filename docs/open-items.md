@@ -1,6 +1,6 @@
 # Open items
 
-State on 10 October 2026, revision 71 of the specification. Items already fixed are not listed. Decisions that closed earlier items are in `docs/decisions.md`.
+State on 14 October 2026, revision 71 of the specification, after the full feature cycle on the local GitLab (`e2e/cycle/`). Items already fixed are not listed. Decisions that closed earlier items are in `docs/decisions.md`.
 
 ## Specification
 
@@ -8,6 +8,19 @@ State on 10 October 2026, revision 71 of the specification. Items already fixed 
 - The two diagrams (architecture; QA and release) still say GitLab only, were not redrawn, and do not show team snapshots as the source of steps 5 to 14.
 - The JSON schema of a team snapshot (`hub-state/features/<slug>/teams/<team>.json`) is described by its fields only. It is defined in `packages/core` during phase 1a and then copied into the specification.
 - Jira mirror of bugs: no command or trigger is specified, only the setting.
+
+## Found in the full feature cycle, still open
+
+One feature (`order-notes`, size M, standard route, a backend and a web team) went from `/hub:new` to release on the local GitLab with the real SDD 2.3.0 in Claude Code: 32 engine runs, $30.68 at API prices on the subscription, about 1.5 hours of engine time. The fixes it led to are in `docs/decisions.md` (14 October 2026). These are open:
+
+- **The test plan sees only the contract team's design.** `plan-tests` runs in product-specs, where `sad.md` is the contract team's (`backend-service`), so it planned no UI test levels; a client team's `sad.md` stays in its repository. Options: the hub's prompt for plan-tests names every team's surfaces from the snapshots, or the client teams' `sad.md` is copied to product-specs as `sad-<team>.md`.
+- **A release's change to `.hub/` is the admin's to make.** `hub upgrade` keeps `.hub/` as the admin wrote it, so a new adapter rule (`finished:`, `client_stages`) reaches an existing project only when the admin edits `.hub/engines/sdd.yaml` after the upgrade merged. The release note must say so; `hub upgrade` could list where the admin's `.hub/` differs from the new defaults.
+- **Bugs are not fanned out.** The team that fixes a bug reads it in product-specs (`hub/bugs/BUG-NNNN.md`); `/sdd:fix` in the team repository got its text from the person. Fan-out could copy the owning team's open bugs.
+- **A live check between teams before ship.** The web team's task "check against the real API" needed the backend running before ship, which comes before staging. In the cycle the web lead ran the backend's branch locally (8 of 8 contract checks passed). The flow has no place for a shared test environment before staging.
+- **SDD's review without a person never says PASS on its own.** Every round found new stage-2 findings and took "fix now"; the team lead's rule "defer new stage-2 findings, fix stage-1" ended it after four rounds. With a person this is the person's call, so nothing to change in the hub, but the hub could show the rounds (`review-<date>-rN.md`) on the Tasks screen.
+- **Merge requests left failed by the old recheck.** A merge request whose pipeline failed before the recheck fix (no hub-guard job, a configuration error) merges only after its author runs its pipeline again. The site's saves could offer that.
+- **GitHub: ship's evidence.** The GitHub report workflow sets no `CI_OPEN_MERGE_REQUESTS`, so a team snapshot on GitHub carries no pull request and ship has no evidence there. Not exercised in the cycle, which ran on GitLab.
+- **The person's confirmation in the chat.** Sign-offs, verdicts and release records went through the hub's MCP tools directly (what the assistant does once the person said yes): a one-turn headless run cannot answer the skill's question.
 
 ## Claims to verify
 

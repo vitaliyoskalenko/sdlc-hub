@@ -173,3 +173,22 @@ describe("a task tracker before work starts", () => {
     expect(detectFeature(loadProject(view.specs).value!, view, "bulk-order-export").steps.find((s) => s.id === "implement")!.status).not.toBe("running");
   });
 });
+
+describe("after the feature's branches merged", () => {
+  it("does not warn that the branch's CI result is older than main's merge commit", () => {
+    const f = fixtures["demo"]!;
+    const path = "features/bulk-order-export/teams/backend.json";
+    const snap = JSON.parse(f.hubState![path]!) as Record<string, unknown>;
+    const run = JSON.stringify({ source: "ci", team: "backend", result: "passed", at: "2026-10-01T09:00:00Z", ref: "feat/bulk-order-export@aaaaaaa" });
+    const merged = { ...f.hubState, [path]: JSON.stringify({ ...snap, source_commit: "bbbbbbbbbb", generated_at: "2026-10-02T09:00:00Z", mr: { iid: 6, state: "merged" } }), "features/bulk-order-export/tests/ci-backend-999.json": run };
+    const view = viewOf({ ...f, hubState: merged });
+    expect(detectFeature(loadProject(view.specs).value!, view, "bulk-order-export").warnings.filter((w) => /older than its newest change.*backend|backend.*older than/.test(w))).toEqual([]);
+  });
+  it("shows no time for a step that was skipped after hub_next handed it out", () => {
+    const f = fixtures["demo"]!;
+    const p = "features/order-notes-fix/events.jsonl";
+    const started = '{"step":"data-model","event":"started","role":"dev","assistant":"claude","at":"2026-10-01T09:00:00Z"}\n';
+    const view = viewOf({ ...f, hubState: { ...f.hubState, [p]: `${f.hubState?.[p] ?? ""}${started}` } });
+    expect(detectFeature(loadProject(view.specs).value!, view, "order-notes-fix").times.map((t) => t.step)).not.toContain("data-model");
+  });
+});

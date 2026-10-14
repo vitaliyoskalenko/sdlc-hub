@@ -239,7 +239,8 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
     const run = testRuns.filter((r) => r.team === t.id && r.source === "ci").sort((a, b) => a.at.localeCompare(b.at)).at(-1);
     const sha = run?.ref?.split("@")[1];
     const commit = t.snapshot?.source_commit;
-    if (run && sha && commit && !commit.startsWith(sha) && !sha.startsWith(commit) && t.snapshot!.generated_at > run.at)
+    // Once the feature's branch merged, main speaks for the team and the tests came from the branch: nothing to compare.
+    if (run && sha && commit && t.snapshot?.mr?.state !== "merged" && !commit.startsWith(sha) && !sha.startsWith(commit) && t.snapshot!.generated_at > run.at)
       warnings.push(`The CI result of ${t.id} (${run.result ?? "no result"}, ${run.ref}) is older than its newest change (${commit.slice(0, 7)}): wait for the pipeline of that change before deciding`);
   }
 
@@ -571,7 +572,8 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
     blockingBugs,
     warnings,
     issues,
-    times: stepTimes(events, view.now),
+    // A step skipped after hub_next handed it out has no time of its own.
+    times: stepTimes(events, view.now).filter((t) => states.find((s) => s.id === t.step)?.status !== "skipped"),
     waited: contractId ? waitedFor(teams, contractId, view.now) : [],
     ...(lead ? { leadTime: lead } : {}),
   };
