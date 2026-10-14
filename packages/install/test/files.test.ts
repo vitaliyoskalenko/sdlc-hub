@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { guardSettings, loadProject, memorySource, parseConfig } from "@sdlc-hub/core";
-import { configYaml, hubFiles, hubGuardCi, hubReportJob, problem, reportStage, teamId, withBlock, withIgnore, withInclude, type SetupAnswers } from "../src/index.ts";
+import { configYaml, hubFiles, hubOwnedFiles, hubGuardCi, hubReportJob, problem, reportStage, teamId, withBlock, withIgnore, withInclude, type SetupAnswers } from "../src/index.ts";
 
 export const ANSWERS: SetupAnswers = {
   host: "gitlab",
@@ -71,6 +71,11 @@ describe("sections in files the hub does not own", () => {
     const once = withBlock("# Project\n\nOur rules.\n", "## SDLC Hub\n\nv1");
     const twice = withBlock(once, "## SDLC Hub\n\nv2");
     expect(twice).toMatch(/^# Project\n\nOur rules.\n\n<!-- sdlc-hub:start -->\n## SDLC Hub\n\nv2\n<!-- sdlc-hub:end -->\n$/);
+  });
+  it("ignore what an engine keeps on each machine, so a stage leaves .gitignore as it was", async () => {
+    const files = await hubOwnedFiles({ host: "gitlab", assistants: { codex: false, cursor: false }, engine: "sdd", marketplace: "product-specs", bundle: "", read: async (p) => (p === ".gitignore" ? "node_modules\n" : null) });
+    // SDD's own patch: its settings file and its worktrees.
+    expect(files[".gitignore"]).toBe("node_modules\n.claude/*.local.md\n.claude/settings.local.json\n.worktrees/\n");
   });
   it("add a .gitignore line once", () => {
     expect(withIgnore(null, ".claude/*.local.md")).toBe(".claude/*.local.md\n");

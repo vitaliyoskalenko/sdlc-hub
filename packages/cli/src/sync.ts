@@ -72,12 +72,14 @@ export async function sync(o: SyncOptions): Promise<{ ok: boolean; lines: Line[]
   }
   const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"], o.root).out.trim();
   if (branch === "main") dropMerged(o.root, run);
-  const dirty = run("git", ["status", "--porcelain", "--untracked-files=no"], o.root).out.trim();
+  const dirty = run("git", ["status", "--porcelain"], o.root).out.trim();
   if (branch !== "main") say(false, `You are on ${branch}, not main: main was fetched but not checked out`, false);
-  else if (dirty) say(false, "main has changes of your own, so it was fetched but not moved; commit or stash them, then sync again", false);
   else {
+    // Git moves main on over changes of the person's own only when the newer main leaves those files alone.
     const ff = run("git", ["merge", "-q", "--ff-only", "refs/remotes/origin/main"], o.root);
-    say(ff.status === 0, ff.status === 0 ? "main is up to date" : `main could not move forward: ${ff.out.split("\n").at(-1)}`, false);
+    if (ff.status === 0) say(true, dirty ? "main is up to date; your own changes are kept" : "main is up to date", false);
+    else if (/would be overwritten/.test(ff.out)) say(false, "main has changes of your own in files the newer main changes too, so it was fetched but not moved; commit or stash them, then sync again", false);
+    else say(false, `main could not move forward: ${ff.out.split("\n").at(-1)}`, false);
   }
 
   const opened = openProject(o.root);

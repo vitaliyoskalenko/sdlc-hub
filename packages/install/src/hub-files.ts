@@ -27,7 +27,9 @@ export async function hubOwnedFiles(o: HubOwnedInput): Promise<Record<string, st
   files["hub/package.json"] = hubPackageJson(o.version);
   files["CLAUDE.md"] = withBlock((await o.read("CLAUDE.md")) ?? null, CLAUDE_BLOCK);
   if (o.assistants.codex || o.assistants.cursor) files["AGENTS.md"] = withBlock((await o.read("AGENTS.md")) ?? null, AGENTS_BLOCK);
-  files[".gitignore"] = withIgnore(withIgnore((await o.read(".gitignore")) ?? null, ".claude/*.local.md"), ".claude/settings.local.json");
+  // What stays on each machine: the assistants' local settings, and SDD's worktrees (SDD adds the line itself otherwise,
+  // and every person's first stage would leave .gitignore changed, which only the admin may change).
+  files[".gitignore"] = [".claude/*.local.md", ".claude/settings.local.json", ".worktrees/"].reduce((text: string | null, line) => withIgnore(text, line), (await o.read(".gitignore")) ?? null)!;
   // The hub plugin for Claude Code, the repository's own marketplace, and the shared settings that enable both.
   Object.assign(files, pluginFiles());
   // Codex and Cursor: one set of skills in .agents/skills, and each one's MCP server and hooks.

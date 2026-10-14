@@ -47,14 +47,23 @@ describe("hub sync", () => {
     expect(git(clone, "status", "--porcelain")).toBe("");
     expect(git(clone, "rev-parse", "HEAD")).toBe(git(remote, "rev-parse", "main"));
 
-    // A change that main does not have stays, and main waits.
+    // A change of her own stays, and main moves on over it when the newer main does not change the same file.
     writeFileSync(join(clone, spec), `${specText}\nMy own note.\n`);
     writeFileSync(join(host, "docs/features/returns-portal/notes.md"), "# Notes\n");
     git(host, "add", "-A");
-    git(host, "-c", "user.name=o", "-c", "user.email=o@x", "commit", "-q", "-m", "route");
+    git(host, "-c", "user.name=o", "-c", "user.email=o@x", "commit", "-q", "-m", "notes");
     git(host, "push", "-q", "origin", "HEAD:main");
     const kept = await sync({ root: clone });
-    expect(print(kept.lines)).toContain("main has changes of your own");
+    expect(print(kept.lines)).toContain("main is up to date; your own changes are kept");
+    expect(readFileSync(join(clone, spec), "utf8")).toContain("My own note.");
+    expect(readFileSync(join(clone, "docs/features/returns-portal/notes.md"), "utf8")).toBe("# Notes\n");
+
+    // When the newer main changes the same file, main waits and says why.
+    writeFileSync(join(host, spec), `${specText}\nAnother change.\n`);
+    git(host, "-c", "user.name=o", "-c", "user.email=o@x", "commit", "-q", "-a", "-m", "spec");
+    git(host, "push", "-q", "origin", "HEAD:main");
+    const waits = await sync({ root: clone });
+    expect(print(waits.lines)).toContain("main has changes of your own in files the newer main changes too");
     expect(readFileSync(join(clone, spec), "utf8")).toContain("My own note.");
   });
 
