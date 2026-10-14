@@ -16,7 +16,7 @@ steps:
   data-model:  { stage: data-model, in: contract, skippable_on: [quick, standard], done_when: ["file:data-model.md"] }
   api:         { stage: api, in: contract, skippable_on: [quick, standard], done_when: ["file:contracts/*", "mr:contract"] }
   screens:     { stage: screens, in: specs, skippable_on: [quick, standard], done_when: ["file:screens.md"] }
-  tasks:       { stage: tasks, in: teams, done_when: ["file:tasks.json", "file:tasks/tracker.md"] }
+  tasks:       { stage: tasks, client_stages: [design, tasks], in: teams, done_when: ["file:tasks.json", "file:tasks/tracker.md"] }
   plan-tests:  { stage: plan-tests, in: specs, skippable_on: [quick, standard], done_when: ["file:test-plan.md | section:spec.md#Test plan"] }
   implement:   { stage: implement, in: teams, done_when: ["tracker:all-done"] }
   review:      { stage: review, in: teams, done_when: ["review:PASS"] }

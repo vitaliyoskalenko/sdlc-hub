@@ -41,6 +41,10 @@ describe("what a person does next on a feature", () => {
     expect(nextFor(p, withDesignDone, "taras.m", "tasks")).toMatchObject({ kind: "run", step: "tasks", skips: ["data-model", "api"] });
     // A step the route requires is not skipped that way, nor another role's.
     expect(nextFor(p, withDesignDone, "taras.m", "implement")).toMatchObject({ kind: "waiting", on: [{ step: "tasks" }, { step: "sprint" }, { step: "plan-tests" }] });
+    // At tasks, a client team designs its own part first: design, then tasks; the contract team designed already.
+    const atTasks = { ...withDesignDone, steps: withDesignDone.steps.map((s) => (["data-model", "api", "screens"].includes(s.id) ? { ...s, status: "skipped" as const } : s.id === "tasks" ? { ...s, status: "ready" as const } : s)) };
+    expect(nextFor(p, atTasks, "petro.v", "tasks")).toMatchObject({ kind: "run", stages: ["design", "tasks"] });
+    expect(nextFor(p, atTasks, "taras.m", "tasks")).toMatchObject({ kind: "run", stages: ["tasks"] });
     // Once tech-design is signed, data-model waits for the backend lead alone.
     expect(state.steps.find((s) => s.id === "tech-design")!.waitingOn).toEqual(["petro.v"]);
   });

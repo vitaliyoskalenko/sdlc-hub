@@ -47,6 +47,11 @@ A feature run from `/hub:new` towards release with every role as its own person 
 - **Why:** On the standard route SDD itself proposed skipping data-model, but the hub handed out api only once data-model was done or skipped, and "skipped" was inferred only from a later step's evidence.
 - **By:** Specification (the person chooses on standard).
 
+### A client team designs its part before its tasks
+- **Decision:** An engine step may list `client_stages` for the teams other than the contract team. The SDD adapter's tasks gives them `design`, then `tasks`; the contract team gets `tasks` alone.
+- **Why:** SDD's tasks refuses without `sad.md` and an accepted ADR, and the web team had neither: the specification has client teams write their own short `sad.md` at step 9, but the hub handed out only `/sdd:tasks`.
+- **By:** Specification.
+
 ### Smaller fixes
 - A finished stage whose only evidence is a sign-off (clarify) waits for that sign-off instead of showing ready to start.
 - A sign-off is blocked only by an earlier sign-off of the same step that still waits, not by the stage's own saved result, and the check looks at the host first.

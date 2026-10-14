@@ -229,6 +229,8 @@ const engineStep = z
   .strictObject({
     stage: z.string().optional(),
     stages: z.array(z.string()).min(1).optional(),
+    /** In a team other than the contract team, these stages instead: a client team designs its own part first. */
+    client_stages: z.array(z.string()).min(1).optional(),
     in: where,
     skippable_on: z.array(z.enum(ROUTES)).optional(),
     done_when: z.array(requirement).min(1),

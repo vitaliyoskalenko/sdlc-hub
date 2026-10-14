@@ -3,13 +3,14 @@
 
 import { detectFeature } from "@sdlc-hub/core";
 import { openProject } from "@sdlc-hub/git";
-import { clone, run } from "./lib.ts";
+import { join } from "node:path";
+import { clone, home, run } from "./lib.ts";
 
 const [user, slug] = process.argv.slice(2);
 if (!user || !slug) throw new Error("steps.ts <user> <slug>");
 // As the person sees it after hub sync: main moved on.
 const dir = clone(user, "product-specs");
-run(user, dir, "git", ["merge", "-q", "--ff-only", "refs/remotes/origin/main"]);
+run(user, dir, "node", ["hub/cli.js", "sync"], { PATH: `${join(home(user), "bin")}:${process.env["PATH"]}` });
 const open = openProject(dir);
 const s = detectFeature(open.project!, open.view, slug);
 s.steps.forEach((x, i) =>

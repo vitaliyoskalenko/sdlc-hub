@@ -46,5 +46,7 @@ export function nextFor(project: Project, state: FeatureState, user: string, ste
 
   const es = project.engine.steps[id];
   if (!es) return { kind: "hub-step", step: id, status: st.status };
-  return { kind: "run", step: id, stages: es.stages, where: es.in, running: st.status === "running", returned: st.status === "returned", thenSignoff: awaitsSignoff(project, state, id), ...(skips.length ? { skips } : {}) };
+  // A client team (not the one that publishes the contract) designs its own part before the tasks.
+  const client = es.client_stages && state.contractTeam && person?.team && person.team !== state.contractTeam;
+  return { kind: "run", step: id, stages: client ? es.client_stages! : es.stages, where: es.in, running: st.status === "running", returned: st.status === "returned", thenSignoff: awaitsSignoff(project, state, id), ...(skips.length ? { skips } : {}) };
 }
