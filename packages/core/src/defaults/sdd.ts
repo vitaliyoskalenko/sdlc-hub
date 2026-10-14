@@ -12,7 +12,7 @@ steps:
   specify:     { stage: specify, in: specs, done_when: ["file:spec.md", "file:.size", "file:.route"] }
   clarify:     { stage: clarify, in: specs, skippable_on: [quick, standard], done_when: ["signoff:clarify"] }
   ux-flows:    { stage: ux-flows, in: specs, skippable_on: [quick, standard], done_when: ["file:ux-flows.md"] }
-  tech-design: { stages: [design, sequences], in: contract, done_when: ["file:sad.md", "file:adr/*.md", "file:_sequences-log.md | route:quick"] }
+  tech-design: { stages: [design, sequences], in: contract, done_when: ["file:sad.md", "file:adr/*.md", "file:_sequences-log.md | finished:tech-design | route:quick"] }
   data-model:  { stage: data-model, in: contract, skippable_on: [quick, standard], done_when: ["file:data-model.md"] }
   api:         { stage: api, in: contract, skippable_on: [quick, standard], done_when: ["file:contracts/*", "mr:contract"] }
   screens:     { stage: screens, in: specs, skippable_on: [quick, standard], done_when: ["file:screens.md"] }

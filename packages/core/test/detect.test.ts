@@ -100,3 +100,20 @@ describe("a stage whose only evidence is its sign-off", () => {
     expect(clarify).toMatchObject({ status: "signoff", waitingOn: ["olena.k"] });
   });
 });
+
+describe("tech-design without the sequences log", () => {
+  // SDD keeps sequences' edits-log on disk only when the stage asked the person something.
+  it("counts as done once hub_record says the stages finished", () => {
+    const f = fixtures["demo"]!;
+    const snap = "features/order-webhooks/teams/backend.json";
+    const backend = JSON.parse(f.hubState![snap]!) as { files: string[] };
+    const noLog = { ...f.hubState, [snap]: JSON.stringify({ ...backend, files: backend.files.filter((x) => x !== "_sequences-log.md") }) };
+    const step = (hubState: Record<string, string>) => {
+      const view = viewOf({ ...f, hubState });
+      return detectFeature(loadProject(view.specs).value!, view, "order-webhooks").steps.find((s) => s.id === "tech-design")!.status;
+    };
+    expect(step(noLog)).not.toBe("signoff");
+    const finished = '{"step":"tech-design","event":"finished","role":"dev","assistant":"claude","at":"2026-10-08T09:00:00Z"}\n';
+    expect(step({ ...noLog, "features/order-webhooks/events.jsonl": finished })).toBe("signoff");
+  });
+});

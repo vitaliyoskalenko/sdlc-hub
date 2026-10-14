@@ -384,6 +384,8 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
         return releaseEval(atom.what);
       case "route":
         return route === atom.route ? { level: "full", source: "specs" } : { level: "none" };
+      case "finished":
+        return lastEvent(atom.step)?.event === "finished" ? { level: "full", source: "hub-state" } : { level: "none" };
       case "tests-ci-green": {
         const latest = teamIds.map((id) => testRuns.filter((r) => r.team === id && r.source === "ci").sort(byTime).at(-1));
         const red = latest.flatMap((r, i) => (r?.result === "failed" ? [teamIds[i]!] : []));

@@ -12,7 +12,9 @@ export type Atom =
   | { kind: "release"; what: ReleaseFact }
   | { kind: "tests-ci-green" }
   /** Holds on that route: makes a requirement apply only on the other routes, as in `file:x | route:quick`. */
-  | { kind: "route"; route: string };
+  | { kind: "route"; route: string }
+  /** The step's stages ran to their end: the last stage event of the step is "finished" (hub_record). */
+  | { kind: "finished"; step: string };
 
 export type ReleaseFact = "staging-passed" | "go" | "rolled-out" | "watch-over";
 const RELEASE_FACTS: readonly ReleaseFact[] = ["staging-passed", "go", "rolled-out", "watch-over"];
@@ -61,6 +63,8 @@ function parseAtom(s: string): Atom | string {
         : `Unknown evidence "${s}"`;
     case "tests":
       return arg === "ci-green" ? { kind: "tests-ci-green" } : `Unknown evidence "${s}"`;
+    case "finished":
+      return arg ? { kind: "finished", step: arg } : `Unknown evidence "${s}": finished needs a step`;
     case "route":
       return ["quick", "standard", "full"].includes(arg) ? { kind: "route", route: arg } : `Unknown evidence "${s}": the routes are quick, standard and full`;
     default:

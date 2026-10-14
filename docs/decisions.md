@@ -2,6 +2,46 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-14: The full feature cycle on the local GitLab
+
+A feature run from `/hub:new` towards release with every role as its own person and the real SDD 2.3.0 in Claude Code (`e2e/cycle/`). What it found, and what changed.
+
+### A stage's result reaches main through the hub
+- **Decision:** `hub_record` saves the files an engine stage left in product-specs, committed by the stage or not, as one merge request in the person's name, with only the files their role may change; the others are named and left. The stage's own commits go into the merge request, and `hub sync` moves main on over the files once they merged.
+- **Why:** Nothing took a stage's files to main: the `next` skill ran the stage and recorded its end, and the specification's "the assistant commits a stage result" had no code behind it.
+- **By:** Proposed; the owner asked for the cycle.
+
+### Every command of the specification is in the plugin
+- **Decision:** `new` (with the tool `hub_new`), `run`, `sync` and `doctor` are skills. `new` writes the feature's folder and `feature.yaml` and hands out the first step.
+- **Why:** The site and the specification name them; without `new` the PO could not start a feature through the hub.
+- **By:** Specification.
+
+### The PM sets the teams and the user interface at epic
+- **Decision:** Edit details takes the teams of the feature with their leads, and whether it has a user interface.
+- **Why:** The epic step asks the PM for both, and nothing let the PM record them.
+- **By:** Specification.
+
+### hub recheck runs the guard job again
+- **Decision:** On GitLab, `hub recheck` retries the hub-guard job in each open merge request's latest pipeline instead of starting a pipeline.
+- **Why:** A pipeline started with `HUB_RECHECK_TOKEN` fails before any job: its bot cannot read the configuration in `hub-ci`. Every change of `.hub/` left the open merge requests failed and unmerged. The install test of claim 14 passed only because it expected a failure of any kind; it now checks the guard's own refusal.
+- **By:** Proposed.
+
+### Which branch of a team speaks for a feature
+- **Decision:** A team's report speaks for a feature from `feat/<slug>`; the default branch speaks only for features with no branch of their own; any other branch (the fan-out merge request, for one) speaks for none. Test runs are recorded from the feature's branch only.
+- **Why:** The fan-out merge request's pipeline reported its own merge request as the feature's, so the feature jumped to ship, and its tests counted for autotests. A snapshot from main also replaced what the feature's branch said.
+- **By:** Proposed.
+
+### tech-design also counts the stages' finished event
+- **Decision:** The evidence `finished:<step>` holds once the step's last stage event is "finished". The SDD adapter's tech-design asks for `file:_sequences-log.md | finished:tech-design | route:quick`.
+- **Why:** SDD's sequences leaves `_sequences-log.md` only when it asked the person something; at the easy depth it leaves none, and tech-design waited for ever.
+- **By:** Proposed.
+
+### Smaller fixes
+- A finished stage whose only evidence is a sign-off (clarify) waits for that sign-off instead of showing ready to start.
+- A sign-off is blocked only by an earlier sign-off of the same step that still waits, not by the stage's own saved result, and the check looks at the host first.
+- `hub sync` moves main on over a person's own changes when the newer main leaves those files alone.
+- Install ignores SDD's `.worktrees/`, so a stage leaves `.gitignore` as it was.
+
 ## 2026-10-10: Revision 71, the owner's review of the site
 
 ### Navigation and names

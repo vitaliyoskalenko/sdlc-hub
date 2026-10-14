@@ -60,7 +60,7 @@ invoke:
   cursor: "/sdd-{stage} {slug}"
 steps:
   specify:     { stage: specify, in: specs, done_when: ["file:spec.md", "file:.size", "file:.route"] }
-  tech-design: { stages: [design, sequences], in: contract, done_when: ["file:sad.md", "file:adr/*.md", "file:_sequences-log.md | route:quick"] }
+  tech-design: { stages: [design, sequences], in: contract, done_when: ["file:sad.md", "file:adr/*.md", "file:_sequences-log.md | finished:tech-design | route:quick"] }
   implement:   { stage: implement, in: teams, done_when: ["tracker:all-done"] }
   # ... one entry per engine step
 ```
