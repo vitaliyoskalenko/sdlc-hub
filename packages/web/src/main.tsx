@@ -65,7 +65,8 @@ function Root() {
   const [error, setError] = useState<string | null>(null);
   const [help, setHelp] = useState<string | null>(null);
   const [task, setTask] = useState<Action | null>(null);
-  const [saves, setSaves] = useState<{ list: Save[]; enabled: boolean; why?: string }>({ list: [], enabled: false });
+  // loaded: until the server answers, the site does not know whether it can save, and says nothing about it.
+  const [saves, setSaves] = useState<{ list: Save[]; enabled: boolean; why?: string; loaded?: boolean }>({ list: [], enabled: false });
   // The latest open layers, for the Escape handler registered once.
   const layers = useRef({ help: false, task: false });
   layers.current = { help: help !== null, task: task !== null };
@@ -136,7 +137,7 @@ function Root() {
   useEffect(() => {
     if (!viewer) return;
     let live = true;
-    const load = () => api.saves(session?.demo ? viewer : undefined).then((x) => live && setSaves({ list: x.saves, enabled: x.enabled, ...(x.why ? { why: x.why } : {}) }), () => undefined);
+    const load = () => api.saves(session?.demo ? viewer : undefined).then((x) => live && setSaves({ list: x.saves, enabled: x.enabled, loaded: true, ...(x.why ? { why: x.why } : {}) }), () => undefined);
     void load();
     const waiting = (x: Save) => x.state === "pending" || x.state === "queued";
     const timer = setInterval(() => saves.list.some(waiting) && void load(), 8000);
@@ -337,7 +338,7 @@ function Root() {
                 {saves.why}
               </p>
             )}
-            {!saves.enabled && !saves.why && (
+            {saves.loaded && !saves.enabled && !saves.why && (
               <p class="note warn" id="read-only">
                 Read only: this checkout has no remote to save to.
               </p>
