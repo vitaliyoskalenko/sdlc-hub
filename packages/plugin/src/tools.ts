@@ -100,7 +100,14 @@ function planText(ctx: ToolContext, l: Loaded, s: FeatureState, plan: StepPlan):
     case "run": {
       const invoke = l.project.engine.invoke[ctx.assistant];
       const commands = plan.stages.map((stage) => invoke.replace("{stage}", stage).replace("{slug}", slug));
-      const where = plan.where === "specs" ? "Run it here, in product-specs." : plan.where === "contract" ? `Run it in the repository of the team that publishes the API contract${s.contractTeam ? ` (${s.contractTeam})` : ""}.` : "Run it in each team repository of the feature.";
+      const where =
+        plan.where === "specs"
+          ? "Run it here, in product-specs."
+          : plan.where === "contract"
+            ? `Run it in the repository of the team that publishes the API contract${s.contractTeam ? ` (${s.contractTeam})` : ""}.`
+            : plan.where === "owning-team"
+              ? `Run it in your team's repository, for ${plan.bugs?.join(", ") ?? "your team's bugs"}; then set ${plan.bugs && plan.bugs.length > 1 ? "their" : "its"} status to retest on the site's QA tab.`
+              : "Run it in each team repository of the feature.";
       const template = l.open.view.specs.read(`.hub/prompts/${plan.step}.md`);
       // A prompt template is plain Markdown; these placeholders are filled in, anything else stays as written.
       const fill: Record<string, string> = { slug, title: s.title ?? slug, step: plan.step, route: s.route, size: s.size ?? "not set" };

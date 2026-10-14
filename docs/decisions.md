@@ -64,6 +64,11 @@ A feature run from `/hub:new` towards release with every role as its own person 
 - **Why:** In the cycle QA signed verify through the assistant with AC-03 failing and its bug open: the tool skipped the check, and the guard had none, so the step was done with a failing criterion.
 - **By:** Specification (the verify gate).
 
+### fix is handed out by the hub
+- **Decision:** `/hub:run fix <slug>` hands out the adapter's return path at a step it returns from (verify, qa-final), to the lead of a team with a bug still open or being fixed, in that team's repository, naming the bugs.
+- **Why:** The site and Help offer `/hub:run fix`, but the hub answered "There is no step fix": the return path was in the adapter and nowhere else.
+- **By:** Specification.
+
 ### Smaller fixes
 - A finished stage whose only evidence is a sign-off (clarify) waits for that sign-off instead of showing ready to start.
 - A sign-off is blocked only by an earlier sign-off of the same step that still waits, not by the stage's own saved result, and the check looks at the host first.

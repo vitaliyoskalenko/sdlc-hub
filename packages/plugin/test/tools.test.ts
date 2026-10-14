@@ -71,6 +71,11 @@ describe("hub_next", () => {
     expect(r.isError).toBe(true);
     expect(r.text).toContain("belongs to po (Olena K.)");
   });
+  it("hands the web lead the fix of his team's bug, in his repository", () => {
+    const r = hubNext(demo("petro.v").ctx, "tasks-issues", "fix");
+    expect(r.text).toContain("/sdd:fix tasks-issues");
+    expect(r.text).toContain("Run it in your team's repository, for BUG-0014; then set its status to retest");
+  });
   it("tells the backend lead that the gate waits for him", () => {
     const r = hubNext(demo("taras.m").ctx, "order-webhooks");
     expect(r.text).toContain("gate waits for you");

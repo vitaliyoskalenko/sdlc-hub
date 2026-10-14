@@ -52,6 +52,13 @@ describe("what a person does next on a feature", () => {
     // Once tech-design is signed, data-model waits for the backend lead alone.
     expect(state.steps.find((s) => s.id === "tech-design")!.waitingOn).toEqual(["petro.v"]);
   });
+  it("fix, the return path, goes to the lead of a team with a bug to fix, in that team's repository", () => {
+    // tasks-issues is at verify: BUG-0014 of the web team is being fixed; the backend's BUG-0012 waits for a retest.
+    expect(plan("petro.v", "tasks-issues", "fix")).toMatchObject({ kind: "run", step: "fix", stages: ["fix"], where: "owning-team", bugs: ["BUG-0014"] });
+    expect(plan("taras.m", "tasks-issues", "fix")).toMatchObject({ kind: "not-yours", step: "fix" });
+    // Not before verify: there is nothing to fix yet.
+    expect(plan("petro.v", "returns-portal", "fix")).toMatchObject({ kind: "waiting", step: "fix" });
+  });
   it("a hub step has no engine stage", () => {
     expect(plan("iryna.s", "tasks-issues")).toMatchObject({ kind: "hub-step", step: "verify" });
   });

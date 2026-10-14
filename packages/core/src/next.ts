@@ -14,14 +14,30 @@ export type StepPlan =
   | { kind: "waiting"; step: string; on: { step: string; status: StepStatus }[] }
   | { kind: "signoff"; step: string }
   | { kind: "hub-step"; step: string; status: StepStatus }
-  | { kind: "run"; step: string; stages: string[]; where: EvidenceSource; running: boolean; returned: boolean; thenSignoff: boolean; skips?: string[] };
+  | { kind: "run"; step: string; stages: string[]; where: EvidenceSource; running: boolean; returned: boolean; thenSignoff: boolean; skips?: string[]; bugs?: string[] };
 
 const OPEN: StepStatus[] = ["done", "skipped"];
+
+/**
+ * A return path (fix): from a step it may come back from (verify, qa-final), for the lead of a team with a bug of the
+ * feature still to fix, run in that team's repository.
+ */
+function returnPlan(project: Project, state: FeatureState, user: string, id: string, ret: NonNullable<Project["engine"]["returns"]>[string]): StepPlan {
+  if (!ret.from.includes(state.current)) return { kind: "waiting", step: id, on: ret.from.map((s) => ({ step: s, status: state.steps.find((x) => x.id === s)?.status ?? "todo" })) };
+  const toFix = state.bugs.filter((b) => b.status === "open" || b.status === "fixing");
+  const person = project.roles.people.find((p) => p.user === user);
+  const mine = toFix.filter((b) => !!person?.team && person.roles.includes("dev") && b.team === person.team);
+  const owners = [...new Set(toFix.map((b) => b.team))];
+  if (!mine.length) return { kind: "not-yours", step: id, role: "dev", waitingOn: project.roles.people.filter((p) => p.lead && p.team && owners.includes(p.team)).map((p) => p.user), ...(owners.length ? { teams: owners } : {}) };
+  return { kind: "run", step: id, stages: [ret.stage], where: ret.in, running: false, returned: false, thenSignoff: false, bugs: mine.map((b) => b.id) };
+}
 
 export function nextFor(project: Project, state: FeatureState, user: string, stepId?: string): StepPlan {
   if (!stepId && state.current === "released") return { kind: "released" };
   const id = stepId ?? state.current;
   const i = project.flow.steps.findIndex((s) => s.id === id);
+  const ret = i < 0 ? project.engine.returns?.[id] : undefined;
+  if (ret) return returnPlan(project, state, user, id, ret);
   if (i < 0) return { kind: "unknown-step", step: id };
   const step = project.flow.steps[i]!;
   const st = state.steps.find((s) => s.id === id)!;
