@@ -41,6 +41,11 @@ A feature run from `/hub:new` towards release with every role as its own person 
 - **Why:** In the cycle, the backend's first pipeline (on the design commit) made autotests "running" and the current step jumped to it; data-model waited for the web lead too; and the backend's own `backend-service` made the hub ask for `ui: false` on a feature whose web team builds the interface.
 - **By:** Proposed.
 
+### Skipping an optional step through the hub
+- **Decision:** `/hub:run <step>` hands out a step when the open steps before it are of the same role, optional on the feature's route and not started; the answer says which it skips. Another role's step, or one the route requires, still holds it back.
+- **Why:** On the standard route SDD itself proposed skipping data-model, but the hub handed out api only once data-model was done or skipped, and "skipped" was inferred only from a later step's evidence.
+- **By:** Specification (the person chooses on standard).
+
 ### Smaller fixes
 - A finished stage whose only evidence is a sign-off (clarify) waits for that sign-off instead of showing ready to start.
 - A sign-off is blocked only by an earlier sign-off of the same step that still waits, not by the stage's own saved result, and the check looks at the host first.

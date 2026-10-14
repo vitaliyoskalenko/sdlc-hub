@@ -13,7 +13,7 @@ export type StepPlan =
   | { kind: "waiting"; step: string; on: { step: string; status: StepStatus }[] }
   | { kind: "signoff"; step: string }
   | { kind: "hub-step"; step: string; status: StepStatus }
-  | { kind: "run"; step: string; stages: string[]; where: EvidenceSource; running: boolean; returned: boolean; thenSignoff: boolean };
+  | { kind: "run"; step: string; stages: string[]; where: EvidenceSource; running: boolean; returned: boolean; thenSignoff: boolean; skips?: string[] };
 
 const OPEN: StepStatus[] = ["done", "skipped"];
 
@@ -34,11 +34,17 @@ export function nextFor(project: Project, state: FeatureState, user: string, ste
   const owns = !!person && person.roles.includes(step.role) && (step.role !== "dev" || !teams.length || (!!person.team && teams.includes(person.team)));
   if (!owns && !gateOwner) return { kind: "not-yours", step: id, role: st.status === "signoff" && step.gate ? step.gate.role : step.role, waitingOn: st.waitingOn ?? [] };
 
-  const before = state.steps.slice(0, i).filter((s) => !OPEN.includes(s.status));
+  // Steps of the same role before this one, optional on the feature's route and not started, may be skipped by going
+  // on: a lead who skips data-model asks for api. Another role's step is theirs to skip.
+  const open = state.steps.slice(0, i).filter((s) => !OPEN.includes(s.status));
+  const skippable = (s: (typeof open)[number]) =>
+    (s.status === "ready" || s.status === "todo") && (project.engine.steps[s.id]?.skippable_on ?? []).includes(state.route) && project.flow.steps.find((x) => x.id === s.id)?.role === step.role;
+  const before = stepId ? open.filter((s) => !skippable(s)) : open;
+  const skips = stepId ? open.filter(skippable).map((s) => s.id) : [];
   if (before.length) return { kind: "waiting", step: id, on: before.map((s) => ({ step: s.id, status: s.status })) };
   if (st.status === "signoff") return { kind: "not-yours", step: id, role: step.gate?.role ?? step.role, waitingOn: st.waitingOn ?? [] };
 
   const es = project.engine.steps[id];
   if (!es) return { kind: "hub-step", step: id, status: st.status };
-  return { kind: "run", step: id, stages: es.stages, where: es.in, running: st.status === "running", returned: st.status === "returned", thenSignoff: awaitsSignoff(project, state, id) };
+  return { kind: "run", step: id, stages: es.stages, where: es.in, running: st.status === "running", returned: st.status === "returned", thenSignoff: awaitsSignoff(project, state, id), ...(skips.length ? { skips } : {}) };
 }

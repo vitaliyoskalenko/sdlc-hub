@@ -34,6 +34,11 @@ describe("what a person does next on a feature", () => {
     const withDesignDone = { ...state, steps: state.steps.map((s) => (s.id === "tech-design" ? { ...s, status: "done" as const } : s.id === "data-model" ? { ...s, status: "ready" as const, waitingOn: [] } : s)) };
     expect(nextFor(p, withDesignDone, "petro.v", "data-model")).toMatchObject({ kind: "not-yours", step: "data-model" });
     expect(nextFor(p, withDesignDone, "taras.m", "data-model")).toMatchObject({ kind: "run", step: "data-model", where: "contract" });
+    // data-model is optional on the standard route: asking for api skips it, and says so.
+    expect(nextFor(p, withDesignDone, "taras.m", "api")).toMatchObject({ kind: "run", step: "api", skips: ["data-model"] });
+    expect(nextFor(p, withDesignDone, "taras.m", "tasks")).toMatchObject({ kind: "run", step: "tasks", skips: ["data-model", "api"] });
+    // A step the route requires is not skipped that way, nor another role's.
+    expect(nextFor(p, withDesignDone, "taras.m", "implement")).toMatchObject({ kind: "waiting", on: [{ step: "tasks" }, { step: "sprint" }, { step: "plan-tests" }] });
     // Once tech-design is signed, data-model waits for the backend lead alone.
     expect(state.steps.find((s) => s.id === "tech-design")!.waitingOn).toEqual(["petro.v"]);
   });

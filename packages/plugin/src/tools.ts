@@ -106,6 +106,7 @@ function planText(ctx: ToolContext, l: Loaded, s: FeatureState, plan: StepPlan):
       const prompt = template?.replace(/\{(slug|title|step|route|size)\}/g, (_, k: string) => fill[k]!).trim();
       return [
         `${plan.returned ? "The step came back: run it again." : plan.running ? "The step is already running; continue it." : `Next for you in ${slug}: ${plan.step}.`} ${where}`,
+        ...(plan.skips?.length ? [`This skips ${plan.skips.join(" and ")}, optional on the ${s.route} route: the hub shows ${plan.skips.length === 1 ? "it" : "them"} as skipped once ${plan.step} has its evidence.`] : []),
         "",
         "Run this engine command unchanged:",
         ...commands.map((c) => `  ${c}`),
