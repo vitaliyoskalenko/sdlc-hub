@@ -190,13 +190,15 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
     Object.assign(files, await hubOwnedFiles({ host: "gitlab", assistants: a.assistants, engine: a.engine, marketplace: a.project.trim() || a.repo.trim(), bundle: opts.hubBundle, read: (path) => gl.file(p.id, path, main) }));
     // An install merge request still waiting for its pipeline already carries some of the files.
     const pending = locked ? (await gl.openMergeRequests(p.id, INSTALL_BRANCH))[0] : undefined;
+    // One that conflicts with main (main moved on, by hub upgrade for one) starts again from main.
+    const stale = pending ? (await gl.mergeRequest(p.id, pending.iid)).detailed_merge_status === "conflict" : false;
     const changed: Record<string, string> = {};
     let behindMain = false;
     for (const [path, content] of Object.entries(files)) {
       const now = await gl.file(p.id, path, main);
       if (now === content) continue;
       behindMain = true;
-      const there = pending ? await gl.file(p.id, path, INSTALL_BRANCH) : now;
+      const there = pending && !stale ? await gl.file(p.id, path, INSTALL_BRANCH) : now;
       if (there !== content) changed[path] = content;
     }
     if (!behindMain) return { state: "skip" as const, text: `${specsPath} already has the hub files` };
@@ -207,12 +209,12 @@ export async function install(a: SetupAnswers, gl: GitLab, opts: InstallOptions)
       const sha = push(main, main);
       return sha ? { link: `${hostUrl(a.address)}/${specsPath}/-/commit/${sha}` } : { state: "skip" as const, text: `${specsPath} already has the hub files` };
     }
-    if (!Object.keys(changed).length && pending) {
+    if (!Object.keys(changed).length && pending && !stale) {
       await gl.autoMerge(p.id, pending.iid);
       return { state: "skip" as const, text: `the hub files wait in ${w.changeRequest} ${w.sign}${pending.iid}, which merges itself when hub-guard passes`, link: pending.web_url };
     }
     // The install branch is the hub's own: without an open merge request it starts again from main.
-    const sha = push(pending ? INSTALL_BRANCH : main, INSTALL_BRANCH, !pending);
+    const sha = push(pending && !stale ? INSTALL_BRANCH : main, INSTALL_BRANCH, !pending || stale);
     // GitLab takes in a push in the background: wait until it shows the branch before opening the merge request.
     for (let i = 0; i < 30 && sha && (await gl.branch(p.id, INSTALL_BRANCH))?.commit.id !== sha; i++) await new Promise((r) => setTimeout(r, 1000));
     const mr = pending ?? (await gl.createMergeRequest(p.id, INSTALL_BRANCH, main, "Update SDLC Hub", "Written by setup. It merges itself when hub-guard passes."));

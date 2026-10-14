@@ -55,6 +55,7 @@ A feature run from `/hub:new` towards release with every role as its own person 
 - **By:** Specification.
 
 ### A second install keeps the admin's .hub/, and a branch's deletion is not a push
+- **Also:** On GitLab, a waiting install merge request that conflicts with main (main moved on, after `hub upgrade` for one) is rebuilt from main by the next setup run; it could never merge otherwise.
 - **Decision:** Setup run again writes only the `.hub/` files that are missing; the admin's (settings, people, the engine adapter) stay as main has them. The guard's list of who pushed to a branch leaves out the branch's deletion.
 - **Why:** The install test showed both. A second run rewrote `.hub/` with the defaults, losing what Settings had changed, and put a new adapter rule in the same merge request as the new hub, which the old hub on main could not read. And a branch the guard once refused and deleted (with the hub's token) was refused again for ever: the token's bot counted as someone who pushed to it.
 - **By:** Proposed.
