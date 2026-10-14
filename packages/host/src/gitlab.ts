@@ -60,6 +60,7 @@ export interface MergeRequest {
   iid: number;
   web_url: string;
   state: string;
+  title?: string;
   source_branch: string;
   target_branch?: string;
   author?: { username: string };
