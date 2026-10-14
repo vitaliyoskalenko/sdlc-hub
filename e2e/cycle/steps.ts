@@ -16,4 +16,5 @@ const s = detectFeature(open.project!, open.view, slug);
 s.steps.forEach((x, i) =>
   console.log(`${String(i + 1).padStart(2)} ${x.id.padEnd(12)} ${x.status.padEnd(8)} ${x.waitingOn?.length ? `waits on ${x.waitingOn.join(", ")}` : x.by ? `by ${x.by}` : ""}${x.reason ? ` · ${x.reason}` : ""}${x.source ? ` [${x.source}]` : ""}`),
 );
+for (const w of s.waits) console.log(`wait: ${w.team}:${w.task} on ${w.on}${w.done ? " (over)" : ""}`);
 console.log(`current: ${s.current}${s.warnings.length ? `\nwarnings: ${s.warnings.join(" | ")}` : ""}`);

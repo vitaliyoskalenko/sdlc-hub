@@ -537,11 +537,14 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
   // SDD's own no-UI signal for screens is target_surfaces in sad.md; check it against feature.yaml.
   // Each team designs its own surfaces (the contract team's backend, the web team's web app): the feature's are all
   // of them, and they say "no user interface" only once every team declared its own.
+  // sad.md in product-specs is the contract team's (copied at the api step): it speaks for that team.
   const specsSad = view.specs.read(`${dir}/sad.md`);
-  const declared = teams.map((t) => t.snapshot?.target_surfaces);
-  const surfaces =
-    (specsSad === undefined ? undefined : readTargetSurfaces(specsSad)) ??
-    (declared.length && declared.every((d) => d) ? [...new Set(declared.flatMap((d) => d!))] : declared.some((d) => d?.some((x) => (UI_SURFACES as readonly string[]).includes(x))) ? [...new Set(declared.flatMap((d) => d ?? []))] : undefined);
+  const specsSurfaces = specsSad === undefined ? undefined : readTargetSurfaces(specsSad);
+  const declared = teams.map((t) => t.snapshot?.target_surfaces ?? (t.id === contractId ? specsSurfaces : undefined));
+  if (!teams.length && specsSurfaces) declared.push(specsSurfaces);
+  const all = [...new Set(declared.flatMap((d) => d ?? []))];
+  const anyUi = all.some((x) => (UI_SURFACES as readonly string[]).includes(x));
+  const surfaces = declared.length && (anyUi || declared.every((d) => d)) ? all : undefined;
   if (surfaces) {
     const hasUi = surfaces.some((s) => (UI_SURFACES as readonly string[]).includes(s));
     if (feature?.ui === false && hasUi)

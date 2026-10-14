@@ -139,6 +139,9 @@ describe("the user interface of a feature with several teams", () => {
     const view = viewOf({ ...f, main, hubState: { ...f.hubState, [path]: JSON.stringify({ ...backend, target_surfaces: ["backend-service"] }) } });
     const s = detectFeature(loadProject(view.specs).value!, view, "bulk-order-export");
     expect(s.warnings.filter((w) => /declares no user interface/.test(w))).toEqual([]);
+    // The contract team's sad.md in product-specs (copied at api) is that team's too.
+    const withSad = viewOf({ ...f, main: { ...main, "docs/features/bulk-order-export/sad.md": "---\ntarget_surfaces: [backend-service]\n---\n# SAD\n" }, hubState: { ...f.hubState, [path]: JSON.stringify({ ...backend, target_surfaces: ["backend-service"] }) } });
+    expect(detectFeature(loadProject(withSad.specs).value!, withSad, "bulk-order-export").warnings.filter((w) => /declares no user interface/.test(w))).toEqual([]);
   });
 });
 
