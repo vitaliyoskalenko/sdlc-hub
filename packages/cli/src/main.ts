@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import { execFile, execFileSync } from "node:child_process";
+import { execFile, execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { gitIdentity, openProject, personOf, refSource, topLevel } from "@sdlc-hub/git";
 import { startServer, type RunningServer, type ServerOptions } from "@sdlc-hub/server";
@@ -507,6 +507,7 @@ async function syncCommand() {
   if (!root) throw new Error("Run hub sync in your clone of product-specs.");
   const r = await sync({ root });
   console.log(print(r.lines));
+  if (r.again) process.exit(spawnSync(process.execPath, [join(root, "hub/cli.js"), "sync"], { cwd: root, stdio: "inherit", env: { ...process.env, HUB_SYNC_AGAIN: "1" } }).status ?? 1);
   if (!r.ok) process.exit(1);
 }
 

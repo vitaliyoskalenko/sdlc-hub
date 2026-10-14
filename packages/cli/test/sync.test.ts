@@ -20,6 +20,31 @@ const record = (slug: string, step: string, role: string, output: number): Usage
 });
 
 describe("hub sync", () => {
+  it("hands over to the new hub when main brought one: the old hub may not read the newer .hub/", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "hub-sync-"));
+    temp.push(dir);
+    const { root } = materialize(fixtures["demo"]!, join(dir, "seed"));
+    mkdirSync(join(root, "hub"), { recursive: true });
+    writeFileSync(join(root, "hub/cli.js"), "// hub 1\n");
+    git(root, "add", "-A");
+    git(root, "-c", "user.name=t", "-c", "user.email=t@x", "commit", "-q", "-m", "hub 1");
+    const remote = join(dir, "remote.git");
+    git(dir, "clone", "-q", "--bare", root, remote);
+    const clone = join(dir, "olena");
+    git(dir, "clone", "-q", remote, clone);
+    git(clone, "config", "hub.user", "olena.k");
+    const host = join(dir, "host");
+    git(dir, "clone", "-q", remote, host);
+    writeFileSync(join(host, "hub/cli.js"), "// hub 2\n");
+    writeFileSync(join(host, ".hub/flow.yaml"), "a file the old hub cannot read: [\n");
+    git(host, "-c", "user.name=o", "-c", "user.email=o@x", "commit", "-q", "-am", "upgrade");
+    git(host, "push", "-q", "origin", "HEAD:main");
+    process.env["HUB_KEYS_DIR"] = join(dir, "keys");
+    const r = await sync({ root: clone });
+    expect(r).toMatchObject({ ok: true, again: true });
+    expect(print(r.lines)).toContain("The hub itself changed with main: the new hub does the rest of the sync");
+  });
+
   it("moves main on over the files of a stage that merged, and keeps a change of the person's own", async () => {
     const dir = mkdtempSync(join(tmpdir(), "hub-sync-"));
     temp.push(dir);

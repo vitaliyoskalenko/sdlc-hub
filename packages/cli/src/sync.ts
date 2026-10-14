@@ -59,7 +59,8 @@ function dropMerged(root: string, run: Run) {
   }
 }
 
-export async function sync(o: SyncOptions): Promise<{ ok: boolean; lines: Line[] }> {
+/** `again`: main brought a new hub/cli.js, and the new hub should do the rest (`hub sync` runs it). */
+export async function sync(o: SyncOptions): Promise<{ ok: boolean; lines: Line[]; again?: boolean }> {
   const run = o.run ?? runCommand;
   const lines: Line[] = [];
   const say = (ok: boolean, text: string, blocking = true) => lines.push({ ok, text, blocking });
@@ -71,6 +72,8 @@ export async function sync(o: SyncOptions): Promise<{ ok: boolean; lines: Line[]
     return { ok: false, lines };
   }
   const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"], o.root).out.trim();
+  const hubFile = join(o.root, "hub/cli.js");
+  const hubBefore = existsSync(hubFile) ? readFileSync(hubFile, "utf8") : undefined;
   if (branch === "main") dropMerged(o.root, run);
   const dirty = run("git", ["status", "--porcelain"], o.root).out.trim();
   if (branch !== "main") say(false, `You are on ${branch}, not main: main was fetched but not checked out`, false);
@@ -80,6 +83,11 @@ export async function sync(o: SyncOptions): Promise<{ ok: boolean; lines: Line[]
     if (ff.status === 0) say(true, dirty ? "main is up to date; your own changes are kept" : "main is up to date", false);
     else if (/would be overwritten/.test(ff.out)) say(false, "main has changes of your own in files the newer main changes too, so it was fetched but not moved; commit or stash them, then sync again", false);
     else say(false, `main could not move forward: ${ff.out.split("\n").at(-1)}`, false);
+  }
+  // The hub itself changed: this one may not read the newer .hub/, so the new one does the rest.
+  if (hubBefore !== undefined && existsSync(hubFile) && readFileSync(hubFile, "utf8") !== hubBefore && !process.env["HUB_SYNC_AGAIN"]) {
+    say(true, "The hub itself changed with main: the new hub does the rest of the sync", false);
+    return { ok: true, lines, again: true };
   }
 
   const opened = openProject(o.root);
