@@ -5,7 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import { api, type Finding, type PersonInput, type PersonRow } from "./api.ts";
 import { SaveState } from "./saves.tsx";
 import { roleOf } from "./text.ts";
-import { CopyButton, Link, Pill, RoleChip, teamName, useApp } from "./ui.tsx";
+import { CopyButton, Link, Pill, RoleChip, ruleText, teamName, useApp } from "./ui.tsx";
 
 const ASSISTANTS: Record<string, string> = { claude: "Claude Code", codex: "Codex", cursor: "Cursor" };
 const SYSTEMS: Record<string, string> = { macos: "macOS", linux: "Linux", windows: "Windows" };
@@ -293,7 +293,7 @@ export function People() {
             <thead>
               <tr>
                 <th>Role</th>
-                <th>Paths in product-specs</th>
+                <th>Files in each feature folder, and in the project</th>
               </tr>
             </thead>
             <tbody>
@@ -305,7 +305,9 @@ export function People() {
                   <td>
                     <div class="chips">
                       {paths.map((x) => (
-                        <code key={x}>{x}</code>
+                        <span class="rule" key={x} title={x}>
+                          {ruleText(x)}
+                        </span>
                       ))}
                     </div>
                   </td>
@@ -315,7 +317,7 @@ export function People() {
           </table>
         </div>
         <p class="muted">
-          Everyone can read everything. The <code>hub-guard</code> job enforces these rules at merge on protected <code>main</code>; the site only follows them.
+          A file is in each feature's folder (<code>docs/features/&lt;slug&gt;/</code>) unless it says project. Hover a rule to see it as <code>roles.yaml</code> writes it. Everyone can read everything. The <code>hub-guard</code> job enforces these rules at merge on protected <code>main</code>; the site only follows them.
         </p>
       </section>
     </>

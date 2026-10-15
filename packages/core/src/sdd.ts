@@ -216,12 +216,33 @@ const CRITERION = /^\s*[-*]\s+\**(AC-\d+[a-z]?)\**[:.]?\**\s+(.+?)\s*$/;
  */
 const CRITERION_HEADING = /^#{2,4}\s+(AC-\d+[a-z]?)\b\s*(?:\([^)]*\))?\s*[—–:-]?\s*(.*?)\s*$/;
 
-/** The acceptance criteria of a spec, in order, each once. */
-export function readCriteria(spec: string): { id: string; text: string }[] {
-  const out: { id: string; text: string }[] = [];
-  for (const line of spec.split("\n")) {
-    const m = CRITERION.exec(line) ?? CRITERION_HEADING.exec(line);
-    if (m && !out.some((c) => c.id === m[1])) out.push({ id: m[1]!, text: m[2]!.replace(/^[:–-]\s*/, "") });
-  }
+/**
+ * The acceptance criteria of a spec, in order, each once. Under a heading, the text is the criterion itself (its first
+ * paragraph, the Given/When/Then lines, plain), and the heading's label (happy path, error…) is its kind.
+ */
+export function readCriteria(spec: string): { id: string; text: string; kind?: string }[] {
+  const out: { id: string; text: string; kind?: string }[] = [];
+  const lines = spec.split("\n");
+  lines.forEach((line, i) => {
+    const item = CRITERION.exec(line);
+    if (item) {
+      if (!out.some((c) => c.id === item[1])) out.push({ id: item[1]!, text: item[2]!.replace(/^[:–-]\s*/, "") });
+      return;
+    }
+    const heading = CRITERION_HEADING.exec(line);
+    if (!heading || out.some((c) => c.id === heading[1])) return;
+    const body: string[] = [];
+    for (const next of lines.slice(i + 1)) {
+      if (/^#{1,6}\s/.test(next)) break;
+      if (!next.trim()) {
+        if (body.length) break;
+        continue;
+      }
+      body.push(next.trim());
+    }
+    const label = heading[2]!.replace(/^[:–-]\s*/, "");
+    const text = body.join(" ").replace(/\*\*|__|`/g, "").trim();
+    out.push(text ? { id: heading[1]!, text, ...(label ? { kind: label } : {}) } : { id: heading[1]!, text: label });
+  });
   return out;
 }

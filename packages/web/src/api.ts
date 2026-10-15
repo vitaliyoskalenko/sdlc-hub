@@ -85,6 +85,8 @@ export interface Summary {
   progress: number;
   waits: number;
   blockingBugs: string[];
+  /** While the rollout is watched: the day the watch period ends. */
+  watchUntil: string | null;
   cycle: number;
   warnings: number;
   statuses: StepStatus[];
@@ -190,7 +192,8 @@ export interface VerdictRecord {
 
 export interface Matrix {
   platforms: string[];
-  criteria: { id: string; text: string; cells: Record<string, VerdictRecord | null> }[];
+  /** kind: the label of the criterion's heading in SDD's spec (happy path, error…). */
+  criteria: { id: string; text: string; kind?: string; cells: Record<string, VerdictRecord | null> }[];
   complete: boolean;
   open: string[];
 }

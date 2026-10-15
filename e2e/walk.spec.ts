@@ -382,3 +382,17 @@ test("another site cannot use the server", async ({ request }) => {
   const r = await request.get("/api/features", { headers: { origin: "https://evil.example" } });
   expect(r.status()).toBe(403);
 });
+
+test("rules read as plain words, and a step's command shows only to its role", async ({ page }) => {
+  await page.goto("/guide?as=olena.k");
+  await ready(page);
+  const rule = page.locator(".rule").first();
+  await expect(rule).toHaveAttribute("title", /.+/);
+  await expect(page.locator(".rule", { hasText: "docs/features/*/" })).toHaveCount(0);
+  await page.goto("/features/order-notes-fix?as=olena.k&step=implement");
+  await ready(page);
+  await expect(page.locator("#not-your-step")).toContainText("runs this step in their assistant");
+  await page.goto("/features/order-notes-fix?as=petro.v&step=implement");
+  await ready(page);
+  await expect(page.locator("#not-your-step")).toHaveCount(0);
+});

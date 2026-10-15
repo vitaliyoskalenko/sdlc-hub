@@ -42,7 +42,7 @@ function Graph({ list }: { list: Summary[] }) {
   const here = new Set(list.map((f) => f.current));
   const ids = steps.map((s) => s.id);
   return (
-    <svg class="fgraph" viewBox={`0 0 ${W} ${H}`} role="group" aria-label={`All ${list.length} features on the flow: twenty steps in six role lanes, one track per feature`}>
+    <svg class="fgraph" viewBox={`0 0 ${W} ${H}`} style={{ width: `min(${Math.round(W * 1.3)}px, 100%)` }} role="group" aria-label={`All ${list.length} features on the flow: twenty steps in six role lanes, one track per feature`}>
       <defs>
         <marker id="ga" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto" markerUnits="userSpaceOnUse">
           <path d="M0 1L7.5 4L0 7Z" fill="var(--wire)" />

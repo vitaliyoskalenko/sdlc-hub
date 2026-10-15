@@ -230,3 +230,19 @@ export function WaitMark({ project, f }: { project: ProjectInfo; f: Summary }) {
 export function jiraKey(url: string): string | undefined {
   return /\/browse\/([A-Z][A-Z0-9]+-\d+)\b/.exec(url)?.[1];
 }
+
+/**
+ * A path rule of roles.yaml as people read it: a feature's file by its name, the part of a file it allows in words.
+ * The feature's release.yaml with #keys:go is "release.yaml: only the go". The rule itself is the chip's tooltip.
+ */
+export function ruleText(rule: string): string {
+  if (rule === "**") return "everything";
+  const [path, part] = rule.split("#") as [string, string | undefined];
+  const inFeature = path.startsWith("docs/features/*/");
+  const file = (inFeature ? path.slice("docs/features/*/".length) : `project · ${path}`).replace(/\/\*\*$/, "/ (all in it)");
+  if (!part) return file;
+  if (part.startsWith("front:")) return `${file}: only ${part.slice(6).replace(/_/g, " ")} in its header`;
+  if (part.startsWith("keys:!")) return `${file}: all but the ${part.slice(6).replace(/_/g, " ")}`;
+  if (part.startsWith("keys:")) return `${file}: only the ${part.slice(5).replace(/_/g, " ")}`;
+  return `${file}: the "${part}" section`;
+}

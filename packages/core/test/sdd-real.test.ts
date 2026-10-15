@@ -13,7 +13,12 @@ describe("SDD 2.3.0, real output", () => {
   it("reads the acceptance criteria SDD writes as headings with Given/When/Then, suffixed ids included", () => {
     const acs = readCriteria(read("spec.md"));
     expect(acs.length).toBeGreaterThan(10);
-    expect(acs[0]).toEqual({ id: "AC-01", text: "happy path" });
+    // The text is the criterion itself, Given/When/Then; the heading's label is its kind.
+    expect(acs[0]).toEqual({
+      id: "AC-01",
+      kind: "happy path",
+      text: "Given a signed-in owner or manager with no order export queued or running When they select a date range of one month and the statuses paid and shipped and request an export Then the system records a new order export with export status queued and that staff user as requester, confirms the request, and the export appears at the top of their Exports list with its date range and statuses",
+    });
     expect(acs.map((a) => a.id)).toContain("AC-02b");
     expect(normaliseRef("AC-02b")).toBe("AC-2b");
   });

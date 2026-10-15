@@ -97,7 +97,8 @@ function numbersFor(role: string, features: Summary[]): [string, string, string?
     case "ops":
       return [[String(at(["staging"])), "At staging"], [String(at(["release"])), "In release"]];
     default:
-      return [[String(features.reduce((n, f) => n + f.warnings, 0)), "Warnings from detection", "warn"]];
+      const warnings = features.reduce((n, f) => n + f.warnings, 0);
+      return [[String(warnings), "Warnings from detection", warnings ? "warn" : "ok"]];
   }
 }
 
@@ -105,6 +106,7 @@ function numbersFor(role: string, features: Summary[]): [string, string, string?
 function NextMove({ f }: { f: Summary }) {
   const { project } = useApp();
   const doing: Partial<Record<string, string>> = { signoff: "to sign off", returned: "to rework it", ready: "to start it", running: "working on it", blocked: "blocked", missed: "missed" };
+  if (f.watchUntil) return <span class="muted">Ops watches it until {f.watchUntil}</span>;
   const people = f.waitingOn.length ? f.waitingOn : f.status === "running" && f.by ? [f.by] : [];
   return (
     <div class="nextmove">
@@ -186,6 +188,14 @@ export function FeatureTable({ list }: { list: Summary[] }) {
                 <td>
                   {f.released || !step ? (
                     <Pill kind="ok">Released</Pill>
+                  ) : f.watchUntil ? (
+                    <div class="stepcell">
+                      <b>Watching after the rollout</b>
+                      <span class="muted">until {f.watchUntil}</span>
+                      <span class="row">
+                        <Pill kind="info">Watching</Pill>
+                      </span>
+                    </div>
                   ) : (
                     <div class="stepcell">
                       <b>{STEP[f.current]?.title ?? f.current}</b>
@@ -249,12 +259,18 @@ export function Home() {
           </div>
           <div class="card statgroup" id="stats-attention">
             <h3>What needs attention</h3>
+            {sign + stuck + waiting + bugs === 0 ? (
+              <p class="calm" id="nothing-needs-attention">
+                <Pill kind="ok">All clear</Pill> No sign-off waits, nothing is blocked or missed, no team waits for another, and no bug blocks a release.
+              </p>
+            ) : (
             <div class="kpis two">
               <Kpi value={String(sign)} label="Waiting for a sign-off" tone={sign ? "warn" : "ok"} />
               <Kpi value={String(stuck)} label="Blocked or missed" tone={stuck ? "bad" : "ok"} />
               <Kpi value={String(waiting)} label="Blocked by another team" tone={waiting ? "bad" : "ok"} onClick={() => go("/features", { filter: "waiting" })} />
               <Kpi value={String(bugs)} label="Blocking bugs" tone={bugs ? "bad" : "ok"} />
             </div>
+            )}
           </div>
         </div>
       </section>

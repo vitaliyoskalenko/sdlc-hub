@@ -2,7 +2,7 @@
 
 import { RepoLabels } from "./home.tsx";
 import { hubCmd, ROLE_CMDS, ROLE_SITE, roleOf } from "./text.ts";
-import { Cmd, Link, roleLabel, useApp } from "./ui.tsx";
+import { Cmd, Link, roleLabel, ruleText, useApp } from "./ui.tsx";
 import { hereQuery } from "./where.ts";
 
 const ALL_ROLES = ["po", "pm", "designer", "dev", "qa", "ops", "admin"];
@@ -105,10 +105,10 @@ export function Guide() {
         <div class="card">
           <h3>{yours ? "What you may change" : `What ${roleOf(shown).n} may change`}</h3>
           <div class="chips">
-            {rules.length ? rules.map((x) => <code key={x}>{x}</code>) : <span class="muted">Nothing directly: your sign-offs and confirmations only.</span>}
+            {rules.length ? rules.map((x) => <span class="rule" key={x} title={x}>{ruleText(x)}</span>) : <span class="muted">Nothing directly: your sign-offs and confirmations only.</span>}
           </div>
           <p class="muted">
-            Anything else is refused by the <code>hub-guard</code> job when your merge request tries to merge. A rule ending in <code>#Heading</code> allows one section of the file, and <code>#front:key</code> one front matter key. You can read everything.
+            Anything else is refused by the <code>hub-guard</code> job when your merge request tries to merge. A file is in each feature's folder unless it says project; hover a rule to see it as <code>roles.yaml</code> writes it. You can read everything.
           </p>
         </div>
         <div class="card">

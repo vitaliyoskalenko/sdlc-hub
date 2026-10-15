@@ -192,3 +192,13 @@ describe("after the feature's branches merged", () => {
     expect(detectFeature(loadProject(view.specs).value!, view, "order-notes-fix").times.map((t) => t.step)).not.toContain("data-model");
   });
 });
+
+describe("the watch period after the rollout", () => {
+  it("names the day it ends, so the site says watching instead of running", () => {
+    const f = fixtures["released-and-watching"]!;
+    const view = viewOf(f);
+    const project = loadProject(view.specs).value!;
+    expect(detectFeature(project, view, "in-watch").watchUntil).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(detectFeature(project, view, "shipped-out").watchUntil).toBeUndefined();
+  });
+});

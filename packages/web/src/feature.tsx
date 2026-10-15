@@ -185,6 +185,19 @@ function NowStrip({ f, detail, tab }: { f: Summary; detail: FeatureDetail; tab: 
         </div>
       </div>
     );
+  if (f.watchUntil)
+    return (
+      <div class="now" id="now-watch">
+        <div class="now-m">
+          <span class="k">Now</span>
+          <span class="row">
+            <Pill kind="info">Watching</Pill>
+            <span>Rolled out to everyone. Ops watches it until {f.watchUntil}; then it counts as released.</span>
+          </span>
+        </div>
+        <span class="muted">Nothing for you to do here now</span>
+      </div>
+    );
   const steps = project.flow.steps;
   const i = steps.findIndex((s) => s.id === f.current);
   const next = steps.slice(i + 1).find((s, k) => detail.state.steps[i + 1 + k]?.status !== "skipped");
@@ -427,31 +440,38 @@ export function StepPanel({ detail, id }: { detail: FeatureDetail; id: string })
           <span class="muted">This step is recorded there.</span>
         </div>
       )}
-      <div class="card">
-        <span class="k">In your assistant</span>
-        <Cmd text={cmd} />
-        {st.status === "signoff" && s.gate && s.gate.role !== "auto" && <Cmd text={hubCmd(assistant, "return", `${id} ${slug} "<reason>"`)} />}
-        <p class="muted">
-          {st.status === "signoff"
-            ? "The evidence is there and the gate waits for the sign-off. The first command records it, the second sends the step back with a reason. No LLM is involved."
-            : !s.llm
-              ? "This command records a result. It does not call the LLM."
-              : engine.length
-                ? `The hub checks the gate, then passes the stage to ${engine.join(" and ")} with the prompt below.`
-                : "A hub step: the hub runs it with the prompt below."}
-        </p>
-        {prompt && (
-          <details class="more">
-            <summary>Prompt the hub passes</summary>
-            <div>
-              <pre class="wrap">{prompt}</pre>
+      {/* The command is for the people who run or sign the step; the others see whose it is. */}
+      {me.roles.includes(s.role) || gateOwner || (s.gate && s.gate.role !== "auto" && me.roles.includes(s.gate.role)) ? (
+        <div class="card">
+          <span class="k">In your assistant</span>
+          <Cmd text={cmd} />
+          {st.status === "signoff" && s.gate && s.gate.role !== "auto" && <Cmd text={hubCmd(assistant, "return", `${id} ${slug} "<reason>"`)} />}
+          <p class="muted">
+            {st.status === "signoff"
+              ? "The evidence is there and the gate waits for the sign-off. The first command records it, the second sends the step back with a reason. No LLM is involved."
+              : !s.llm
+                ? "This command records a result. It does not call the LLM."
+                : engine.length
+                  ? `The hub checks the gate, then passes the stage to ${engine.join(" and ")} with the prompt below.`
+                  : "A hub step: the hub runs it with the prompt below."}
+          </p>
+          {prompt && (
+            <details class="more">
+              <summary>Prompt the hub passes</summary>
               <div>
-                <CopyButton text={prompt} label="copy prompt" />
+                <pre class="wrap">{prompt}</pre>
+                <div>
+                  <CopyButton text={prompt} label="copy prompt" />
+                </div>
               </div>
-            </div>
-          </details>
-        )}
-      </div>
+            </details>
+          )}
+        </div>
+      ) : (
+        <p class="muted" id="not-your-step">
+          {roleOf(s.role).n} runs this step in their assistant. The command for each step is in <Link to="/help#help-commands">Help</Link>.
+        </p>
+      )}
     </>
   );
 }
@@ -643,7 +663,7 @@ function LeadTime({ detail }: { detail: FeatureDetail }) {
 
 const day = (iso: string) => iso.slice(0, 10);
 /** Hours under two days, days above. */
-const duration = (hours: number) => (hours < 48 ? `${Math.round(hours * 10) / 10} h` : `${Math.round((hours / 24) * 10) / 10} days`);
+const duration = (hours: number) => (hours < 1 ? `${Math.max(1, Math.round(hours * 60))} min` : hours < 48 ? `${Math.round(hours * 10) / 10} h` : `${Math.round((hours / 24) * 10) / 10} days`);
 
 // --- Documents
 

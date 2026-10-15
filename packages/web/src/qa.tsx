@@ -35,6 +35,25 @@ export function QA({ detail }: { detail: FeatureDetail }) {
   const owner = (id: string) => detail.awaiting.includes(id) && (stepOf(detail, id)?.waitingOn ?? []).includes(me.user);
   const latestCi = detail.state.teams.map((t) => ({ team: t.id, run: [...detail.state.testRuns].filter((r) => r.team === t.id && r.source === "ci").sort((a, b) => (a.at < b.at ? -1 : 1)).at(-1) }));
 
+  // The newest run of each team and source shows; the earlier ones fold away.
+  const runs = [...detail.state.testRuns].sort((a, b) => (a.at < b.at ? 1 : -1));
+  const seen = new Set<string>();
+  const latestRuns = runs.filter((r) => !seen.has(`${r.team}|${r.source}`) && seen.add(`${r.team}|${r.source}`));
+  const earlierRuns = runs.filter((r) => !latestRuns.includes(r));
+  const runRow = (r: (typeof runs)[number], k: number) => (
+    <tr key={k} data-run={r.source}>
+      <td class="nw">{r.source === "ci" ? (r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer">CI ↗</a> : "CI") : `local${r.user ? ` · ${r.user}` : ""}`}</td>
+      <td class="nw">{teamName(project, r.team)}</td>
+      <td class="nw">
+        <RunResult run={r} />
+      </td>
+      <td class="nw">
+        <code>{r.ref ?? ""}</code>
+      </td>
+      <td class="nw muted">{r.at.replace("T", " ").slice(0, 16)}</td>
+    </tr>
+  );
+
   return (
     <div class="stack" id="qa">
       <div class="row">
@@ -62,7 +81,9 @@ export function QA({ detail }: { detail: FeatureDetail }) {
               {matrix.criteria.map((c) => (
                 <tr key={c.id} data-ac={c.id}>
                   <td class="wide">
-                    <code>{c.id}</code> {c.text}
+                    <span class="crit" title={c.text}>
+                      <code>{c.id}</code> {c.kind && <span class="kind">{c.kind}</span>} {c.text}
+                    </span>
                   </td>
                   {matrix.platforms.map((p) => (
                     <td class="nw" key={p} data-cell={`${c.id}|${p}`}>
@@ -102,25 +123,21 @@ export function QA({ detail }: { detail: FeatureDetail }) {
                 <th>When</th>
               </tr>
             </thead>
-            <tbody>
-              {[...detail.state.testRuns]
-                .sort((a, b) => (a.at < b.at ? 1 : -1))
-                .map((r, k) => (
-                  <tr key={k} data-run={r.source}>
-                    <td class="nw">{r.source === "ci" ? (r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer">CI ↗</a> : "CI") : `local${r.user ? ` · ${r.user}` : ""}`}</td>
-                    <td class="nw">{teamName(project, r.team)}</td>
-                    <td class="nw">
-                      <RunResult run={r} />
-                    </td>
-                    <td class="nw">
-                      <code>{r.ref ?? ""}</code>
-                    </td>
-                    <td class="nw muted">{r.at.replace("T", " ").slice(0, 16)}</td>
-                  </tr>
-                ))}
-            </tbody>
+            <tbody>{latestRuns.map(runRow)}</tbody>
           </table>
         </div>
+        {earlierRuns.length > 0 && (
+          <details class="more" id="earlier-runs">
+            <summary>
+              Earlier runs ({earlierRuns.length})
+            </summary>
+            <div class="scroll">
+              <table>
+                <tbody>{earlierRuns.map(runRow)}</tbody>
+              </table>
+            </div>
+          </details>
+        )}
         <p class="muted">The autotests gate counts only the latest CI run of every team repository. Local runs (/hub:test) are shown with the label local.</p>
       </section>
 

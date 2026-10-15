@@ -2,6 +2,20 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-15: A cleaner site, from the real cycle's data
+
+### The site says what a thing means, not how it is stored
+- **Decision:**
+  - QA's criteria show each criterion's Given/When/Then and its kind, not only its id.
+  - Earlier test runs fold under the newest run per team and source.
+  - A feature in its watch period shows "Watching until <date>" on Home and on the feature (`watchUntil` from `release.yaml`).
+  - The step panel gives the assistant command only to the step's role or the gate's role; the others see who runs it.
+  - An all-clear attention card is one line.
+  - Role rules on Team and Your guide are written in words, with the `roles.yaml` form on hover.
+  - Front-matter lists show as plain lists, and durations under an hour show in minutes.
+- **Why:** On the real cycle the site showed bare ids (`AC-03`), seventeen test runs, a released feature as "running" at step 20, commands to people who cannot run them, and globs like `docs/features/*/hub/**`.
+- **By:** Proposed; the owner asked for a clearer UI.
+
 ## 2026-10-14: The full feature cycle on the local GitLab
 
 A feature run from `/hub:new` towards release with every role as its own person and the real SDD 2.3.0 in Claude Code (`e2e/cycle/`). What it found, and what changed.
