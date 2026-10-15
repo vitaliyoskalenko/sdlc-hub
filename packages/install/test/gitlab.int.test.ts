@@ -58,11 +58,17 @@ async function settle(gl: GitLab, projectId: number, iid: number): Promise<Merge
 }
 
 /** The log of the hub-guard job of a merge request's pipeline. */
+/** The log of the hub-guard job of a pipeline, once it finished: hub recheck may run it again after the merge. */
 async function guardLog(projectId: number, pipeline: number): Promise<string> {
   const h = { "PRIVATE-TOKEN": secrets.rootToken };
-  const jobs = (await fetch(`${URL_}/api/v4/projects/${projectId}/pipelines/${pipeline}/jobs`, { headers: h }).then((r) => r.json())) as { id: number; name: string }[];
-  const job = jobs.find((j) => j.name === "hub-guard");
-  return job ? fetch(`${URL_}/api/v4/projects/${projectId}/jobs/${job.id}/trace`, { headers: h }).then((r) => r.text()) : "";
+  for (let i = 0; i < 36; i++) {
+    const jobs = (await fetch(`${URL_}/api/v4/projects/${projectId}/pipelines/${pipeline}/jobs`, { headers: h }).then((r) => r.json())) as { id: number; name: string; status: string }[];
+    const job = jobs.find((j) => j.name === "hub-guard");
+    if (!job) return "";
+    if (["success", "failed", "canceled"].includes(job.status)) return fetch(`${URL_}/api/v4/projects/${projectId}/jobs/${job.id}/trace`, { headers: h }).then((r) => r.text());
+    await wait(5000);
+  }
+  return "";
 }
 
 describe.skipIf(!enabled)("install on GitLab CE (Free)", () => {
