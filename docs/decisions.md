@@ -13,6 +13,9 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
   - An all-clear attention card is one line.
   - Role rules on Team and Your guide are written in words, with the `roles.yaml` form on hover.
   - Front-matter lists show as plain lists, and durations under an hour show in minutes.
+  - The release step's panel says "Watching" with the day the watch ends, not "Running".
+  - Lead time shows one bar per step, so the slow steps stand out.
+  - When the browser blocks notifications, Notify me stays in place, disabled, with a short reason beside it.
 - **Why:** On the real cycle the site showed bare ids (`AC-03`), seventeen test runs, a released feature as "running" at step 20, commands to people who cannot run them, and globs like `docs/features/*/hub/**`.
 - **By:** Proposed; the owner asked for a clearer UI.
 

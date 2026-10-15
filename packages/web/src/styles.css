@@ -461,3 +461,10 @@ kbd{font:500 .8rem var(--f-mono);border:1px solid var(--line);border-bottom-widt
 .crit .kind{font:500 .72rem/1 var(--f-mono);color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 7px;margin-right:2px;white-space:nowrap}
 .calm{display:flex;gap:8px;align-items:flex-start;color:var(--muted);margin:4px 0 0}
 .rule{font:500 .8rem/1.4 var(--f-mono);background:var(--sunk);border-radius:6px;padding:2px 7px}
+.times{display:flex;flex-direction:column;gap:4px;margin-top:6px;font-size:.82rem}
+.time{display:grid;grid-template-columns:7.5em minmax(40px,1fr) 5.5em;gap:8px;align-items:center}
+.time i{display:block;height:8px;border-radius:0 4px 4px 0;background:var(--accent);opacity:.75}
+.time .v{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.notify-off{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.notify-off .reason{font-size:.8rem}
+.time code{justify-self:start}

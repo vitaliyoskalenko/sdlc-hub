@@ -348,6 +348,8 @@ export function StepPanel({ detail, id }: { detail: FeatureDetail; id: string })
   const prompt = s.llm ? [...engine, ...(text?.hint ? ["", text.hint] : []), "", `Feature: ${detail.summary.title} (${slug}).${detail.feature?.links?.jira ? ` Jira: ${detail.feature.links.jira}.` : ""}`].join("\n").trim() : "";
   const gateOwner = s.gate && s.gate.role !== "auto" && (st.waitingOn ?? []).includes(me.user);
   const time = detail.state.times.find((t) => t.step === id);
+  // The rollout is over and Ops watches it: the step is not running any more, nor done yet.
+  const watching = id === "release" && detail.summary.watchUntil ? detail.summary.watchUntil : null;
   return (
     <>
       <div class={`sd role-${roleOf(s.role).css}`}>
@@ -358,7 +360,7 @@ export function StepPanel({ detail, id }: { detail: FeatureDetail; id: string })
           </span>
           <span class="tag">{s.kind === "engine" ? "engine stage" : "hub step"}</span>
           {!s.llm && <span class="tag">no LLM</span>}
-          <StatusPill status={st.status} />
+          {watching ? <Pill kind="info">Watching</Pill> : <StatusPill status={st.status} />}
         </div>
         <h3 id="steph">{text?.title ?? id}</h3>
         <p>{text?.what ?? ""}</p>
@@ -377,6 +379,12 @@ export function StepPanel({ detail, id }: { detail: FeatureDetail; id: string })
               {duration(time.hours)}
               {time.finished ? `, ${day(time.started)} to ${day(time.finished)}` : `, started ${day(time.started)}`}
             </span>
+          </>
+        )}
+        {watching && (
+          <>
+            <span class="k">Watch ends</span>
+            <span id="watch-ends">{watching}; then the feature counts as released</span>
           </>
         )}
         {st.by && (
@@ -650,12 +658,24 @@ function LeadTime({ detail }: { detail: FeatureDetail }) {
         {waited}
       </div>
     );
+  const longest = Math.max(...times.map((t) => t.hours), 1 / 60);
   return (
     <div id="leadtime">
       <p>
         <span class="k">Lead time</span> <b>{leadTime.days} days</b> {leadTime.finished ? `from ${day(leadTime.started)} to the release` : `since ${day(leadTime.started)}`}
       </p>
-      <p class="muted">{times.map((t) => `${t.step} ${duration(t.hours)}${t.finished ? "" : " so far"}`).join(" · ")}</p>
+      <div class="times">
+        {times.map((t) => (
+          <div class="time" key={t.step} data-step-time={t.step}>
+            <code>{t.step}</code>
+            <i style={{ width: `${Math.max(1, Math.round((t.hours / longest) * 100))}%` }} />
+            <span class="v">
+              {duration(t.hours)}
+              {t.finished ? "" : " so far"}
+            </span>
+          </div>
+        ))}
+      </div>
       {waited}
     </div>
   );

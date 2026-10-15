@@ -179,6 +179,7 @@ test("the page shows what the files say", async ({ page }) => {
   await page.goto("/features/order-notes-fix?as=petro.v&step=implement");
   await ready(page);
   await expect(page.locator("#leadtime")).toContainText("Lead time");
+  await expect(page.locator('#leadtime [data-step-time="implement"]')).toContainText("30 h");
   await expect(page.locator('[data-time="implement"]')).toContainText("30 h, 2026-10-02 to 2026-10-03");
   // The days the web team waited for the backend team, from the waits hub-report keeps.
   await page.goto("/features/bulk-order-export?as=maksym.d");
@@ -356,7 +357,8 @@ test("Notify me says why when the browser blocks notifications", async ({ page }
   // Headless Chromium denies notifications.
   await page.goto("/?as=iryna.s");
   await ready(page);
-  await expect(page.locator("#main")).toContainText("Notifications are blocked for this site");
+  await expect(page.locator(".notify-off")).toContainText("Blocked in the browser's settings");
+  await expect(page.locator("#notify")).toBeDisabled();
 });
 
 test("on a phone, the flow is a list of steps that opens each one", async ({ page }) => {

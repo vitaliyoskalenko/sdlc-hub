@@ -109,7 +109,15 @@ export function NotifyToggle({ user }: { user: string }) {
   const [on, setOn] = useState(() => canNotify() && Notification.permission === "granted" && read(notifyKey(user)) === "on");
   const [blocked, setBlocked] = useState(() => canNotify() && Notification.permission === "denied");
   if (!canNotify() || SAMPLE) return null;
-  if (blocked) return <span class="reason">Notifications are blocked for this site in the browser's settings.</span>;
+  if (blocked)
+    return (
+      <span class="notify-off">
+        <span class="reason">Blocked in the browser's settings</span>
+        <button type="button" class="btn sm" id="notify" disabled title="Notifications are blocked for this site in the browser's settings: allow them there to use this">
+          Notify me
+        </button>
+      </span>
+    );
   const toggle = async () => {
     if (on) {
       write(notifyKey(user), "off");
