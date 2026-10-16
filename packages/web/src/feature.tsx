@@ -360,13 +360,12 @@ function FlowMap({ detail, selected, pick, look }: { detail: FeatureDetail; sele
             {selected === s.id && <rect class="sel" x={x0 - 3.5} y={p.cy - 14.5} width={p.w + 7} height="29" rx="9" />}
             {s.id === current?.id && <rect class="pulse" x={x0 - 1} y={p.cy - 12} width={p.w + 2} height="24" rx={s.kind === "engine" ? 7 : 12} />}
             <rect class="b" x={x0} y={p.cy - 11} width={p.w} height="22" rx={s.kind === "engine" ? 6 : 11} />
-            {look === "roles" && <rect class="stripe" x={x0 + 3} y={p.cy - 6.5} width="3" height="13" rx="1.5" />}
             {ic && (
-              <text class="ic" x={x0 + (look === "roles" ? 13 : 10)} y={p.cy + 3.8} text-anchor="middle">
+              <text class="ic" x={x0 + 10} y={p.cy + 3.8} text-anchor="middle">
                 {ic}
               </text>
             )}
-            <text x={p.cx + (ic ? pad / 2 : 0) + (look === "roles" ? 2 : 0)} y={p.cy + 3.8} text-anchor="middle">
+            <text x={p.cx + (ic ? pad / 2 : 0)} y={p.cy + 3.8} text-anchor="middle">
               {s.id}
             </text>
           </g>

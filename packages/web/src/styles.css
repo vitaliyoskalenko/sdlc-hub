@@ -2,7 +2,7 @@
    local site makes no outside requests, so the font stacks fall back to system fonts. */
 :root{
   --bg:#EDF0F3; --surface:#FFFFFF; --sunk:#E2E7EC; --ink:#17212B; --muted:#566472; --line:#CDD5DD; --wire:#8492A0; --accent:#0C6B73;
-  --po:#A65F00; --pm:#6247CF; --des:#B82C78; --dev:#1C68C4; --qa:#127A52; --ops:#66700F; --admin:#17212B;
+  --po:#A65F00; --pm:#8A3FD1; --des:#B82C78; --dev:#1C68C4; --qa:#127A52; --ops:#66700F; --admin:#17212B;
   --ok:#1B7A4B; --warn:#9A6200; --bad:#C2352B; --on:#FFFFFF; --scrim:rgba(16,22,30,.45);
   --f-display:'Unbounded','Arial Black',system-ui,sans-serif;
   --f-body:'Onest','Segoe UI',system-ui,-apple-system,sans-serif;
@@ -11,14 +11,14 @@
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --bg:#0F141A; --surface:#171E27; --sunk:#1F2833; --ink:#E4EAF0; --muted:#94A2B1; --line:#2B3644; --wire:#6C7A8A; --accent:#56C5CE;
-    --po:#F2B24C; --pm:#AC9BFF; --des:#F47DB9; --dev:#74B4FF; --qa:#55D3A0; --ops:#C5CF5A; --admin:#E4EAF0;
+    --po:#F2B24C; --pm:#C792FF; --des:#F47DB9; --dev:#74B4FF; --qa:#55D3A0; --ops:#C5CF5A; --admin:#E4EAF0;
     --ok:#5FD39A; --warn:#F0B95A; --bad:#FF8073; --on:#0F141A; --scrim:rgba(0,0,0,.6);
     color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
   --bg:#0F141A; --surface:#171E27; --sunk:#1F2833; --ink:#E4EAF0; --muted:#94A2B1; --line:#2B3644; --wire:#6C7A8A; --accent:#56C5CE;
-  --po:#F2B24C; --pm:#AC9BFF; --des:#F47DB9; --dev:#74B4FF; --qa:#55D3A0; --ops:#C5CF5A; --admin:#E4EAF0;
+  --po:#F2B24C; --pm:#C792FF; --des:#F47DB9; --dev:#74B4FF; --qa:#55D3A0; --ops:#C5CF5A; --admin:#E4EAF0;
   --ok:#5FD39A; --warn:#F0B95A; --bad:#FF8073; --on:#0F141A; --scrim:rgba(0,0,0,.6);
   color-scheme:dark;
 }
@@ -492,9 +492,8 @@ svg.look-status .node.st-signoff rect.b,svg.look-path .node.st-signoff rect.b{st
 svg.look-status .node:is(.st-blocked,.st-returned,.st-missed) rect.b,svg.look-path .node:is(.st-blocked,.st-returned,.st-missed) rect.b{stroke:var(--bad);stroke-width:2;fill:color-mix(in srgb,var(--bad) 10%,var(--surface))}
 svg.look-status .node:is(.st-blocked,.st-returned,.st-missed) text,svg.look-path .node:is(.st-blocked,.st-returned,.st-missed) text{fill:var(--bad)}
 svg.look-status .wire.done{stroke:var(--wire);stroke-width:1.4}
-/* Roles: the lane's colour on the edge and border of a step, the status as an icon; the same fill for every step. */
+/* Roles: the lane's colour on the border of a step, the status as an icon; the same fill for every step. */
 svg.look-roles .node rect.b{fill:var(--surface)!important}
-svg.look-roles .node rect.stripe{fill:var(--rc)}
 svg.look-roles .node.st-running rect.b{stroke-width:2.4} svg.look-roles .node.st-running text{fill:var(--ink);font-weight:700}
 svg.look-roles .node.st-done text.ic{fill:var(--ok)} svg.look-roles .node:is(.st-running,.st-ready) text.ic{fill:var(--accent)}
 svg.look-roles .node.st-signoff text.ic{fill:var(--warn)} svg.look-roles .node:is(.st-blocked,.st-returned,.st-missed) text.ic{fill:var(--bad)}

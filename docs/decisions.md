@@ -7,7 +7,7 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
 ### Status, Roles or Path, with the step in progress marked
 - **Decision:** The feature's flow map has three looks, switched above it and kept in the viewer's browser:
   - **Status** (the default): grey lanes; done steps grey with a check, the step in progress in the one strong colour, amber for a sign-off wait, red for blocked, returned or missed, a dashed outline for steps not started.
-  - **Roles**: each lane in its role's colour, and an icon in each step for its status.
+  - **Roles**: each lane and the border of each step in its role's colour, and an icon in each step for its status. The PM's colour moved from blue-violet (`#6247CF`, dark `#AC9BFF`) to purple (`#8A3FD1`, dark `#C792FF`), which a thin border no longer confuses with Engineering's blue.
   - **Path**: a thick line through the steps walked so far (through steps the route skipped), a dashed one ahead.
 
   The switch is labelled "Highlight". The legend explains only the statuses and lines; a lane's role is explained in a popup on its header (PO, PM…): the role's full name, what it does and its steps.
