@@ -453,7 +453,7 @@ label.check{display:flex;gap:10px;align-items:flex-start;padding:6px 0;cursor:po
 .flowlist .pill{grid-column:2/-1;justify-self:start}
 .flowlist .st-skipped{opacity:.55}
 @media (max-width:760px){
-  .flowgrid .mapwrap,.flowgrid .legend{display:none}
+  .flowgrid .mapwrap,.flowgrid .legend,.flowgrid .lookbar{display:none}
   .flowlist{display:block}
 }
 kbd{font:500 .8rem var(--f-mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;background:var(--surface)}
@@ -468,3 +468,49 @@ kbd{font:500 .8rem var(--f-mono);border:1px solid var(--line);border-bottom-widt
 .notify-off{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .notify-off .reason{font-size:.8rem}
 .time code{justify-self:start}
+/* The flow map's looks: Status (the default), Roles and Path. The node.st-* rules above are the Roles look. */
+.lookbar{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.seg.sm button{padding:3px 12px;font-size:.82rem}
+svg.flow .node text.ic{font:700 11px var(--f-body)}
+.nowmark rect{fill:var(--ink)} .nowmark path{fill:var(--ink)} .nowmark text{fill:var(--bg);font:600 10px var(--f-body);letter-spacing:.02em}
+.node rect.pulse{fill:none;stroke:var(--accent);stroke-width:2;opacity:0}
+@media (prefers-reduced-motion:no-preference){.node rect.pulse{animation:flowpulse 1.8s ease-out infinite}}
+@keyframes flowpulse{0%{opacity:.7;stroke-width:1}100%{opacity:0;stroke-width:9}}
+.legend .lgi{font-variant-numeric:tabular-nums}
+.lg.lane{border-color:var(--rc);background:color-mix(in srgb,var(--rc) 22%,var(--surface))}
+.lg.nowlg{width:auto;height:auto;padding:0 6px;border:0;border-radius:8px;background:var(--ink);color:var(--bg);font:600 .68rem var(--f-body);font-style:normal;line-height:1.5}
+/* Status: grey lanes, colour only for the step in progress and what needs someone. */
+svg.look-status .band,svg.look-path .band{fill:var(--sunk);fill-opacity:.45}
+svg.look-status .lanehead,svg.look-path .lanehead{fill:var(--muted)}
+svg.look-status .node rect.b,svg.look-path .node rect.b{stroke:var(--line);fill:var(--surface);stroke-width:1.4;stroke-dasharray:none}
+svg.look-status .node text,svg.look-path .node text{fill:var(--ink);font-weight:500;text-decoration:none}
+svg.look-status .node.st-done rect.b{fill:var(--sunk)} svg.look-status .node.st-done text{fill:var(--muted)} svg.look-status .node.st-done text.ic{fill:var(--ok)}
+svg.look-status .node.st-running rect.b{fill:var(--accent);stroke:var(--accent)} svg.look-status .node.st-running text{fill:var(--on);font-weight:700}
+svg.look-status .node.st-ready rect.b,svg.look-path .node.st-ready rect.b{stroke:var(--accent);stroke-width:2.2} svg.look-status .node.st-ready text{fill:var(--accent);font-weight:700}
+svg.look-status .node.st-todo rect.b{stroke-dasharray:4 3} svg.look-status .node.st-todo text{fill:var(--muted)}
+svg.look-status .node.st-skipped,svg.look-path .node.st-skipped{opacity:.55} svg.look-status .node.st-skipped rect.b,svg.look-path .node.st-skipped rect.b{stroke-dasharray:1.5 3} svg.look-status .node.st-skipped text,svg.look-path .node.st-skipped text{fill:var(--muted);text-decoration:line-through}
+svg.look-status .node.st-signoff rect.b,svg.look-path .node.st-signoff rect.b{stroke:var(--warn);stroke-width:2;stroke-dasharray:4 2.5;fill:color-mix(in srgb,var(--warn) 14%,var(--surface))}
+svg.look-status .node:is(.st-blocked,.st-returned,.st-missed) rect.b,svg.look-path .node:is(.st-blocked,.st-returned,.st-missed) rect.b{stroke:var(--bad);stroke-width:2;fill:color-mix(in srgb,var(--bad) 10%,var(--surface))}
+svg.look-status .node:is(.st-blocked,.st-returned,.st-missed) text,svg.look-path .node:is(.st-blocked,.st-returned,.st-missed) text{fill:var(--bad)}
+svg.look-status .wire.done{stroke:var(--wire);stroke-width:1.4}
+/* Roles: the lane's colour on the edge and border of a step, the status as an icon; the same fill for every step. */
+svg.look-roles .node rect.b{fill:var(--surface)!important}
+svg.look-roles .node rect.stripe{fill:var(--rc)}
+svg.look-roles .node.st-running rect.b{stroke-width:2.4} svg.look-roles .node.st-running text{fill:var(--ink);font-weight:700}
+svg.look-roles .node.st-done text.ic{fill:var(--ok)} svg.look-roles .node:is(.st-running,.st-ready) text.ic{fill:var(--accent)}
+svg.look-roles .node.st-signoff text.ic{fill:var(--warn)} svg.look-roles .node:is(.st-blocked,.st-returned,.st-missed) text.ic{fill:var(--bad)}
+svg.look-roles .node:is(.st-todo,.st-skipped) text.ic{fill:var(--muted)}
+/* Path: the steps walked are joined by a thick line, the steps ahead by a thin dashed one. */
+svg.look-path .wire{stroke:var(--line);stroke-dasharray:3 3;stroke-width:1.2}
+svg.look-path .wire.done{stroke:var(--accent);stroke-width:3;stroke-dasharray:none}
+svg.look-path .node.st-done rect.b{fill:var(--sunk);stroke:var(--accent)}
+svg.look-path .node:is(.st-todo,.st-ready) rect.b{stroke-dasharray:4 3} svg.look-path .node.st-todo text{fill:var(--muted)}
+svg.look-path .node.here:is(.st-running,.st-ready) rect.b{stroke:var(--accent);stroke-width:2.6;stroke-dasharray:none} svg.look-path .node.here:is(.st-running,.st-ready) text{fill:var(--accent);font-weight:700}
+.legend.look-status .lg.done{border-color:var(--line);background:var(--sunk)}
+.legend.look-status .lg.running{border-color:var(--accent);background:var(--accent)}
+.legend:is(.look-status,.look-path) .lg.signoff{border-color:var(--warn);border-style:dashed;background:color-mix(in srgb,var(--warn) 14%,var(--surface))}
+.legend:is(.look-status,.look-path) .lg.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--surface))}
+.legend.look-status .lg.todo{border-color:var(--line);border-style:dashed}
+.legend.look-status .lg.skipped{border-color:var(--line);border-style:dotted;opacity:.6}
+.legend.look-path .lg.donepath{height:0;border:0;border-top:3px solid var(--accent);border-radius:0}
+.legend.look-path .lg.ahead{height:0;border:0;border-top:1.5px dashed var(--wire);border-radius:0}

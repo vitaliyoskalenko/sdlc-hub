@@ -2,6 +2,18 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-16: The flow map uses colour for one thing at a time
+
+### Status, Roles or Path, with the step in progress marked
+- **Decision:** The feature's flow map has three looks, switched above it and kept in the viewer's browser:
+  - **Status** (the default): grey lanes; done steps grey with a check, the step in progress in the one strong colour, amber for a sign-off wait, red for blocked, returned or missed, a dashed outline for steps not started.
+  - **Roles**: each lane in its role's colour, and an icon in each step for its status.
+  - **Path**: a thick line through the steps walked so far (through steps the route skipped), a dashed one ahead.
+
+  In every look a "now" badge points at the current step, and the step pulses unless the viewer asked for reduced motion. In Path the badge names the person.
+- **Why:** The map coloured each step by its role and by its status at once, so the nine-entry legend did not help and the current step was hard to find. The badge sits beside the step, not above it, because the arrow from the step before ends at its top.
+- **By:** Owner (all three, Status first); proposed (the details).
+
 ## 2026-10-15: A cleaner site, from the real cycle's data
 
 ### The site says what a thing means, not how it is stored

@@ -398,3 +398,23 @@ test("rules read as plain words, and a step's command shows only to its role", a
   await ready(page);
   await expect(page.locator("#not-your-step")).toHaveCount(0);
 });
+
+test("the flow map shows status colours by default, can show roles or the path instead, and marks the step in progress", async ({ page }) => {
+  await page.goto("/features/bulk-order-export?as=maksym.d");
+  await ready(page);
+  await expect(page.locator("svg.flow")).toHaveClass(/look-status/);
+  await expect(page.locator('svg.flow .node.here[data-step="implement"]')).toHaveCount(1);
+  await expect(page.locator("#flow-now")).toContainText("now");
+  await expect(page.locator("#flow-legend")).toContainText("blocked, returned or missed");
+  await page.click('[data-flowlook="roles"]');
+  await expect(page.locator("svg.flow")).toHaveClass(/look-roles/);
+  await expect(page.locator("#flow-legend")).toContainText("Engineering");
+  // Kept in this browser.
+  await page.reload();
+  await ready(page);
+  await expect(page.locator('[data-flowlook="roles"]')).toHaveAttribute("aria-pressed", "true");
+  await page.click('[data-flowlook="path"]');
+  await expect(page.locator("svg.flow")).toHaveClass(/look-path/);
+  await expect(page.locator("#flow-legend")).toContainText("the path so far");
+  expect(await page.locator("svg.flow .wire.done").count()).toBeGreaterThan(5);
+});

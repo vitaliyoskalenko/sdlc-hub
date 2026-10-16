@@ -2,9 +2,9 @@
 
 import { Fragment } from "preact";
 import { useEffect, useState } from "preact/hooks";
-import { api, type FeatureDetail, type FlowStep, type StepState, type Summary } from "./api.ts";
+import { api, type FeatureDetail, type FlowStep, type StepState, type StepStatus, type Summary } from "./api.ts";
 import { layout, Loop } from "./features.tsx";
-import { engineCmd, hubCmd, LEGEND, roleOf, STATUS, STEP } from "./text.ts";
+import { engineCmd, hubCmd, roleOf, STATUS, STEP } from "./text.ts";
 import { Costs } from "./costs.tsx";
 import { frontMatter, renderMarkdown } from "./markdown.ts";
 import { QA } from "./qa.tsx";
@@ -249,21 +249,39 @@ function NowStrip({ f, detail, tab }: { f: Summary; detail: FeatureDetail; tab: 
 
 // --- Flow
 
-function FlowMap({ detail, selected, pick }: { detail: FeatureDetail; selected: string; pick: (id: string) => void }) {
+/** How the flow map uses colour: by status (the default), by role with an icon per status, or as the path walked so far. */
+export type FlowLook = "status" | "roles" | "path";
+const LOOKS: [FlowLook, string, string][] = [
+  ["status", "Status", "Colour shows the status: grey is done, the strong colour is the step in progress, amber and red need someone"],
+  ["roles", "Roles", "Colour shows the role of each lane; an icon in each step shows its status"],
+  ["path", "Path", "A thick line shows the path walked so far, a dashed one the steps ahead"],
+];
+const LOOK_KEY = "hub.flowlook";
+/** An icon per status, for the Roles look (and done in the Status look). FE0E keeps them text, not emoji. */
+const ICON: Partial<Record<StepStatus, string>> = { done: "\u2713", running: "\u25B6\uFE0E", ready: "\u25B7\uFE0E", signoff: "\u2016", returned: "\u21A9\uFE0E", blocked: "\u2715", missed: "!", skipped: "\u2013" };
+
+function FlowMap({ detail, selected, pick, look }: { detail: FeatureDetail; selected: string; pick: (id: string) => void; look: FlowLook }) {
   const { project } = useApp();
   const steps = project.flow.steps;
   const lanes = project.flow.lanes;
   const W = 540, rowH = 30, top = 26, numW = 20;
   const laneW = (W - numW - 6) / lanes.length;
   const H = top + steps.length * rowH + 8;
-  const P = layout(steps, lanes, numW, laneW, top, rowH);
+  // Room for the status icon in each step, in the looks that show one.
+  const pad = look === "path" ? 0 : 12;
+  const P = Object.fromEntries(Object.entries(layout(steps, lanes, numW, laneW, top, rowH)).map(([k, v]) => [k, k === "fix" ? v : { ...v, w: v.w + pad }]));
   const status = (id: string) => detail.state.steps.find((s) => s.id === id)?.status ?? "todo";
   const flowed = ["done", "running", "signoff", "blocked", "ready", "returned"];
+  const icon = (st: StepStatus) => (look === "roles" ? ICON[st] : look === "status" && st === "done" ? ICON.done : undefined);
+  const current = steps.find((s) => s.id === detail.state.current);
   return (
-    <svg class="flow" viewBox={`0 0 ${W} ${H}`} role="group" aria-label={`Flow of ${detail.state.slug}: ${steps.length} steps in ${lanes.length} role lanes`}>
+    <svg class={`flow look-${look}`} viewBox={`0 0 ${W} ${H}`} role="group" aria-label={`Flow of ${detail.state.slug}: ${steps.length} steps in ${lanes.length} role lanes`}>
       <defs>
         <marker id="fa" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto" markerUnits="userSpaceOnUse">
           <path d="M0 1L7.5 4L0 7Z" fill="var(--wire)" />
+        </marker>
+        <marker id="fd" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto" markerUnits="userSpaceOnUse">
+          <path d="M0 1L7.5 4L0 7Z" fill={look === "path" ? "var(--accent)" : "var(--ink)"} />
         </marker>
         <marker id="fb" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto" markerUnits="userSpaceOnUse">
           <path d="M0 1L7.5 4L0 7Z" fill="var(--bad)" />
@@ -285,17 +303,21 @@ function FlowMap({ detail, selected, pick }: { detail: FeatureDetail; selected: 
       {steps.slice(0, -1).map((s, i) => {
         const nx = steps[i + 1]!;
         const a = P[s.id]!, b = P[nx.id]!, y1 = a.cy + 11, y2 = b.cy - 12, my = (y1 + y2) / 2;
-        const done = status(s.id) === "done" && flowed.includes(status(nx.id));
-        return <path key={`w${s.id}`} class={`wire${done ? " done" : ""}`} d={Math.abs(a.cx - b.cx) < 1 ? `M${a.cx} ${y1}V${y2}` : `M${a.cx} ${y1}V${my}H${b.cx}V${y2}`} marker-end="url(#fa)" />;
+        // A step the route skipped is passed through, so the path walked does not break at it.
+        const passed = (x: string) => status(x) === "done" || (status(x) === "skipped" && steps.slice(steps.indexOf(steps.find((y) => y.id === x)!) + 1).some((y) => status(y.id) !== "todo" && status(y.id) !== "skipped"));
+        const done = passed(s.id) && (flowed.includes(status(nx.id)) || passed(nx.id));
+        return <path key={`w${s.id}`} class={`wire${done ? " done" : ""}`} d={Math.abs(a.cx - b.cx) < 1 ? `M${a.cx} ${y1}V${y2}` : `M${a.cx} ${y1}V${my}H${b.cx}V${y2}`} marker-end={`url(#${done ? "fd" : "fa"})`} />;
       })}
       {P["fix"] && P["verify"] && <Loop v={P["verify"]} fx={P["fix"]} marker="fb" />}
       {steps.map((s, i) => {
         const p = P[s.id]!;
         const st = status(s.id);
+        const ic = icon(st);
+        const x0 = p.cx - p.w / 2;
         return (
           <g
             key={s.id}
-            class={`node st-${st} role-${roleOf(s.role).css}`}
+            class={`node st-${st} role-${roleOf(s.role).css}${s.id === current?.id ? " here" : ""}`}
             data-step={s.id}
             tabIndex={0}
             role="button"
@@ -303,9 +325,16 @@ function FlowMap({ detail, selected, pick }: { detail: FeatureDetail; selected: 
             onClick={() => pick(s.id)}
             onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), pick(s.id))}
           >
-            {selected === s.id && <rect class="sel" x={p.cx - p.w / 2 - 3.5} y={p.cy - 14.5} width={p.w + 7} height="29" rx="9" />}
-            <rect class="b" x={p.cx - p.w / 2} y={p.cy - 11} width={p.w} height="22" rx={s.kind === "engine" ? 6 : 11} />
-            <text x={p.cx} y={p.cy + 3.8} text-anchor="middle">
+            {selected === s.id && <rect class="sel" x={x0 - 3.5} y={p.cy - 14.5} width={p.w + 7} height="29" rx="9" />}
+            {s.id === current?.id && <rect class="pulse" x={x0 - 1} y={p.cy - 12} width={p.w + 2} height="24" rx={s.kind === "engine" ? 7 : 12} />}
+            <rect class="b" x={x0} y={p.cy - 11} width={p.w} height="22" rx={s.kind === "engine" ? 6 : 11} />
+            {look === "roles" && <rect class="stripe" x={x0 + 3} y={p.cy - 6.5} width="3" height="13" rx="1.5" />}
+            {ic && (
+              <text class="ic" x={x0 + (look === "roles" ? 13 : 10)} y={p.cy + 3.8} text-anchor="middle">
+                {ic}
+              </text>
+            )}
+            <text x={p.cx + (ic ? pad / 2 : 0) + (look === "roles" ? 2 : 0)} y={p.cy + 3.8} text-anchor="middle">
               {s.id}
             </text>
           </g>
@@ -319,8 +348,90 @@ function FlowMap({ detail, selected, pick }: { detail: FeatureDetail; selected: 
           </text>
         </g>
       )}
+      {current && <NowMark detail={detail} at={P[current.id]!} lane={lanes.indexOf(current.role)} fixRow={current.id === "verify" && !!P["fix"]} look={look} width0={W} />}
     </svg>
   );
+}
+
+/** "now" beside the step in progress, pointing at it; on the free side of the row (the fix loop sits left of verify). */
+function NowMark({ detail, at, lane, fixRow, look, width0 }: { detail: FeatureDetail; at: { cx: number; cy: number; w: number }; lane: number; fixRow: boolean; look: FlowLook; width0: number }) {
+  const { project } = useApp();
+  const st = detail.state.steps.find((x) => x.id === detail.state.current);
+  const who = st?.waitingOn?.[0] ?? st?.by;
+  const right = lane === 0 || fixRow;
+  const edge = right ? at.cx + at.w / 2 + 5 : at.cx - at.w / 2 - 5;
+  const width = (t: string) => t.length * 6.2 + 16;
+  // The first name, when it fits beside the step.
+  const named = look === "path" && who ? `now \u00B7 ${personName(project, who).split(" ")[0]}` : "now";
+  const label = (right ? edge + 2 + width(named) <= width0 : edge - 2 - width(named) >= 0) ? named : "now";
+  const w = width(label);
+  const x = right ? edge + 2 : edge - 2 - w;
+  return (
+    <g class="nowmark" id="flow-now" aria-hidden="true">
+      <rect x={x} y={at.cy - 9} width={w} height="18" rx="9" />
+      <path d={right ? `M${edge + 3} ${at.cy - 4}L${edge - 2} ${at.cy}L${edge + 3} ${at.cy + 4}Z` : `M${edge - 3} ${at.cy - 4}L${edge + 2} ${at.cy}L${edge - 3} ${at.cy + 4}Z`} />
+      <text x={x + w / 2} y={at.cy + 3.6} text-anchor="middle">
+        {label}
+      </text>
+    </g>
+  );
+}
+
+/** What the colours, lines and icons of the map mean, in the chosen look. */
+function FlowLegend({ look }: { look: FlowLook }) {
+  const { project } = useApp();
+  const items: [string, string][] =
+    look === "status"
+      ? [["done", "\u2713 done"], ["running", "in progress"], ["signoff", "waiting for sign-off"], ["bad", "blocked, returned or missed"], ["todo", "not started"], ["skipped", "skipped"]]
+      : look === "roles"
+        ? [["i", "\u2713 done"], ["i", "\u25B6\uFE0E running"], ["i", "\u2016 waiting for sign-off"], ["i", "\u21A9\uFE0E returned"], ["i", "\u2715 blocked"], ["i", "! missed"], ["i", "\u2013 skipped"]]
+        : [["donepath", "the path so far"], ["ahead", "steps ahead"], ["signoff", "waiting for sign-off"], ["bad", "blocked, returned or missed"]];
+  return (
+    <div class={`legend look-${look}`} id="flow-legend">
+      {look === "roles" &&
+        project.flow.lanes.map((r) => (
+          <span key={r}>
+            <i class={`lg lane role-${roleOf(r).css}`} />
+            {roleOf(r).n}
+          </span>
+        ))}
+      {items.map(([c, l]) =>
+        c === "i" ? (
+          <span key={l} class="lgi">
+            {l}
+          </span>
+        ) : (
+          <span key={l}>
+            <i class={`lg ${c}`} />
+            {l}
+          </span>
+        ),
+      )}
+      <span>
+        <i class="lg nowlg">now</i>the step in progress
+      </span>
+    </div>
+  );
+}
+
+function useFlowLook(): [FlowLook, (l: FlowLook) => void] {
+  const [look, setLook] = useState<FlowLook>(() => {
+    try {
+      const v = localStorage.getItem(LOOK_KEY);
+      return LOOKS.some(([k]) => k === v) ? (v as FlowLook) : "status";
+    } catch {
+      return "status";
+    }
+  });
+  const set = (l: FlowLook) => {
+    setLook(l);
+    try {
+      localStorage.setItem(LOOK_KEY, l);
+    } catch {
+      /* kept for this visit only */
+    }
+  };
+  return [look, set];
 }
 
 /** The command for a step, by its kind and state (revision 52: decide is the QA final check; return sends a step back). */
@@ -518,21 +629,25 @@ function Flow({ detail, params }: { detail: FeatureDetail; params: URLSearchPara
   const ids = project.flow.steps.map((s) => s.id);
   const asked = params.get("step");
   const id = asked && ids.includes(asked) ? asked : detail.state.current === "released" ? ids[ids.length - 1]! : detail.state.current;
+  const [look, setLook] = useFlowLook();
   return (
     <div class="flowgrid">
       <div class="card">
+        <div class="lookbar">
+          <span class="k">Colour shows</span>
+          <div class="seg sm" role="group" aria-label="What the colour of the map shows">
+            {LOOKS.map(([k, l, t]) => (
+              <button type="button" key={k} data-flowlook={k} aria-pressed={look === k} title={t} onClick={() => setLook(k)}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
         <div class="mapwrap">
-          <FlowMap detail={detail} selected={id} pick={(x) => go(`/features/${detail.state.slug}`, { step: x })} />
+          <FlowMap detail={detail} selected={id} look={look} pick={(x) => go(`/features/${detail.state.slug}`, { step: x })} />
         </div>
         <FlowList detail={detail} selected={id} />
-        <div class="legend">
-          {LEGEND.map(([s, l]) => (
-            <span key={s}>
-              <i class={`lg ${s}`} />
-              {l}
-            </span>
-          ))}
-        </div>
+        <FlowLegend look={look} />
         <LeadTime detail={detail} />
       </div>
       <div class="card" id="steppanel">
