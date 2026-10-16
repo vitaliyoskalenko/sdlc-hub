@@ -17,7 +17,7 @@ describe("the hub MCP server", () => {
   it("lists the tools with their inputs", async () => {
     const client = await connect();
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["hub_bug", "hub_decide", "hub_new", "hub_next", "hub_qa", "hub_record", "hub_release", "hub_release_edit", "hub_return", "hub_signoff", "hub_status", "hub_test", "hub_validation", "hub_verdicts"]);
+    expect(tools.map((t) => t.name).sort()).toEqual(["hub_bug", "hub_confirm", "hub_decide", "hub_new", "hub_next", "hub_qa", "hub_record", "hub_release", "hub_release_edit", "hub_return", "hub_signoff", "hub_status", "hub_test", "hub_validation", "hub_verdicts"]);
     expect(tools.find((t) => t.name === "hub_return")!.inputSchema.required).toEqual(["step", "slug", "reason"]);
     expect(tools.find((t) => t.name === "hub_status")!.annotations?.readOnlyHint).toBe(true);
   });

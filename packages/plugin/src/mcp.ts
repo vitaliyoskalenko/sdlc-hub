@@ -81,6 +81,18 @@ export function createHubMcp(ctx: ToolContext, version = "0.0.0"): McpServer {
   );
 
   server.registerTool(
+    "hub_confirm",
+    {
+      title: "Confirm a step still holds",
+      description:
+        "After something a step is built on changed (hub_status lists them as To recheck): records the owner's no change needed for that step in signoffs.yaml, through a merge request in their name. With step clarify, the PO records that only the wording of the spec changed, which answers every document the spec change marked. Call it only after the person confirmed.",
+      inputSchema: z.object({ step, slug }),
+      annotations: { destructiveHint: false },
+    },
+    async ({ step: st, slug: s }) => text(await hubSignoff(ctx, st, s, "confirm")),
+  );
+
+  server.registerTool(
     "hub_bug",
     {
       title: "File a bug",

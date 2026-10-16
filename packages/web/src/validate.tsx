@@ -10,13 +10,17 @@ import type { Recheck } from "./api.ts";
 import { recheckList } from "./recheck.tsx";
 
 export function ValidateCard({ slug, rechecks }: { slug: string; rechecks: Recheck[] }) {
-  const { me, project, assistant, session } = useApp();
+  const { me, project, assistant, session, savesEnabled, savesWhy } = useApp();
   const [running, setRunning] = useState(false);
   const [report, setReport] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { run, busy, problem } = useAction();
   const pending = usePending(slug, "validation");
   const mayValidate = me.roles.includes("po") || me.roles.includes("admin") || (me.roles.includes("dev") && me.lead);
+  // The PO's answer to a spec change that kept its meaning: every document it marked is cleared at once.
+  const wording = useAction();
+  const wordingPending = usePending(slug, "signoff").filter((x) => x.meta?.["step"] === "clarify" && x.meta?.["decision"] === "confirm");
+  const fromSpec = rechecks.filter((r) => r.because.some((c) => c.file === `docs/features/${slug}/spec.md`)).length;
 
   const start = async () => {
     setRunning(true);
@@ -46,6 +50,16 @@ export function ValidateCard({ slug, rechecks }: { slug: string; rechecks: Reche
         {docs ? `The spec changed after ${rechecks.length === 1 ? "this document was" : `${rechecks.length} documents were`} built on it: ${docs}. Check that they still agree; it edits nothing.` : "After you change the spec: check that the other documents still agree. It edits nothing."}
       </p>
       <Cmd text={hubCmd(assistant, "validate", slug)} />
+      {me.roles.includes("po") && fromSpec > 0 && (
+        <div class="row">
+          <button type="button" class="btn" id="validate-wording" disabled={!savesEnabled || wording.busy || wordingPending.length > 0} onClick={() => void wording.run("signoff", { slug, step: "clarify", decision: "confirm" })}>
+            {wording.busy ? "Saving…" : "Only the wording changed"}
+          </button>
+          <span class="reason">{!savesEnabled ? savesWhy : wordingPending.length ? "Waiting to merge." : `Clears the mark on ${fromSpec === 1 ? "the document" : `all ${fromSpec}`}: use it when no criterion changed in meaning.`}</span>
+        </div>
+      )}
+      <PendingList saves={wordingPending} />
+      {wording.problem}
       {project.headless && (
         <div class="row">
           <button type="button" class="btn" id="validate-now" disabled={running} onClick={() => void start()}>

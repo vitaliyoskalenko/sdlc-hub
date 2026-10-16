@@ -26,9 +26,8 @@ One feature (`order-notes`, size M, standard route, a backend and a web team) we
 
 ## Documents built on an older spec
 
-- **"No change needed" from the assistant.** The site records it; the plugin's `hub_signoff` takes pass and return only. `/hub:validate` could offer it per document after its report.
-- **Each team's tasks share one time.** The stage events carry no team, so every team's tasks count from the last time the tasks stage finished or was signed off. A team that ran its tasks later than another may be told to recheck a change it already had.
-- **A wording change counts as a change.** The hub compares the text under each id, with spacing ignored; it cannot tell a reworded criterion from a changed one. The owner confirms it in one click; the specification's earlier "wording only" mark on save had no place to live, since the spec changes through the assistant.
+- **A team's tasks without its own event.** A team's tasks count from the last tasks event of one of its people; with none (tasks written without the plugin), from when anyone finished or signed the tasks stage.
+- **Wording or meaning is the PO's call.** The hub compares the text under each id with spacing ignored, so a reworded criterion counts as changed until the PO chooses Only the wording changed.
 
 ## Claims to verify
 

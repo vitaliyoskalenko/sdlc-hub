@@ -5,7 +5,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { checkChange, detectFeature, listFeatures, nextFor, parseSignoffs, platformsOf, releaseView, verificationMatrix, type FeatureState, type Project, type StepPlan } from "@sdlc-hub/core";
+import { checkChange, detectFeature, listFeatures, nextFor, parseSignoffs, platformsOf, recheckRole, releaseView, verificationMatrix, type FeatureState, type Project, type StepPlan } from "@sdlc-hub/core";
 import type { OpenProject } from "@sdlc-hub/git";
 import { localTests, saveBug, saveRelease, saveSignoff, saveStage, saveValidation, saveVerdicts, type Save, type SaveOutcome, type Saver } from "@sdlc-hub/save";
 
@@ -141,17 +141,25 @@ export function hubStatus(ctx: ToolContext, slug?: string): ToolResult {
     if (cur?.reason) lines.push(`Why: ${cur.reason}`);
     for (const w of s.waits.filter((x) => !x.done)) lines.push(`${w.team}:${w.task} waits for ${w.on}.`);
     if (s.blockingBugs.length) lines.push(`Blocking bugs: ${s.blockingBugs.join(", ")}.`);
+    // Steps built on an older spec, flows or contract: the owner reruns the step or confirms it (hub_confirm).
+    for (const r of s.rechecks) {
+      const who = recheckRole(l.project, r, l.user);
+      const what = r.because.map((c) => `${c.ids.length ? `${c.ids.join(", ")} in ` : ""}${c.file.split("/").pop()} changed on ${c.at.slice(0, 10)}`).join("; ");
+      lines.push(`To recheck: ${r.team ? `${r.team}'s tasks` : r.step} (${what})${who === "owner" ? ` — yours: run ${hubCmd(ctx.assistant, "run", `${r.step} ${slug}`)} again, or hub_confirm if nothing needs to change` : who === "team" ? " — your lead's" : ""}.`);
+    }
     if (s.current !== "released") lines.push(`For you: ${planText(ctx, l, s, nextFor(l.project, s, l.user)).split("\n")[0]}`);
     return { text: lines.join("\n") };
   }
   const all = listFeatures(l.open.view.specs).map((x) => l.state(x)!);
   if (!all.length) return { text: "There are no features yet." };
   const mine = all.filter((s) => s.current !== "released" && (s.steps.find((x) => x.id === s.current)?.waitingOn ?? []).includes(l.user));
+  const rechecks = all.flatMap((s) => s.rechecks.filter((r) => recheckRole(l.project, r, l.user) === "owner").map((r) => `${s.slug} (${r.step})`));
   return {
     text: [
       ...all.map((s) => `- ${s.slug}: ${stepLine(l, s)}`),
       "",
       mine.length ? `Waiting for you: ${mine.map((s) => `${s.slug} (${s.current})`).join(", ")}.` : "Nothing is waiting for you.",
+      ...(rechecks.length ? [`To recheck by you, after a change under them: ${rechecks.join(", ")}.`] : []),
     ].join("\n"),
   };
 }
@@ -262,12 +270,12 @@ export async function hubRecord(ctx: ToolContext, slug: string, step: string): P
   return { text: `${done} Saved ${mine.length} file${mine.length === 1 ? "" : "s"} as ${where}. It merges by itself when hub-guard passes.${notMine}` };
 }
 
-export async function hubSignoff(ctx: ToolContext, step: string, slug: string, decision: "pass" | "return", reason?: string): Promise<ToolResult> {
+export async function hubSignoff(ctx: ToolContext, step: string, slug: string, decision: "pass" | "return" | "confirm", reason?: string): Promise<ToolResult> {
   const l = load(ctx);
   if (isResult(l)) return l;
   // With the checkout's files: the verify gate checks the verdicts before anything is saved.
   const r = await saveSignoff({ saver: ctx.saver(l.user), project: l.project, state: l.state, local: l.open.view.specs, user: l.user, slug, step, decision, reason, at: iso(ctx.now()) });
-  return outcomeText(r, decision === "pass" ? `Your sign-off of ${step}` : `Your return of ${step}`);
+  return outcomeText(r, decision === "pass" ? `Your sign-off of ${step}` : decision === "return" ? `Your return of ${step}` : step === "clarify" || step === "specify" ? "Your only-the-wording-changed" : `Your no change needed for ${step}`);
 }
 
 export interface BugArgs {

@@ -317,7 +317,7 @@ function Statuses() {
           ))}
           <li class="statusline" id="help-recheck">
             <Pill kind="warn">{"\u21BB"} recheck</Pill>
-            <span class="muted">Done, but something it is built on changed after it landed: the spec's stories or criteria it names, the flows, the data model or the contract. Its owner runs the step again, or confirms that nothing needs to change.</span>
+            <span class="muted">Done, but something it is built on changed after it landed: the spec's stories or criteria it names, the flows, the data model or the contract. Its owner runs the step again, or confirms that nothing needs to change; the PO can say that only the wording of the spec changed, which clears every mark the spec caused.</span>
           </li>
         </ul>
       </div>

@@ -4,6 +4,7 @@
 // Everything comes from git: the time each file last landed on main, and the text of a file at a time.
 
 import type { Signoff } from "./schema/feature.ts";
+import type { Project } from "./detect.ts";
 import type { FileSource } from "./source.ts";
 
 /** One document to check again, and what changed under it. */
@@ -83,8 +84,8 @@ export interface RecheckInput {
   /** The steps that are done: only a finished document can be built on an older version. */
   done: Set<string>;
   signoffs: Signoff[];
-  /** Each team of the feature with its tasks, when known, and the contract team. */
-  teams: { id: string; acs: string[] | null }[];
+  /** Each team of the feature: the criteria its tasks name, when known, and when its people last finished the tasks stage. */
+  teams: { id: string; acs: string[] | null; finished?: string }[];
   contractTeam?: string;
   /** When the tasks stage last finished, from the stage events. */
   tasksFinished?: string;
@@ -104,9 +105,16 @@ export function rechecksFor(x: RecheckInput): Recheck[] {
       .map((e) => e.at)
       .sort()
       .at(-1);
-  const causes = (on: Basis[], since: string, refs: Set<string> | null): RecheckCause[] =>
+  // The PO's "only the wording changed": the spec's changes up to then count for no document.
+  const wording = x.signoffs
+    .filter((e) => e.decision === "confirm" && (e.step === "specify" || e.step === "clarify") && e.file === `${dir}/spec.md`)
+    .map((e) => e.at)
+    .sort()
+    .at(-1);
+  const causes = (on: Basis[], after: string, refs: Set<string> | null): RecheckCause[] =>
     on.flatMap(([rel, by]): RecheckCause[] => {
       const path = `${dir}/${rel}`;
+      const since = rel === "spec.md" && wording && wording > after ? wording : after;
       const at = h.changedAt(path);
       if (!at || at <= since) return [];
       const now = x.specs.read(path);
@@ -157,10 +165,23 @@ export function rechecksFor(x: RecheckInput): Recheck[] {
   if (x.done.has("tasks") && tasksAt)
     for (const t of x.teams) {
       const on: Basis[] = [["spec.md", "ids"], ["screens.md", "file"]];
-      const since = [tasksAt, confirmed("tasks", t.id)].filter((v): v is string => !!v).sort().at(-1)!;
+      const since = [t.finished ?? tasksAt, confirmed("tasks", t.id)].filter((v): v is string => !!v).sort().at(-1)!;
       const because = causes(on, since, t.acs ? new Set(t.acs) : null);
       if (t.id !== x.contractTeam && x.contractTeam) because.push(...folderChanged(`${dir}/contracts`, since));
       if (because.length) out.push({ step: "tasks", file: t.id, team: t.id, because });
     }
   return out;
+}
+
+/**
+ * Who answers a recheck: "owner" reruns the step or confirms it (the step's role; for an Engineering step the lead of
+ * the team it belongs to, the contract team's for the design, the data model and the contract); "team" is told.
+ */
+export function recheckRole(project: Project, r: Recheck, user: string): "owner" | "team" | null {
+  const p = project.roles.people.find((x) => x.user === user);
+  const step = project.flow.steps.find((s) => s.id === r.step);
+  if (!p || !step) return null;
+  const team = r.team ?? (step.role === "dev" ? project.config.teams.find((t) => t.api_contract)?.id : undefined);
+  if (step.role === "dev") return p.roles.includes("dev") && p.team === team ? (p.lead ? "owner" : "team") : null;
+  return p.roles.includes(step.role) ? "owner" : null;
 }

@@ -44,6 +44,12 @@ describe("hub_status", () => {
     expect(text).toContain("web:T3 waits for backend:T2.");
     expect(text).toMatch(/For you: /);
   });
+  it("names the steps built on an older spec, and which are mine to rerun or confirm", () => {
+    const { text } = hubStatus(demo("daria.l").ctx, "bulk-order-export");
+    expect(text).toContain("To recheck: screens (AC-04 in spec.md changed on 2026-10-06) — yours: run /hub:run screens bulk-order-export again, or hub_confirm if nothing needs to change.");
+    expect(text).toContain("To recheck: web's tasks (AC-04 in spec.md changed on 2026-10-06).");
+    expect(hubStatus(demo("daria.l").ctx).text).toContain("To recheck by you, after a change under them: bulk-order-export (screens).");
+  });
   it("names the features when the slug is wrong", () => {
     const r = hubStatus(demo("olena.k").ctx, "nope");
     expect(r.isError).toBe(true);
@@ -207,6 +213,14 @@ describe("hub_signoff, hub_return and hub_bug", () => {
     expect(r.isError).toBe(true);
     expect(r.text).toMatch(/clarify is signed by PO/);
     expect(git(remote, "branch", "--list", "hub/*")).toBe("");
+  });
+  it("records the owner's no change needed, and the PO's only-the-wording-changed, and nothing without a recheck", async () => {
+    const { ctx, remote } = demo("daria.l");
+    expect((await hubSignoff(ctx, "screens", "bulk-order-export", "confirm")).text).toMatch(/Your no change needed for screens .*saved as branch hub\/daria\.l\/confirm-screens-bulk-order-export-/);
+    const branch = git(remote, "branch", "--list", "hub/*").replace("*", "").trim();
+    expect(parseSignoffs(git(remote, "show", `${branch}:docs/features/bulk-order-export/hub/signoffs.yaml`), "s").value!.at(-1)).toMatchObject({ step: "screens", user: "daria.l", decision: "confirm", file: "docs/features/bulk-order-export/spec.md" });
+    expect((await hubSignoff(demo("olena.k").ctx, "clarify", "bulk-order-export", "confirm")).text).toMatch(/Your only-the-wording-changed/);
+    expect((await hubSignoff(demo("daria.l").ctx, "screens", "tasks-issues", "confirm")).text).toMatch(/Nothing screens of tasks-issues is built on changed/);
   });
   it("needs a reason to return", async () => {
     expect((await hubSignoff(demo("olena.k").ctx, "clarify", "returns-portal", "return", " ")).text).toBe("A return needs a reason");

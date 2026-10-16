@@ -70,14 +70,17 @@ async function saveConfirm(i: SignoffInput, slug: string, step: string): Promise
   const state = i.state(slug);
   if (!state) return { ok: false, code: "no-feature", error: `There is no feature ${slug}` };
   const team = i.project.roles.people.find((p) => p.user === i.user)?.team;
-  const r = state.rechecks.find((x) => x.step === step && (x.team === undefined || x.team === team));
-  if (!r) return { ok: false, code: "not-waiting", error: `Nothing ${step} of ${slug} is built on changed since it landed` };
+  const spec = `docs/features/${slug}/spec.md`;
+  // The PO's "only the wording changed" answers every recheck the spec caused; an owner's answers their own step.
+  const wording = step === "specify" || step === "clarify";
+  const r = wording ? state.rechecks.find((x) => x.because.some((c) => c.file === spec)) : state.rechecks.find((x) => x.step === step && (x.team === undefined || x.team === team));
+  if (!r) return { ok: false, code: "not-waiting", error: wording ? `No document of ${slug} waits on a change of its spec` : `Nothing ${step} of ${slug} is built on changed since it landed` };
   if (i.saver.refresh().some((x) => x.state === "pending" && x.user === i.user && x.meta?.["kind"] === "signoff" && x.meta?.["slug"] === slug && x.meta?.["step"] === step))
     return { ok: false, code: "pending", error: `Your save for ${step} of ${slug} is still waiting to merge` };
-  const action: SignoffAction = { decision: "confirm", step, file: r.because[0]!.file };
+  const action: SignoffAction = { decision: "confirm", step, file: wording ? spec : r.because[0]!.file };
   return checkedSave(i.saver, i.user, {
     label: `confirm-${step}-${slug}`,
-    title: `Confirm ${step} of ${slug} still holds`,
+    title: wording ? `Only the wording of ${slug}'s spec changed` : `Confirm ${step} of ${slug} still holds`,
     meta: { kind: "signoff", slug, step, decision: "confirm" },
     build: (main, p) => signoffChange(p, main, slug, i.user, action, i.at),
     fallback: i.project,

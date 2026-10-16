@@ -577,7 +577,10 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
           slug,
           done: new Set(states.filter((x) => x.status === "done").map((x) => x.id)),
           signoffs,
-          teams: teams.map((t) => ({ id: t.id, acs: t.snapshot?.tasks ? t.snapshot.tasks.flatMap((x) => x.acs) : null })),
+          teams: teams.map((t) => {
+            const finished = tasksFinishedBy(t.id);
+            return { id: t.id, acs: t.snapshot?.tasks ? t.snapshot.tasks.flatMap((x) => x.acs) : null, ...(finished ? { finished } : {}) };
+          }),
           ...(contractId ? { contractTeam: contractId } : {}),
           ...(times.find((t) => t.step === "tasks")?.finished ? { tasksFinished: times.find((t) => t.step === "tasks")!.finished! } : {}),
           teamOf: (user) => roles.people.find((p) => p.user === user)?.team,
@@ -612,6 +615,16 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
   };
 
   // --- helpers that read the state above
+
+  /** When someone of a team last finished the tasks stage: the event line's git author names the person. */
+  function tasksFinishedBy(team: string): string | undefined {
+    return events
+      .filter((e) => e.step === "tasks" && e.event === "finished")
+      .filter((e) => roles.people.find((p) => p.user === view.hubState?.author?.(`${eventsPath}#L${e.line}`))?.team === team)
+      .map((e) => e.at)
+      .sort()
+      .at(-1);
+  }
 
   function lastEvent(stepId: string): HubEventLine | undefined {
     return events.filter((e) => e.step === stepId).sort(byTime).at(-1);

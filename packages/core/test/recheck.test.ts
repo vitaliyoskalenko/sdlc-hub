@@ -129,3 +129,21 @@ describe("what counts as a change for a document", () => {
     expect(tasks(contract("2026-10-02T10:00:00Z"))).toEqual([]);
   });
 });
+
+describe("the owners' answers", () => {
+  it("takes the PO's only-the-wording-changed for every document built on the spec", () => {
+    const wording = { step: "clarify", user: "olena.k", at: "2026-10-03T11:00:00Z", decision: "confirm" as const, file: `${dir}/spec.md`, hash: "sha256:00" };
+    expect(rechecksFor(input({ signoffs: [wording] }))).toEqual([]);
+    // A later change of the spec counts again.
+    const later = { ...wording, at: "2026-10-02T12:00:00Z" };
+    expect(rechecksFor(input({ signoffs: [later] })).map((r) => r.step)).toEqual(["plan-tests"]);
+  });
+
+  it("counts each team's tasks from when its own people finished them", () => {
+    const teams = [
+      { id: "backend", acs: ["AC-02"], finished: "2026-10-03T12:00:00Z" },
+      { id: "web", acs: ["AC-02"] },
+    ];
+    expect(rechecksFor(input({ done: new Set(["tasks"]), tasksFinished: T1, teams })).map((r) => r.team)).toEqual(["web"]);
+  });
+});

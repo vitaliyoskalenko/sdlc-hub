@@ -122,3 +122,16 @@ describe("the QA decision at the final check", () => {
     expect(parseSignoffs(c.next!, "s").value!.at(-1)).toMatchObject({ step: "qa-final", decision: "return", reason: "BUG-0012 reproduces", bugs: ["BUG-0012"], cycle: 1 });
   });
 });
+
+describe("who answers a recheck", () => {
+  it("is the step's role, or for an Engineering step the lead of its team; the team is told", async () => {
+    const { recheckRole } = await import("../src/index.ts");
+    const r = (step: string, team?: string) => ({ step, file: "x", ...(team ? { team } : {}), because: [] });
+    expect(recheckRole(project, r("screens"), "daria.l")).toBe("owner");
+    expect(recheckRole(project, r("screens"), "iryna.s")).toBeNull();
+    // The contract is the contract team's: its lead answers.
+    expect(recheckRole(project, r("api"), "taras.m")).toBe("owner");
+    expect(recheckRole(project, r("api"), "petro.v")).toBeNull();
+    expect(recheckRole(project, r("tasks", "web"), "petro.v")).toBe("owner");
+  });
+});

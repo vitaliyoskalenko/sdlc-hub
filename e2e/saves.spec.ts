@@ -135,6 +135,18 @@ test.describe.serial("saves from the site", () => {
     await expect(page.locator('svg.flow [data-step="plan-tests"]')).toHaveClass(/recheck/);
   });
 
+  test("the PO says only the wording of the spec changed: every mark it caused goes", async ({ page }) => {
+    await page.goto(`${DEMO}/features/bulk-order-export/documents?as=olena.k`);
+    await page.waitForSelector("#validate");
+    await expect(page.locator('.docbtn[data-doc="test-plan.md"]')).toContainText("needs validation");
+    await page.click("#validate-wording");
+    await expect(page.locator("#validate")).not.toHaveClass(/recheck/, { timeout: 20_000 });
+    await expect(page.locator('.docbtn[data-doc="test-plan.md"]')).not.toContainText("needs validation");
+    await page.goto(`${DEMO}/features/bulk-order-export?as=olena.k`);
+    await page.waitForSelector("#steph");
+    await expect(page.locator("svg.flow .node.recheck")).toHaveCount(0);
+  });
+
   test("the PM changes a feature's title and adds a link; it merges and the page shows them", async ({ page }) => {
     await page.goto(`${DEMO}/features/returns-portal?as=maksym.d`);
     await page.waitForSelector("#steph");
