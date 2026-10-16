@@ -15,6 +15,16 @@ export const ROLE: Record<string, { n: string; s: string; css: string }> = {
 };
 export const roleOf = (r: string) => ROLE[r] ?? { n: r, s: r, css: "admin" };
 
+/** What each role does in the flow, for the popup on a lane of the flow map. */
+export const ROLE_DOES: Record<string, string> = {
+  po: "Writes the specification, answers its open questions, and accepts the finished feature.",
+  pm: "Plans the epic and the sprint, names the teams, and gives the go or no-go for the release.",
+  designer: "Draws the user flows and the screens.",
+  dev: "Designs, builds, reviews and ships the code, in each team's own repository.",
+  qa: "Plans the tests, verifies the feature on staging, and makes the final check.",
+  ops: "Puts the feature on staging, rolls it out, and watches it after the rollout.",
+};
+
 export const STATUS: Record<StepStatus, [kind: string, label: string]> = {
   done: ["ok", "Done"],
   running: ["info", "Running"],

@@ -139,7 +139,7 @@ tr.click:hover td{background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
 .tab{border:0;background:transparent;padding:7px 12px 6px;border-bottom:2px solid transparent;font-weight:500;color:var(--muted);cursor:pointer;white-space:nowrap}
 .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
 .flowgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
-.mapwrap{overflow-x:auto}
+.mapwrap{overflow-x:auto;position:relative}
 svg.flow{display:block;width:100%;min-width:430px;max-width:620px;height:auto;margin-inline:auto}
 .band{fill:var(--rc);fill-opacity:.07}
 .lanehead{fill:var(--rc);font:600 11px var(--f-body)}
@@ -477,7 +477,6 @@ svg.flow .node text.ic{font:700 11px var(--f-body)}
 @media (prefers-reduced-motion:no-preference){.node rect.pulse{animation:flowpulse 1.8s ease-out infinite}}
 @keyframes flowpulse{0%{opacity:.7;stroke-width:1}100%{opacity:0;stroke-width:9}}
 .legend .lgi{font-variant-numeric:tabular-nums}
-.lg.lane{border-color:var(--rc);background:color-mix(in srgb,var(--rc) 22%,var(--surface))}
 .lg.nowlg{width:auto;height:auto;padding:0 6px;border:0;border-radius:8px;background:var(--ink);color:var(--bg);font:600 .68rem var(--f-body);font-style:normal;line-height:1.5}
 /* Status: grey lanes, colour only for the step in progress and what needs someone. */
 svg.look-status .band,svg.look-path .band{fill:var(--sunk);fill-opacity:.45}
@@ -514,3 +513,7 @@ svg.look-path .node.here:is(.st-running,.st-ready) rect.b{stroke:var(--accent);s
 .legend.look-status .lg.skipped{border-color:var(--line);border-style:dotted;opacity:.6}
 .legend.look-path .lg.donepath{height:0;border:0;border-top:3px solid var(--accent);border-radius:0}
 .legend.look-path .lg.ahead{height:0;border:0;border-top:1.5px dashed var(--wire);border-radius:0}
+.lanehd{cursor:help} .lanehd:focus{outline:none} .lanehd:focus-visible text{text-decoration:underline}
+.lanehd:hover text{text-decoration:underline dotted}
+.lanetip{position:absolute;z-index:5;transform:translateX(-50%);width:max-content;max-width:250px;display:flex;flex-direction:column;gap:3px;padding:8px 11px;background:var(--surface);border:1px solid var(--line);border-radius:9px;box-shadow:0 6px 18px rgba(16,22,30,.16);font-size:.8rem;line-height:1.4;pointer-events:none}
+.lanetip .muted{font-size:.76rem}

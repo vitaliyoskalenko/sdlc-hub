@@ -4,7 +4,7 @@ import { Fragment } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { api, type FeatureDetail, type FlowStep, type StepState, type StepStatus, type Summary } from "./api.ts";
 import { layout, Loop } from "./features.tsx";
-import { engineCmd, hubCmd, roleOf, STATUS, STEP } from "./text.ts";
+import { engineCmd, hubCmd, ROLE_DOES, roleOf, STATUS, STEP } from "./text.ts";
 import { Costs } from "./costs.tsx";
 import { frontMatter, renderMarkdown } from "./markdown.ts";
 import { QA } from "./qa.tsx";
@@ -252,8 +252,8 @@ function NowStrip({ f, detail, tab }: { f: Summary; detail: FeatureDetail; tab: 
 /** How the flow map uses colour: by status (the default), by role with an icon per status, or as the path walked so far. */
 export type FlowLook = "status" | "roles" | "path";
 const LOOKS: [FlowLook, string, string][] = [
-  ["status", "Status", "Colour shows the status: grey is done, the strong colour is the step in progress, amber and red need someone"],
-  ["roles", "Roles", "Colour shows the role of each lane; an icon in each step shows its status"],
+  ["status", "Status", "Each step's status in colour: grey is done, the strong colour is the step in progress, amber and red need someone"],
+  ["roles", "Roles", "Each lane in its role's colour; an icon in each step shows its status"],
   ["path", "Path", "A thick line shows the path walked so far, a dashed one the steps ahead"],
 ];
 const LOOK_KEY = "hub.flowlook";
@@ -274,7 +274,27 @@ function FlowMap({ detail, selected, pick, look }: { detail: FeatureDetail; sele
   const flowed = ["done", "running", "signoff", "blocked", "ready", "returned"];
   const icon = (st: StepStatus) => (look === "roles" ? ICON[st] : look === "status" && st === "done" ? ICON.done : undefined);
   const current = steps.find((s) => s.id === detail.state.current);
+  // The lane whose role the popup explains, and where, in the map's own box.
+  const [lane, setLane] = useState<{ r: string; x: number; y: number } | null>(null);
+  const tip = (r: string, el: Element) => {
+    const box = el.closest(".mapwrap");
+    if (!box) return;
+    const a = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+    // Kept inside the box: the popup is up to 250px wide and centred on the lane.
+    const x = Math.min(Math.max(a.left + a.width / 2 - b.left + box.scrollLeft, 129), box.scrollWidth - 129);
+    setLane({ r, x, y: a.bottom - b.top + 4 });
+  };
   return (
+    <>
+    {lane && (
+      <div class="lanetip" id="lane-tip" role="tooltip" style={{ left: `${lane.x}px`, top: `${lane.y}px` }}>
+        <b>{roleOf(lane.r).n}</b>
+        <span>{ROLE_DOES[lane.r] ?? ""}</span>
+        <span class="muted">
+          Steps: {steps.filter((s) => s.role === lane.r).map((s) => s.id).join(", ")}
+        </span>
+      </div>
+    )}
     <svg class={`flow look-${look}`} viewBox={`0 0 ${W} ${H}`} role="group" aria-label={`Flow of ${detail.state.slug}: ${steps.length} steps in ${lanes.length} role lanes`}>
       <defs>
         <marker id="fa" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto" markerUnits="userSpaceOnUse">
@@ -290,9 +310,21 @@ function FlowMap({ detail, selected, pick, look }: { detail: FeatureDetail; sele
       {lanes.map((r, i) => (
         <g key={r}>
           <rect class={`band role-${roleOf(r).css}`} x={numW + i * laneW + 2} y="18" width={laneW - 4} height={H - 20} rx="7" />
-          <text class={`lanehead role-${roleOf(r).css}`} x={numW + (i + 0.5) * laneW} y="12" text-anchor="middle">
-            {roleOf(r).s}
-          </text>
+          <g
+            class="lanehd"
+            data-lane={r}
+            tabIndex={0}
+            aria-label={`${roleOf(r).n}: ${ROLE_DOES[r] ?? ""}`}
+            onMouseEnter={(e) => tip(r, e.currentTarget)}
+            onFocus={(e) => tip(r, e.currentTarget)}
+            onMouseLeave={() => setLane(null)}
+            onBlur={() => setLane(null)}
+          >
+            <rect x={numW + i * laneW + 2} y="0" width={laneW - 4} height="17" fill="transparent" />
+            <text class={`lanehead role-${roleOf(r).css}`} x={numW + (i + 0.5) * laneW} y="12" text-anchor="middle">
+              {roleOf(r).s}
+            </text>
+          </g>
         </g>
       ))}
       {steps.map((s, i) => (
@@ -350,6 +382,7 @@ function FlowMap({ detail, selected, pick, look }: { detail: FeatureDetail; sele
       )}
       {current && <NowMark detail={detail} at={P[current.id]!} lane={lanes.indexOf(current.role)} fixRow={current.id === "verify" && !!P["fix"]} look={look} width0={W} />}
     </svg>
+    </>
   );
 }
 
@@ -379,7 +412,6 @@ function NowMark({ detail, at, lane, fixRow, look, width0 }: { detail: FeatureDe
 
 /** What the colours, lines and icons of the map mean, in the chosen look. */
 function FlowLegend({ look }: { look: FlowLook }) {
-  const { project } = useApp();
   const items: [string, string][] =
     look === "status"
       ? [["done", "\u2713 done"], ["running", "in progress"], ["signoff", "waiting for sign-off"], ["bad", "blocked, returned or missed"], ["todo", "not started"], ["skipped", "skipped"]]
@@ -388,13 +420,6 @@ function FlowLegend({ look }: { look: FlowLook }) {
         : [["donepath", "the path so far"], ["ahead", "steps ahead"], ["signoff", "waiting for sign-off"], ["bad", "blocked, returned or missed"]];
   return (
     <div class={`legend look-${look}`} id="flow-legend">
-      {look === "roles" &&
-        project.flow.lanes.map((r) => (
-          <span key={r}>
-            <i class={`lg lane role-${roleOf(r).css}`} />
-            {roleOf(r).n}
-          </span>
-        ))}
       {items.map(([c, l]) =>
         c === "i" ? (
           <span key={l} class="lgi">
@@ -634,8 +659,8 @@ function Flow({ detail, params }: { detail: FeatureDetail; params: URLSearchPara
     <div class="flowgrid">
       <div class="card">
         <div class="lookbar">
-          <span class="k">Colour shows</span>
-          <div class="seg sm" role="group" aria-label="What the colour of the map shows">
+          <span class="k">Highlight</span>
+          <div class="seg sm" role="group" aria-label="What the map highlights">
             {LOOKS.map(([k, l, t]) => (
               <button type="button" key={k} data-flowlook={k} aria-pressed={look === k} title={t} onClick={() => setLook(k)}>
                 {l}

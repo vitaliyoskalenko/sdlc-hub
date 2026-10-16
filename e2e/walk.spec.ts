@@ -408,7 +408,7 @@ test("the flow map shows status colours by default, can show roles or the path i
   await expect(page.locator("#flow-legend")).toContainText("blocked, returned or missed");
   await page.click('[data-flowlook="roles"]');
   await expect(page.locator("svg.flow")).toHaveClass(/look-roles/);
-  await expect(page.locator("#flow-legend")).toContainText("Engineering");
+  await expect(page.locator("#flow-legend")).toContainText("waiting for sign-off");
   // Kept in this browser.
   await page.reload();
   await ready(page);
@@ -417,4 +417,16 @@ test("the flow map shows status colours by default, can show roles or the path i
   await expect(page.locator("svg.flow")).toHaveClass(/look-path/);
   await expect(page.locator("#flow-legend")).toContainText("the path so far");
   expect(await page.locator("svg.flow .wire.done").count()).toBeGreaterThan(5);
+});
+
+test("a lane's role is explained when pointed at", async ({ page }) => {
+  await page.goto("/features/bulk-order-export?as=maksym.d");
+  await ready(page);
+  await page.hover('svg.flow .lanehd[data-lane="po"]');
+  await expect(page.locator("#lane-tip")).toContainText("PO / Analyst");
+  await expect(page.locator("#lane-tip")).toContainText("Steps: specify, clarify, accept");
+  await page.mouse.move(0, 0);
+  await expect(page.locator("#lane-tip")).toHaveCount(0);
+  await page.click('[data-flowlook="roles"]');
+  await expect(page.locator("#flow-legend")).not.toContainText("Engineering");
 });

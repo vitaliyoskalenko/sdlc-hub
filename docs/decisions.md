@@ -10,6 +10,8 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
   - **Roles**: each lane in its role's colour, and an icon in each step for its status.
   - **Path**: a thick line through the steps walked so far (through steps the route skipped), a dashed one ahead.
 
+  The switch is labelled "Highlight". The legend explains only the statuses and lines; a lane's role is explained in a popup on its header (PO, PM…): the role's full name, what it does and its steps.
+
   In every look a "now" badge points at the current step, and the step pulses unless the viewer asked for reduced motion. In Path the badge names the person.
 - **Why:** The map coloured each step by its role and by its status at once, so the nine-entry legend did not help and the current step was hard to find. The badge sits beside the step, not above it, because the arrow from the step before ends at its top.
 - **By:** Owner (all three, Status first); proposed (the details).
