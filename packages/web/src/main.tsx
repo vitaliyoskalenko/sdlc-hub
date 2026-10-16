@@ -49,6 +49,12 @@ function route(path: string): Route {
   return { page: "missing" };
 }
 
+/** Which page an address shows: a feature's tabs are one page, and the query (step, doc, filter, view) does not change it. */
+export function pageKey(url: string): string {
+  const r = route(url.split("?")[0]!.split("#")[0]!);
+  return r.page === "feature" ? `feature:${r.slug}` : r.page === "guide-doc" ? `guide-doc:${r.name}` : r.page === "script" ? `script:${r.user}` : r.page;
+}
+
 /** g then a letter: the page it opens. */
 export const SHORTCUT_PAGES: Record<string, string> = { h: "/", f: "/features", r: "/releases", t: "/people", s: "/settings", g: "/guide" };
 
@@ -163,9 +169,11 @@ function Root() {
     history.pushState(null, "", toAddress(url));
     // The #section stays in the address bar, not in the page's location: the query must not carry it.
     const [page, hash] = url.split("#");
+    const from = pageKey(loc);
     setLoc(page!);
     if (hash) setTimeout(() => document.getElementById(decodeURIComponent(hash))?.scrollIntoView(), 50);
-    else scrollTo(0, 0);
+    // A new page opens at its top; a tab, a step, a filter or a document of the same page keeps where the person is.
+    else if (pageKey(page!) !== from) scrollTo(0, 0);
   };
   // Keyboard shortcuts, registered once: they reach the latest go through a ref.
   const goRef = useRef(go);

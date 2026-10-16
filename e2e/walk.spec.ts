@@ -430,3 +430,22 @@ test("a lane's role is explained when pointed at", async ({ page }) => {
   await page.click('[data-flowlook="roles"]');
   await expect(page.locator("#flow-legend")).not.toContainText("Engineering");
 });
+
+test("a step, a tab or a document of the same page keeps the scroll; another page opens at its top", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await page.goto("/features/bulk-order-export?as=maksym.d");
+  await ready(page);
+  await page.evaluate(() => scrollTo(0, 220));
+  const y = () => page.evaluate(() => Math.round(scrollY));
+  await page.click('svg.flow [data-step="tasks"]');
+  await expect(page.locator("#steph")).toHaveText(/./);
+  expect(await y()).toBe(220);
+  await page.click('[data-ftab="documents"]');
+  await expect(page.locator(".docbtn").first()).toBeVisible();
+  expect(await y()).toBe(220);
+  await page.locator(".docbtn").nth(1).click();
+  expect(await y()).toBe(220);
+  await page.click('nav a[href*="/releases"], a[href^="/releases"]');
+  await expect(page.locator("h1")).toHaveText("Releases");
+  expect(await y()).toBe(0);
+});

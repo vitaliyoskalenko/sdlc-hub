@@ -4,6 +4,11 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
 
 ## 2026-10-16: The flow map uses colour for one thing at a time
 
+### The page stays where the person is
+- **Decision:** Only a new page opens at its top. A feature's tabs, a step on the map, a document, a filter or a view of the same page keep the scroll. A feature's tab area is at least a screen tall, and a document stays on the page, dimmed, while the next one loads.
+- **Why:** Every click in the site scrolled to the top, so selecting a step or a tab made the page jump; a shorter tab or a document briefly replaced by "Loading…" pulled the page up too.
+- **By:** Owner.
+
 ### Status, Roles or Path, with the step in progress marked
 - **Decision:** The feature's flow map has three looks, switched above it and kept in the viewer's browser:
   - **Status** (the default): grey lanes; done steps grey with a check, the step in progress in the one strong colour, amber for a sign-off wait, red for blocked, returned or missed, a dashed outline for steps not started.

@@ -516,3 +516,5 @@ svg.look-path .node.here:is(.st-running,.st-ready) rect.b{stroke:var(--accent);s
 .lanehd:hover text{text-decoration:underline dotted}
 .lanetip{position:absolute;z-index:5;transform:translateX(-50%);width:max-content;max-width:250px;display:flex;flex-direction:column;gap:3px;padding:8px 11px;background:var(--surface);border:1px solid var(--line);border-radius:9px;box-shadow:0 6px 18px rgba(16,22,30,.16);font-size:.8rem;line-height:1.4;pointer-events:none}
 .lanetip .muted{font-size:.76rem}
+.stale{opacity:.45;transition:opacity .15s}
+.tabbody{display:flex;flex-direction:column;gap:16px;min-height:100vh;min-width:0}

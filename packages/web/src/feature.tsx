@@ -154,6 +154,8 @@ export function Feature({ slug, tab, params }: { slug: string; tab: string; para
           ))}
         </div>
       </div>
+      {/* At least a screen tall: a shorter tab does not pull the page up when it opens. */}
+      <div class="tabbody" role="tabpanel">
       {tab === "documents" ? (
         <Documents slug={slug} detail={d} params={params} />
       ) : tab === "tasks" ? (
@@ -167,6 +169,7 @@ export function Feature({ slug, tab, params }: { slug: string; tab: string; para
       ) : (
         <Flow detail={d} params={params} />
       )}
+      </div>
     </>
   );
 }
@@ -852,18 +855,19 @@ function Documents({ slug, detail, params }: { slug: string; detail: FeatureDeta
   const { go, version } = useApp();
   const docs = detail.documents;
   const sel = docs.find((x) => x.path === params.get("doc")) ?? docs[0];
-  const [text, setText] = useState<string | null | undefined>(undefined);
+  // The last document read, kept on the page while the next one loads, so the page keeps its height and does not jump.
+  const [read, setRead] = useState<{ path: string; text: string | null } | undefined>(undefined);
+  const text = read?.text;
+  const stale = !!read && read.path !== sel?.path;
   useEffect(() => {
     if (!sel) return;
     let live = true;
-    setText(undefined);
-    api.file(slug, sel.path).then((t) => live && setText(t));
+    api.file(slug, sel.path).then((t) => live && setRead({ path: sel.path, text: t }));
     return () => {
       live = false;
     };
   }, [slug, sel?.path, version]);
   if (!sel) return <div class="lockbox">No documents yet. The spec appears here after step 1.</div>;
-  const isMd = sel.path.endsWith(".md");
   return (
     <>
     <ValidateCard slug={slug} />
@@ -888,15 +892,17 @@ function Documents({ slug, detail, params }: { slug: string; detail: FeatureDeta
           </span>
           <RoleChip role={sel.owner} text={`owner: ${roleOf(sel.owner).n}`} />
         </div>
-        {text === undefined ? (
+        {read === undefined ? (
           <p class="muted">Loading…</p>
         ) : text === null ? (
           <p class="muted">The file could not be read.</p>
-        ) : isMd ? (
-          <MarkdownDoc text={text} />
+        ) : (read.path.endsWith(".md") ? (
+          <div class={stale ? "stale" : undefined} aria-busy={stale}>
+            <MarkdownDoc text={text!} />
+          </div>
         ) : (
-          <pre>{text}</pre>
-        )}
+          <pre class={stale ? "stale" : undefined} aria-busy={stale}>{text}</pre>
+        ))}
         <p class="reason">To change this document, run its owner's stage in the assistant.</p>
       </div>
     </div>
