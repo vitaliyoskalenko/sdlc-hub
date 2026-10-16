@@ -124,6 +124,17 @@ test.describe.serial("saves from the site", () => {
     await expect(page.locator("#set-save")).toBeDisabled();
   });
 
+  test("the designer confirms the screens still hold after the spec changed: it merges and the mark goes", async ({ page }) => {
+    await step(page, "daria.l", "bulk-order-export", "screens");
+    await expect(page.locator('svg.flow [data-step="screens"]')).toHaveClass(/recheck/);
+    await expect(page.locator("#recheck-screens")).toContainText("AC-04 changed in spec.md");
+    await page.click('[data-confirm="screens"]');
+    await expect(page.locator('svg.flow [data-step="screens"]')).not.toHaveClass(/recheck/, { timeout: 20_000 });
+    await expect(page.locator("#recheck-screens")).toHaveCount(0);
+    // The others are still to recheck: only the screens were confirmed.
+    await expect(page.locator('svg.flow [data-step="plan-tests"]')).toHaveClass(/recheck/);
+  });
+
   test("the PM changes a feature's title and adds a link; it merges and the page shows them", async ({ page }) => {
     await page.goto(`${DEMO}/features/returns-portal?as=maksym.d`);
     await page.waitForSelector("#steph");

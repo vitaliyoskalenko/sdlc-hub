@@ -11,6 +11,7 @@ const FILTERS: [string, string, (f: Summary, myRoles: string[]) => boolean][] = 
   ["all", "All", () => true],
   ["mine", "Waiting on my role", (f, r) => !f.released && f.role !== null && r.includes(f.role)],
   ["waiting", "A team waits for another", (f) => f.crossWaits.length > 0],
+  ["recheck", "To recheck", (f) => f.rechecks.length > 0],
   ["progress", "In progress", (f) => !f.released],
   ["released", "Released", (f) => f.released],
 ];

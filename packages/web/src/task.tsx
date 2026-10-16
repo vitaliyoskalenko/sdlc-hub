@@ -3,6 +3,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { api, type FeatureDetail, type TestRun } from "./api.ts";
+import { RecheckCard } from "./recheck.tsx";
 import { collectTasks, StepPanel, stepCommand, TASK_LABEL, waitsOf } from "./feature.tsx";
 import type { Action } from "./home.tsx";
 import { hubCmd } from "./text.ts";
@@ -15,6 +16,7 @@ const SITE_HINT: Record<Action["kind"], string> = {
   step: "The step, its gate and its files are on the feature's Flow screen.",
   waits: "Tasks and what they wait for are on the feature's Tasks screen.",
   qa: "The verdicts, the bugs, the test runs and the final decision are on the feature's QA screen.",
+  recheck: "What changed is on the step's panel on the Flow screen, with No change needed.",
 };
 
 export function TaskPage({ action, close }: { action: Action; close: () => void }) {
@@ -35,7 +37,8 @@ export function TaskPage({ action, close }: { action: Action; close: () => void 
   const i = f ? steps.findIndex((s) => s.id === f.current) : -1;
   const step = steps.find((s) => s.id === action.step);
   const state = d?.state.steps.find((s) => s.id === action.step);
-  const cmd = !d || !step || !state ? null : action.kind === "waits" ? (me.roles.includes("pm") ? hubCmd(assistant, "status", action.slug) : hubCmd(assistant, "next", action.slug)) : stepCommand(assistant, step, state, d.state.current, action.slug);
+  // A recheck's card carries its own command.
+  const cmd = !d || !step || !state || action.kind === "recheck" ? null : action.kind === "waits" ? (me.roles.includes("pm") ? hubCmd(assistant, "status", action.slug) : hubCmd(assistant, "next", action.slug)) : stepCommand(assistant, step, state, d.state.current, action.slug);
   const target =
     action.kind === "waits"
       ? { path: `/features/${action.slug}/tasks`, label: "Open tasks", params: {} }
@@ -151,6 +154,17 @@ export function RunResult({ run }: { run: TestRun }) {
 function Detail({ action, detail }: { action: Action; detail: FeatureDetail }) {
   const { me, project } = useApp();
   const dev = me.roles.includes("dev") && !!me.team;
+
+  if (action.kind === "recheck")
+    return (
+      <>
+        {detail.state.rechecks
+          .filter((r) => r.step === action.step && (!r.team || !dev || r.team === me.team))
+          .map((r) => (
+            <RecheckCard key={`${r.step}-${r.team ?? ""}`} slug={detail.state.slug} r={r} />
+          ))}
+      </>
+    );
 
   if (action.kind === "waits") {
     const all = collectTasks(detail.state);

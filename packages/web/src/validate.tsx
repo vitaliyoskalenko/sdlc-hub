@@ -5,9 +5,11 @@ import { useState } from "preact/hooks";
 import { renderMarkdown } from "./markdown.ts";
 import { PendingList, useAction, usePending } from "./saves.tsx";
 import { hubCmd } from "./text.ts";
-import { Cmd, useApp } from "./ui.tsx";
+import { Cmd, Info, useApp } from "./ui.tsx";
+import type { Recheck } from "./api.ts";
+import { recheckList } from "./recheck.tsx";
 
-export function ValidateCard({ slug }: { slug: string }) {
+export function ValidateCard({ slug, rechecks }: { slug: string; rechecks: Recheck[] }) {
   const { me, project, assistant, session } = useApp();
   const [running, setRunning] = useState(false);
   const [report, setReport] = useState<string | null>(null);
@@ -15,7 +17,6 @@ export function ValidateCard({ slug }: { slug: string }) {
   const { run, busy, problem } = useAction();
   const pending = usePending(slug, "validation");
   const mayValidate = me.roles.includes("po") || me.roles.includes("admin") || (me.roles.includes("dev") && me.lead);
-  const reason = !project.headless ? "Off: the admin turns on headless runs (headless.enabled in .hub/config.yaml)." : !mayValidate ? "The PO and the team leads run a validation." : "";
 
   const start = async () => {
     setRunning(true);
@@ -28,17 +29,31 @@ export function ValidateCard({ slug }: { slug: string }) {
     else setError(data.error ?? `The server answered ${r.status}`);
   };
 
+  // The PO, the admin and the leads run it; the others need not see it.
+  if (!mayValidate) return null;
+  const docs = rechecks.length ? recheckList(project, slug, rechecks) : "";
   return (
-    <div class="card" id="validate">
-      <span class="k">Validate after a spec change</span>
-      <p class="muted">Checks every document downstream of the spec against it and reports, document by document. It edits nothing.</p>
+    <div class={`card${docs.length ? " recheck" : " compact"}`} id="validate">
+      <span class="k">
+        Check the other documents{" "}
+        <Info label="What a validation does" id="validate-info">
+          <b>Validate after a spec change</b>
+          <span>The assistant reads every document built on the spec (flows, screens, the contract, each team's tasks and the test plan) and reports, document by document: consistent, or what conflicts with a proposed fix. It edits nothing; you may save the report to hub/validation/.</span>
+          <span>Who: the PO or a team lead. When: after you change the spec once other steps used it. The hub marks those documents needs validation, and each owner reruns their step or confirms it.</span>
+        </Info>
+      </span>
+      <p class={docs.length ? undefined : "muted"}>
+        {docs ? `The spec changed after ${rechecks.length === 1 ? "this document was" : `${rechecks.length} documents were`} built on it: ${docs}. Check that they still agree; it edits nothing.` : "After you change the spec: check that the other documents still agree. It edits nothing."}
+      </p>
       <Cmd text={hubCmd(assistant, "validate", slug)} />
-      <div class="row">
-        <button type="button" class="btn" id="validate-now" disabled={!!reason || running} onClick={() => void start()}>
-          {running ? "Validating… (a few minutes)" : "Validate now"}
-        </button>
-        {reason && <span class="reason">{reason}</span>}
-      </div>
+      {project.headless && (
+        <div class="row">
+          <button type="button" class="btn" id="validate-now" disabled={running} onClick={() => void start()}>
+            {running ? "Validating… (a few minutes)" : "Validate now"}
+          </button>
+          <span class="reason">Runs your assistant here, read-only.</span>
+        </div>
+      )}
       {error && (
         <div class="problem" role="alert">
           <p>{error}</p>

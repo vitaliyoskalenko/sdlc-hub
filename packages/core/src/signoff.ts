@@ -9,7 +9,11 @@ import { splitFrontMatter } from "./parse.ts";
 import { BUG_STATUSES, SEVERITIES } from "./schema/feature.ts";
 import type { FileSource } from "./source.ts";
 
-export type SignoffAction = { decision: "pass"; step: string } | { decision: "return"; step: string; reason: string; bugs?: string[] };
+export type SignoffAction =
+  | { decision: "pass"; step: string }
+  | { decision: "return"; step: string; reason: string; bugs?: string[] }
+  /** The owner's "no change needed" after something their step is built on changed: the file checked against. */
+  | { decision: "confirm"; step: string; file: string };
 
 /** The file names a step's evidence asks for in product-specs, in order; globs are skipped. */
 function ownFiles(project: Project, stepId: string): string[] | null {
@@ -51,7 +55,8 @@ export function signoffChange(project: Project, specs: FileSource, slug: string,
   const path = `docs/features/${slug}/hub/signoffs.yaml`;
   const base = specs.read(path);
   if (action.decision === "return" && !action.reason.trim()) throw new Error("A return needs a reason");
-  const file = approvedFile(project, specs, slug, action.step);
+  const file = action.decision === "confirm" ? action.file : approvedFile(project, specs, slug, action.step);
+  if (action.decision === "confirm" && specs.read(action.file) === undefined) throw new Error(`There is no ${action.file}`);
   const lines = [`- step: ${action.step}`, `  user: ${q(user)}`, `  at: ${at}`];
   if (file) lines.push(`  file: ${file}`, `  hash: ${contentHash(specs.read(file)!)}`);
   lines.push(`  decision: ${action.decision}`);

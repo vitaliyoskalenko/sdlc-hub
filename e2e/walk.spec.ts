@@ -449,3 +449,35 @@ test("a step, a tab or a document of the same page keeps the scroll; another pag
   await expect(page.locator("h1")).toHaveText("Releases");
   expect(await y()).toBe(0);
 });
+
+test("after the spec changed, each owner of a step built on it is told: on Home, the feature, the map and the documents", async ({ page }) => {
+  // The web lead: an action on Home, and the task page with the command and No change needed.
+  await page.goto("/?as=petro.v");
+  await ready(page);
+  await expect(page.locator("#stats-attention")).toContainText("Documents to recheck after a change");
+  const act = page.locator("[data-task]", { hasText: "Recheck Web's tasks in bulk-order-export" });
+  await expect(act).toContainText("AC-04 changed in spec.md on 2026-10-06 by Olena K. Run the step again");
+  await act.click();
+  await expect(page.locator("#recheck-tasks-web")).toContainText("/hub:run tasks bulk-order-export");
+  await expect(page.locator('#recheck-tasks-web [data-confirm="tasks"]')).toBeVisible();
+  // The map marks every step built on the old spec, and the step's panel shows the lead their own team's.
+  await page.goto("/features/bulk-order-export?as=petro.v&step=tasks");
+  await ready(page);
+  for (const s of ["api", "screens", "tasks", "plan-tests"]) await expect(page.locator(`svg.flow [data-step="${s}"]`)).toHaveClass(/recheck/);
+  await expect(page.locator('svg.flow [data-step="ux-flows"]')).not.toHaveClass(/recheck/);
+  await expect(page.locator("#recheck-others")).toContainText("Backend's tasks");
+  await expect(page.locator("#now-recheck")).toContainText("the tasks of 4 teams");
+  // The designer's move, though the current step is engineering's.
+  await page.goto("/features/bulk-order-export?as=daria.l");
+  await ready(page);
+  await page.click("#now-recheck-open");
+  await expect(page.locator("#steph")).toHaveText("Screens in every state");
+  await page.goto("/features/bulk-order-export/documents?as=olena.k");
+  await ready(page);
+  await expect(page.locator("#validate")).toContainText("The spec changed after 7 documents were built on it");
+  await expect(page.locator('.docbtn[data-doc="screens.md"]')).toContainText("needs validation");
+  // Someone who neither validates nor owns a step built on it sees no validation card.
+  await page.goto("/features/bulk-order-export/documents?as=bohdan.r");
+  await ready(page);
+  await expect(page.locator("#validate")).toHaveCount(0);
+});

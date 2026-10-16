@@ -524,3 +524,11 @@ svg.look-path .node.here:is(.st-running,.st-ready) rect.b{stroke:var(--accent);s
 .infotip{position:fixed;z-index:40;display:flex;flex-direction:column;gap:5px;padding:10px 12px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 22px rgba(16,22,30,.18);font-size:.83rem;font-weight:400;line-height:1.45;text-align:left;white-space:normal}
 .infotip .muted{font-size:.78rem}
 .watchtext .info{margin-left:3px;vertical-align:middle;position:relative;top:-1.7px}
+/* A done step built on an older version of what it depends on. */
+svg.flow .node.recheck rect.b{stroke:var(--warn)!important;stroke-width:2!important;stroke-dasharray:none!important}
+svg.flow .node.recheck text.ic{fill:var(--warn)!important;font-size:13px}
+svg.look-status .node.recheck rect.b{fill:color-mix(in srgb,var(--warn) 12%,var(--surface))}
+.legend .lgrecheck b{color:var(--warn)}
+.recheckline{color:var(--warn);font-size:.86rem;font-weight:500}
+.card.recheck{border-color:color-mix(in srgb,var(--warn) 55%,var(--line));background:color-mix(in srgb,var(--warn) 5%,var(--surface))}
+#validate.compact{padding-block:12px} #validate.compact p{margin:4px 0 8px}

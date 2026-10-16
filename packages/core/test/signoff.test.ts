@@ -43,6 +43,14 @@ describe("a sign-off from the site", () => {
     expect(guard({ author: "olena.k", pushers: [], changes: [signoffChange(project, specs, slug, "olena.k", { decision: "pass", step: "clarify" }, at)] }, ctx).ok).toBe(true);
     expect(guard({ author: "maksym.d", pushers: [], changes: [signoffChange(project, specs, slug, "maksym.d", { decision: "pass", step: "clarify" }, at)] }, ctx).ok).toBe(false);
   });
+  it("records an owner's no change needed with the file they checked against, which the guard takes from the owner only", () => {
+    const c = signoffChange(project, specs, slug, "daria.l", { decision: "confirm", step: "screens", file: `${F}/spec.md` }, at);
+    expect(parseSignoffs(c.next!, "s").value).toEqual([{ step: "screens", user: "daria.l", at, file: `${F}/spec.md`, hash: contentHash(SPEC), decision: "confirm" }]);
+    const ctx = { config: project.config, roles: project.roles, flow: project.flow, feature: (s: string) => specs.read(`docs/features/${s}/hub/feature.yaml`) };
+    expect(guard({ author: "daria.l", pushers: [], changes: [c] }, ctx).ok).toBe(true);
+    expect(guard({ author: "iryna.s", pushers: [], changes: [signoffChange(project, specs, slug, "iryna.s", { decision: "confirm", step: "screens", file: `${F}/spec.md` }, at)] }, ctx).ok).toBe(false);
+    expect(() => signoffChange(project, specs, slug, "daria.l", { decision: "confirm", step: "screens", file: `${F}/nothing.md` }, at)).toThrow(/no /);
+  });
   it("needs a reason for a return", () => {
     expect(() => signoffChange(project, specs, slug, "olena.k", { decision: "return", step: "clarify", reason: " " }, at)).toThrow(/reason/);
   });

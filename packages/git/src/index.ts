@@ -4,7 +4,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
-import { loadProject, type FileSource, type Issue, type Project, type ProjectView, type Roles } from "@sdlc-hub/core";
+import { loadProject, type FileHistory, type FileSource, type Issue, type Project, type ProjectView, type Roles } from "@sdlc-hub/core";
 
 const calls: Record<string, number> = {};
 /** How many times each git subcommand ran since the last reset; for tests that keep the number of calls bounded. */
@@ -80,6 +80,43 @@ function lineAuthorsOf(cwd: string, ref: string, path: string, who: Resolve): st
   return lines;
 }
 
+/**
+ * When each file under docs/features landed on the branch, along its first parents (a merged merge request counts at
+ * its merge), from one `git log`; the text of a file at a time comes from `git show` only when it is asked for.
+ */
+export function historyOf(root: string, ref = "HEAD"): FileHistory {
+  let landed: Map<string, { sha: string; at: string }[]> | undefined;
+  const load = () => {
+    if (landed) return landed;
+    landed = new Map();
+    const out = git(root, ["log", "--first-parent", "--diff-merges=first-parent", "--name-only", "--format=%x00%H %cI", ref, "--", "docs/features"]) ?? "";
+    for (const rec of out.split("\0").filter((r) => r.trim())) {
+      const [head, ...files] = rec.split("\n").filter(Boolean);
+      const [sha, at] = head!.split(" ") as [string, string];
+      const iso = new Date(at).toISOString();
+      for (const f of files) landed.set(f, [...(landed.get(f) ?? []), { sha, at: iso }]);
+    }
+    return landed;
+  };
+  const shown = new Map<string, string | undefined>();
+  return {
+    changedAt(path) {
+      let last: string | undefined;
+      for (const [f, list] of load()) if ((f === path || f.startsWith(`${path}/`)) && list[0] && (!last || list[0].at > last)) last = list[0].at;
+      return last;
+    },
+    firstAt: (path) => load().get(path)?.at(-1)?.at,
+    readAt(path, at) {
+      // The log is newest first: the first landing at or before the time holds the text then.
+      const hit = load().get(path)?.find((x) => x.at <= at);
+      if (!hit) return undefined;
+      const key = `${hit.sha}:${path}`;
+      if (!shown.has(key)) shown.set(key, git(root, ["show", key]));
+      return shown.get(key);
+    },
+  };
+}
+
 const listUnder = (paths: string[], prefix: string) => (prefix === "" ? paths : paths.filter((p) => p.startsWith(`${prefix}/`)));
 
 /** The checked-out files of a repository, as git sees them (ignored files left out). */
@@ -105,6 +142,7 @@ export function workingTreeSource(root: string, who: Resolve = (n) => n): FileSo
       authors ??= authorsOf(base, "HEAD", who);
       return authors.get(path);
     },
+    history: historyOf(base),
   };
 }
 

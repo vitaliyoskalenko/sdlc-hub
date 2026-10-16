@@ -10,7 +10,7 @@ import settings from "../../../docs/guides/settings.md?raw";
 import { Fragment } from "preact";
 import { Glossary } from "./guide.tsx";
 import { COMMANDS, hubCmd, roleOf, STATUS, STEP } from "./text.ts";
-import { Link, RoleChip, StatusPill, useApp } from "./ui.tsx";
+import { Link, Pill, RoleChip, StatusPill, useApp } from "./ui.tsx";
 import { hereSection } from "./where.ts";
 
 export const GUIDES: Record<string, { title: string; text: string }> = {
@@ -315,6 +315,10 @@ function Statuses() {
               <span class="muted">{STATUS_TEXT[k]}</span>
             </li>
           ))}
+          <li class="statusline" id="help-recheck">
+            <Pill kind="warn">{"\u21BB"} recheck</Pill>
+            <span class="muted">Done, but something it is built on changed after it landed: the spec's stories or criteria it names, the flows, the data model or the contract. Its owner runs the step again, or confirms that nothing needs to change.</span>
+          </li>
         </ul>
       </div>
     </section>
@@ -331,6 +335,7 @@ const TROUBLE: [string, string][] = [
   ["There is no Sign off button", "The step does not wait for you: another role or lead signs it, or its evidence is not there yet. A person with several roles signs only in the role the step needs."],
   ["A team's tasks are missing", "That team's hub-report job has not published yet: its lead merges the hub-report merge request, and the next pipeline publishes. Until then the site reads a local clone, when there is one."],
   ["Costs show nothing for a step", "A step shows only when three people or more worked on it, so no total names one person. Usage arrives with node hub/cli.js sync."],
+  ["A step shows ↻ recheck", "The spec, the flows or the contract changed after the step's document landed. Open the step: it says what changed and by whom. Run the step again, or choose No change needed; either one clears the mark for everyone."],
   ["Help for a command", "Every command on the site has an i button: how to write it, the prompt it passes and an example of its output."],
 ];
 

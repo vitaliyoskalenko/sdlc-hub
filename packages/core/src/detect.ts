@@ -8,6 +8,7 @@ import type { Atom, Requirement } from "./evidence.ts";
 import { parseBugFile, parseConfig, parseEngine, parseEventsJsonl, parseFeature, parseFlow, parseRelease, parseRoles, parseSignoffs, parseTeamSnapshot, parseTestRun } from "./files.ts";
 import { featureTime, stepTimes, type StepTime } from "./times.ts";
 import { waitedFor } from "./waits.ts";
+import { rechecksFor, type Recheck } from "./recheck.ts";
 import { hasErrors, type Issue, type Result } from "./issues.ts";
 import { checkEngineAgainstFlow } from "./project-check.ts";
 import { buildTeamSnapshot, readRoute, readSize, readTargetSurfaces, UI_SURFACES } from "./sdd.ts";
@@ -51,6 +52,8 @@ export interface StepState {
   reason?: string;
   /** A sign-off exists but the file changed since. */
   stale?: boolean;
+  /** The step is done, but something its document is built on changed after it landed: see FeatureState.rechecks. */
+  recheck?: boolean;
 }
 
 export interface TeamState {
@@ -91,6 +94,8 @@ export interface FeatureState {
   issues: Issue[];
   /** From the stage events: each step's first start and last finish. */
   times: StepTime[];
+  /** Documents built on an older version of what they depend on, until the owner reruns the step or confirms it. */
+  rechecks: Recheck[];
   /** From the first event to the release (the start of the watch), or to now. */
   leadTime?: { started: string; finished?: string; days: number };
   /** Days each client team waited for the contract team, from the waits hub-report keeps. */
@@ -562,6 +567,25 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
     release?.watch && watchEnd && new Date(view.now) < watchEnd
       ? { from: String(release.watch.started).slice(0, 10), until: watchEnd.toISOString().slice(0, 10), days: release.watch.days, left: Math.ceil((watchEnd.getTime() - Date.parse(view.now)) / 86_400_000) }
       : undefined;
+  const times = stepTimes(events, view.now).filter((t) => states.find((s) => s.id === t.step)?.status !== "skipped");
+  // After the rollout, a change belongs to the next feature: nothing is rechecked once the release is under way.
+  const rechecks =
+    released || watch || states.find((s) => s.id === "release")?.status === "running"
+      ? []
+      : rechecksFor({
+          specs: view.specs,
+          slug,
+          done: new Set(states.filter((x) => x.status === "done").map((x) => x.id)),
+          signoffs,
+          teams: teams.map((t) => ({ id: t.id, acs: t.snapshot?.tasks ? t.snapshot.tasks.flatMap((x) => x.acs) : null })),
+          ...(contractId ? { contractTeam: contractId } : {}),
+          ...(times.find((t) => t.step === "tasks")?.finished ? { tasksFinished: times.find((t) => t.step === "tasks")!.finished! } : {}),
+          teamOf: (user) => roles.people.find((p) => p.user === user)?.team,
+        });
+  for (const r of rechecks) {
+    const st = states.find((x) => x.id === r.step);
+    if (st) st.recheck = true;
+  }
   return {
     slug,
     ...(feature?.title ? { title: feature.title } : {}),
@@ -581,7 +605,8 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
     warnings,
     issues,
     // A step skipped after hub_next handed it out has no time of its own.
-    times: stepTimes(events, view.now).filter((t) => states.find((s) => s.id === t.step)?.status !== "skipped"),
+    times,
+    rechecks,
     waited: contractId ? waitedFor(teams, contractId, view.now) : [],
     ...(lead ? { leadTime: lead } : {}),
   };

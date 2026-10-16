@@ -2,6 +2,13 @@
 
 A dated log of what was decided about SDLC Hub and why. The newest entries come first. The specification shows the result; this file keeps the reason. "Owner" means the product owner decided. "Proposed" means Claude proposed it in the phase 1 plan, which the owner approved.
 
+## 2026-10-16: Documents built on an older spec are rechecked
+
+### What changed under a step is found from git, and its owner is told
+- **Decision:** The hub marks a done step "↻ recheck" when something its document is built on changed after the document landed on `main`: the spec's stories and criteria by id, the flows, the data model, the screens or the contract (specification revision 72, "After a product owner changes the spec"). Home counts them under What needs attention, the owner gets a next action and "Your move" on the feature, the step's panel says what changed and by whom, the map shows ↻, and Documents shows needs validation. The owner runs the step again or chooses No change needed (`decision: confirm` in `signoffs.yaml`, which the guard takes from the step's owner only). The validation card is for the PO, the admin and the leads, and stands out only when there is something to check.
+- **Why:** A spec change after the flows, screens, contract and tasks were made reached nobody: the site had only "changed since sign-off" for the signed file itself, and the specification's "wording only or meaning" mark on save had no place, because the spec changes through the assistant. The history of main is already there and cannot be typed wrong.
+- **By:** Owner (the marks, where they show, the validation card); proposed (finding it from git, the rules per document).
+
 ## 2026-10-16: The flow map uses colour for one thing at a time
 
 ### The watch period in a few words, with the rest a tap away

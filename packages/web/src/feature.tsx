@@ -9,6 +9,7 @@ import { Costs } from "./costs.tsx";
 import { frontMatter, renderMarkdown } from "./markdown.ts";
 import { QA } from "./qa.tsx";
 import { ValidateCard } from "./validate.tsx";
+import { causeText, RecheckCard, recheckDoc, recheckFor, recheckList } from "./recheck.tsx";
 import { Release } from "./release.tsx";
 import { PendingList, SignoffBox, useAction, usePending } from "./saves.tsx";
 import { Cmd, CopyButton, jiraKey, Link, names, Pill, personName, RoleChip, StatusPill, teamName, useApp, waitText, WatchText } from "./ui.tsx";
@@ -72,7 +73,7 @@ export function Feature({ slug, tab, params }: { slug: string; tab: string; para
   const { state, summary: f, feature } = d;
   const links = feature?.links ?? {};
   const waiting = state.waits.filter((w) => !w.done).length;
-  const stale = d.documents.filter((x) => x.signoff === "stale").length;
+  const stale = d.documents.filter((x) => x.signoff === "stale").length + d.state.rechecks.filter((r) => !r.team).length;
   const notes = [...state.warnings, ...state.issues.map((i) => `${i.file}${i.line ? `:${i.line}` : ""}: ${i.message}`)];
   return (
     <>
@@ -146,7 +147,7 @@ export function Feature({ slug, tab, params }: { slug: string; tab: string; para
                 </span>
               )}
               {id === "documents" && stale > 0 && (
-                <span class="cnt" title={`${stale} documents changed since sign-off`}>
+                <span class="cnt" title={`${stale} documents changed since sign-off or need validation`}>
                   {stale}
                 </span>
               )}
@@ -206,10 +207,12 @@ function NowStrip({ f, detail, tab }: { f: Summary; detail: FeatureDetail; tab: 
   const next = steps.slice(i + 1).find((s, k) => detail.state.steps[i + 1 + k]?.status !== "skipped");
   const role = f.role ?? steps[i]?.role ?? "";
   const mine = f.waitingOn.includes(me.user) || me.roles.includes(role);
+  // A document of theirs built on an older spec: the person's move even when the current step is someone else's.
+  const myRecheck = f.rechecks.find((r) => recheckFor(me, project, r) === "owner");
   const lead = f.status === "signoff" ? "Waiting for the sign-off of " : f.status === "returned" ? "Returned to " : "With ";
   const who = f.waitingOn.length ? names(project, f.waitingOn) : f.by ? names(project, [f.by]) : "";
   return (
-    <div class={`now${mine ? " mine" : ""}`}>
+    <div class={`now${mine || myRecheck ? " mine" : ""}`}>
       <div class="now-m">
         <span class="k">Now</span>
         <span class="row">
@@ -231,6 +234,11 @@ function NowStrip({ f, detail, tab }: { f: Summary; detail: FeatureDetail; tab: 
             {waitText(project, w)}
           </span>
         ))}
+        {f.rechecks.length > 0 && (
+          <span class="recheckline" id="now-recheck">
+            {"\u21BB"} To recheck: {recheckList(project, f.slug, f.rechecks)} · {causeText(project, f.slug, f.rechecks[0]!).split("; ")[0]}
+          </span>
+        )}
       </div>
       <div class="row">
         {mine ? (
@@ -241,6 +249,13 @@ function NowStrip({ f, detail, tab }: { f: Summary; detail: FeatureDetail; tab: 
                 Open the step
               </button>
             )}
+          </>
+        ) : myRecheck ? (
+          <>
+            <b>Your move</b>
+            <button type="button" class="btn pri sm" id="now-recheck-open" onClick={() => go(`/features/${f.slug}`, { step: myRecheck.step })}>
+              Recheck {recheckDoc(project, f.slug, myRecheck)}
+            </button>
           </>
         ) : (
           <span class="muted">Nothing for you to do here now</span>
@@ -261,6 +276,8 @@ const LOOKS: [FlowLook, string, string][] = [
 ];
 const LOOK_KEY = "hub.flowlook";
 /** An icon per status, for the Roles look (and done in the Status look). FE0E keeps them text, not emoji. */
+/** Done, but built on an older version of what it depends on. */
+const RECHECK_ICON = "\u21BB";
 const ICON: Partial<Record<StepStatus, string>> = { done: "\u2713", running: "\u25B6\uFE0E", ready: "\u25B7\uFE0E", signoff: "\u2016", returned: "\u21A9\uFE0E", blocked: "\u2715", missed: "!", skipped: "\u2013" };
 
 function FlowMap({ detail, selected, pick, look }: { detail: FeatureDetail; selected: string; pick: (id: string) => void; look: FlowLook }) {
@@ -275,7 +292,8 @@ function FlowMap({ detail, selected, pick, look }: { detail: FeatureDetail; sele
   const P = Object.fromEntries(Object.entries(layout(steps, lanes, numW, laneW, top, rowH)).map(([k, v]) => [k, k === "fix" ? v : { ...v, w: v.w + pad }]));
   const status = (id: string) => detail.state.steps.find((s) => s.id === id)?.status ?? "todo";
   const flowed = ["done", "running", "signoff", "blocked", "ready", "returned"];
-  const icon = (st: StepStatus) => (look === "roles" ? ICON[st] : look === "status" && st === "done" ? ICON.done : undefined);
+  const icon = (st: StepStatus, recheck?: boolean) => (recheck && look !== "path" ? RECHECK_ICON : look === "roles" ? ICON[st] : look === "status" && st === "done" ? ICON.done : undefined);
+  const rechecked = (id: string) => detail.state.steps.find((s) => s.id === id)?.recheck;
   const current = steps.find((s) => s.id === detail.state.current);
   // The lane whose role the popup explains, and where, in the map's own box.
   const [lane, setLane] = useState<{ r: string; x: number; y: number } | null>(null);
@@ -347,16 +365,16 @@ function FlowMap({ detail, selected, pick, look }: { detail: FeatureDetail; sele
       {steps.map((s, i) => {
         const p = P[s.id]!;
         const st = status(s.id);
-        const ic = icon(st);
+        const ic = icon(st, rechecked(s.id));
         const x0 = p.cx - p.w / 2;
         return (
           <g
             key={s.id}
-            class={`node st-${st} role-${roleOf(s.role).css}${s.id === current?.id ? " here" : ""}`}
+            class={`node st-${st} role-${roleOf(s.role).css}${s.id === current?.id ? " here" : ""}${rechecked(s.id) ? " recheck" : ""}`}
             data-step={s.id}
             tabIndex={0}
             role="button"
-            aria-label={`Step ${i + 1}, ${STEP[s.id]?.title ?? s.id}, ${STATUS[st][1]}`}
+            aria-label={`Step ${i + 1}, ${STEP[s.id]?.title ?? s.id}, ${STATUS[st][1]}${rechecked(s.id) ? ", to recheck: something it is built on changed" : ""}`}
             onClick={() => pick(s.id)}
             onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), pick(s.id))}
           >
@@ -413,7 +431,7 @@ function NowMark({ detail, at, lane, fixRow, look, width0 }: { detail: FeatureDe
 }
 
 /** What the colours, lines and icons of the map mean, in the chosen look. */
-function FlowLegend({ look }: { look: FlowLook }) {
+function FlowLegend({ look, recheck }: { look: FlowLook; recheck: boolean }) {
   const items: [string, string][] =
     look === "status"
       ? [["done", "\u2713 done"], ["running", "in progress"], ["signoff", "waiting for sign-off"], ["bad", "blocked, returned or missed"], ["todo", "not started"], ["skipped", "skipped"]]
@@ -437,6 +455,11 @@ function FlowLegend({ look }: { look: FlowLook }) {
       <span>
         <i class="lg nowlg">now</i>the step in progress
       </span>
+      {recheck && (
+        <span class="lgrecheck">
+          <b>{"\u21BB"}</b> to recheck: something it is built on changed
+        </span>
+      )}
     </div>
   );
 }
@@ -459,6 +482,27 @@ function useFlowLook(): [FlowLook, (l: FlowLook) => void] {
     }
   };
   return [look, set];
+}
+
+/** A step's rechecks: a developer sees their own team's, and the other teams' in one line. */
+function StepRechecks({ detail, id }: { detail: FeatureDetail; id: string }) {
+  const { me, project } = useApp();
+  const all = detail.state.rechecks.filter((r) => r.step === id);
+  const ownTeam = me.roles.includes("dev") && me.team && all.some((r) => r.team === me.team);
+  const shown = ownTeam ? all.filter((r) => !r.team || r.team === me.team) : all.filter((r) => !r.team).length ? all.filter((r) => !r.team) : all.slice(0, 1);
+  const others = all.filter((r) => !shown.includes(r));
+  return (
+    <>
+      {shown.map((r) => (
+        <RecheckCard key={r.team ?? r.file} slug={detail.state.slug} r={r} />
+      ))}
+      {others.length > 0 && (
+        <p class="muted" id="recheck-others">
+          Also to recheck: {others.map((r) => recheckDoc(project, detail.state.slug, r)).join(", ")}.
+        </p>
+      )}
+    </>
+  );
 }
 
 /** The command for a step, by its kind and state (revision 52: decide is the QA final check; return sends a step back). */
@@ -509,6 +553,7 @@ export function StepPanel({ detail, id }: { detail: FeatureDetail; id: string })
           </div>
         )}
       </div>
+      <StepRechecks detail={detail} id={id} />
       <div class="kv">
         {time && (
           <>
@@ -645,6 +690,7 @@ function FlowList({ detail, selected }: { detail: FeatureDetail; selected: strin
               </span>
               <RoleChip role={s.role} />
               {st !== "todo" && <StatusPill status={st} />}
+              {detail.state.steps.find((x) => x.id === s.id)?.recheck && <Pill kind="warn">{"\u21BB"} recheck</Pill>}
             </button>
           </li>
         );
@@ -676,7 +722,7 @@ function Flow({ detail, params }: { detail: FeatureDetail; params: URLSearchPara
           <FlowMap detail={detail} selected={id} look={look} pick={(x) => go(`/features/${detail.state.slug}`, { step: x })} />
         </div>
         <FlowList detail={detail} selected={id} />
-        <FlowLegend look={look} />
+        <FlowLegend look={look} recheck={detail.state.rechecks.length > 0} />
         <LeadTime detail={detail} />
       </div>
       <div class="card" id="steppanel">
@@ -857,6 +903,8 @@ function Documents({ slug, detail, params }: { slug: string; detail: FeatureDeta
   const { go, version } = useApp();
   const docs = detail.documents;
   const sel = docs.find((x) => x.path === params.get("doc")) ?? docs[0];
+  // A document built on an older version of the spec, the flows or the data model (the contract is a folder).
+  const needs = (path: string) => detail.state.rechecks.some((r) => !r.team && (r.file === `docs/features/${slug}/${path}` || `docs/features/${slug}/${path}`.startsWith(`${r.file}/`)));
   // The last document read, kept on the page while the next one loads, so the page keeps its height and does not jump.
   const [read, setRead] = useState<{ path: string; text: string | null } | undefined>(undefined);
   const text = read?.text;
@@ -872,7 +920,7 @@ function Documents({ slug, detail, params }: { slug: string; detail: FeatureDeta
   if (!sel) return <div class="lockbox">No documents yet. The spec appears here after step 1.</div>;
   return (
     <>
-    <ValidateCard slug={slug} />
+    <ValidateCard slug={slug} rechecks={detail.state.rechecks} />
     <div class="docgrid">
       <div class="doclist">
         {docs.map((x) => (
@@ -881,6 +929,7 @@ function Documents({ slug, detail, params }: { slug: string; detail: FeatureDeta
             <span class="row">
               <RoleChip role={x.owner} />
               {x.signoff !== "none" && <Pill kind={SIGNOFF[x.signoff]![0]}>{SIGNOFF[x.signoff]![1]}</Pill>}
+              {needs(x.path) && <Pill kind="warn">needs validation</Pill>}
             </span>
           </button>
         ))}

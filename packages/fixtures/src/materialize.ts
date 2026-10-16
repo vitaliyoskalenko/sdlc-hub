@@ -9,7 +9,7 @@ import type { Files, Fixture } from "./build.ts";
 
 const DATE = "2026-10-01T09:00:00Z";
 
-function git(cwd: string, args: string[], author = "nazar.t") {
+function git(cwd: string, args: string[], author = "nazar.t", date = DATE) {
   execFileSync("git", args, {
     cwd,
     stdio: "pipe",
@@ -19,8 +19,8 @@ function git(cwd: string, args: string[], author = "nazar.t") {
       GIT_AUTHOR_EMAIL: `${author}@example.com`,
       GIT_COMMITTER_NAME: author,
       GIT_COMMITTER_EMAIL: `${author}@example.com`,
-      GIT_AUTHOR_DATE: DATE,
-      GIT_COMMITTER_DATE: DATE,
+      GIT_AUTHOR_DATE: date,
+      GIT_COMMITTER_DATE: date,
       GIT_CONFIG_GLOBAL: "/dev/null",
       GIT_CONFIG_NOSYSTEM: "1",
     },
@@ -60,6 +60,11 @@ export function materialize(fixture: Fixture, parent: string): OnDisk {
   git(root, ["init", "-q", "-b", "main"]);
   const authors = fixture.authors ?? {};
   commitByAuthor(root, fixture.main, (p) => authors[`main/${p}`] ?? "nazar.t", "main");
+  for (const c of fixture.later ?? []) {
+    for (const [p, t] of Object.entries(c.files)) write(root, p, t);
+    git(root, ["add", "--", ...Object.keys(c.files)], c.author, c.at);
+    git(root, ["commit", "-q", "-m", c.message], c.author, c.at);
+  }
 
   if (fixture.hubState) {
     git(root, ["checkout", "-q", "--orphan", "hub-state"]);

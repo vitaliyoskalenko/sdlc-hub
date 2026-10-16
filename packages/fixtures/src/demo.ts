@@ -416,6 +416,16 @@ export function demoFixture(): Fixture {
     hubState,
     teams,
     authors,
+    // After screens, the test plan, the contract and the tasks were done, the PO changed what the link does (AC-04):
+    // the steps built on it show "to recheck" to their owners.
+    later: [
+      {
+        at: "2026-10-06T10:00:00Z",
+        author: "olena.k",
+        message: "spec: the download link works for 7 days and can be renewed",
+        files: { [`${dir("bulk-order-export")}/spec.md`]: BULK_SPEC.replace("The download link works for 24 hours.", "The download link works for 7 days, and the staff member can renew it.") },
+      },
+    ],
     features: ["bulk-order-export", "order-notes-fix", "order-webhooks", "returns-portal", "staff-permissions", "tasks-issues"],
     expected: {
       "tasks-issues": {

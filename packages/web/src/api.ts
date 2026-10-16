@@ -85,9 +85,10 @@ export interface Summary {
   progress: number;
   waits: number;
   blockingBugs: string[];
-  /** While the rollout is watched: the day the watch period ends. */
   /** While the rollout is watched: from, until (YYYY-MM-DD), its length and the days left. */
   watch: { from: string; until: string; days: number; left: number } | null;
+  /** Documents built on an older version of what they depend on, until the owner reruns the step or confirms it. */
+  rechecks: Recheck[];
   cycle: number;
   warnings: number;
   statuses: StepStatus[];
@@ -103,6 +104,16 @@ export interface StepState {
   waitingOn?: string[];
   reason?: string;
   stale?: boolean;
+  /** Done, but something its document is built on changed after it landed. */
+  recheck?: boolean;
+}
+
+export interface Recheck {
+  step: string;
+  /** The document's repository path, or the team for one team's tasks. */
+  file: string;
+  team?: string;
+  because: { file: string; ids: string[]; at: string; by?: string }[];
 }
 
 export interface TrackerRow {
@@ -158,6 +169,7 @@ export interface FeatureState {
   issues: { level: string; file: string; line?: number; message: string }[];
   /** From the stage events in hub-state. */
   times: { step: string; started: string; finished?: string; hours: number }[];
+  rechecks: Recheck[];
   leadTime?: { started: string; finished?: string; days: number };
   waited: { team: string; days: number; waiting: boolean }[];
 }

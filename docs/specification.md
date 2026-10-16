@@ -1,6 +1,6 @@
 # SDLC Hub Specification
 
-Oct 10, 2026 · @Vitaliy · revision 71
+Oct 16, 2026 · @Vitaliy · revision 72
 
 This file in the repository is the source of truth. The published copy is a snapshot. Every decision that changed it is logged with its date and reason in `docs/decisions.md`.
 
@@ -489,12 +489,12 @@ Everything else, such as a new criterion, changed behaviour, the contract or the
 
 ### After a product owner changes the spec
 
-1. On save the product owner marks the edit as wording only or as a change of meaning. Adding or removing a story or criterion always counts as a change of meaning.
-2. A wording-only edit is saved and nothing else is touched.
-3. After a change of meaning, every document that references the changed ids is marked "needs validation": flows, screens, contract, each team's tasks and the test plan. References are found by id, such as `AC-4`, `US-2` or `SCR-02`.
+1. The hub finds what changed from the history of `main`, not from a mark on save. A step's document has the time it landed on `main` (a merged merge request counts at its merge). The spec as it was then is compared with the spec now, story by story and criterion by criterion: an id that starts a heading or a list item (`### AC-04 …`, `- **US-02** …`) owns the text up to the next one. A change of spacing is no change.
+2. A document is marked "needs validation", and its step shows "↻ recheck" on the map, when a criterion or story it names changed, or one was added or removed. A document that names no id is marked only for an added or removed one. The flows count for the screens, the data model for the contract, and the screens and, for a client team, the contract for each team's tasks, each as a whole file. Each team's tasks count from when the tasks stage finished or was signed off, with the criteria in `tasks.json` (`acs`). Nothing is marked once the release is under way.
+3. Home counts the documents to recheck, and each owner gets it in their next actions and on the feature: the designer for the flows and screens, the contract team's lead for the technical design, the data model and the contract, each team's lead for their tasks (their team is told too), and QA for the test plan.
 4. The site offers `/hub:validate tasks-issues` to copy. When the admin has enabled headless runs, a Validate button starts the assistant in read-only mode instead.
 5. The assistant reports, for each document, either consistent or a list of conflicts with a proposed fix. It edits nothing. The local server writes the report to `hub/validation/<timestamp>.md`.
-6. Each owner clears their badge by running their stage again, or by confirming "no change needed", which is recorded in `signoffs.yaml` as an entry with `decision: confirm` for their own step, with the file and its hash.
+6. Each owner clears their mark by running their stage again, or by choosing "No change needed", which is recorded in `signoffs.yaml` as an entry with `decision: confirm` for their own step, with the file they checked against and its hash. A lead's confirmation of the tasks counts for their own team.
 
 ## Roles and access
 

@@ -1,6 +1,6 @@
 # Open items
 
-State on 14 October 2026, revision 71 of the specification, after the full feature cycle on the local GitLab (`e2e/cycle/`). Items already fixed are not listed. Decisions that closed earlier items are in `docs/decisions.md`.
+State on 16 October 2026, revision 72 of the specification, after the full feature cycle on the local GitLab (`e2e/cycle/`). Items already fixed are not listed. Decisions that closed earlier items are in `docs/decisions.md`.
 
 ## Specification
 
@@ -23,6 +23,12 @@ One feature (`order-notes`, size M, standard route, a backend and a web team) we
 - **Merge requests left failed by the old recheck.** A merge request whose pipeline failed before the recheck fix (no hub-guard job, a configuration error) merges only after its author runs its pipeline again. The site's saves could offer that.
 - **GitHub: ship's evidence.** The GitHub report workflow sets no `CI_OPEN_MERGE_REQUESTS`, so a team snapshot on GitHub carries no pull request and ship has no evidence there. Not exercised in the cycle, which ran on GitLab.
 - **The person's confirmation in the chat.** Sign-offs, verdicts and release records went through the hub's MCP tools directly (what the assistant does once the person said yes): a one-turn headless run cannot answer the skill's question.
+
+## Documents built on an older spec
+
+- **"No change needed" from the assistant.** The site records it; the plugin's `hub_signoff` takes pass and return only. `/hub:validate` could offer it per document after its report.
+- **Each team's tasks share one time.** The stage events carry no team, so every team's tasks count from the last time the tasks stage finished or was signed off. A team that ran its tasks later than another may be told to recheck a change it already had.
+- **A wording change counts as a change.** The hub compares the text under each id, with spacing ignored; it cannot tell a reworded criterion from a changed one. The owner confirms it in one click; the specification's earlier "wording only" mark on save had no place to live, since the spec changes through the assistant.
 
 ## Claims to verify
 

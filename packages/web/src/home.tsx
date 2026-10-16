@@ -4,13 +4,14 @@ import type { Person, ProjectInfo, Summary } from "./api.ts";
 import { NotifyToggle } from "./attention.tsx";
 import { YourSaves } from "./saves.tsx";
 import { roleOf, STEP } from "./text.ts";
+import { recheckActions } from "./recheck.tsx";
 import { Kpi, Link, listOf, names, personName, Pill, Progress, RoleChip, roleLabel, StatusPill, taskLabel, teamName, useApp, waitingTeams, waitText, WatchText } from "./ui.tsx";
 
 export interface Action {
   slug: string;
   step: string;
   /** What the task page shows: the step, the tasks that wait, or the bugs and test runs. */
-  kind: "step" | "waits" | "qa";
+  kind: "step" | "waits" | "qa" | "recheck";
   tag: string;
   bad?: boolean;
   title: string;
@@ -48,6 +49,8 @@ export function actionsFor(me: Person, project: ProjectInfo, features: Summary[]
       out.push({ slug: f.slug, step: f.current, kind, tag: f.status === "blocked" ? "Blocked" : "Missed", bad: true, title: `${f.current} is ${f.status} in ${f.slug}`, text: f.reason ?? "" });
     else if (roleHasIt && f.status === "running")
       out.push({ slug: f.slug, step: f.current, kind, tag: "In progress", title: `${f.current} is running in ${f.slug}`, text: f.by ? `Started by ${names(project, [f.by]).replace(/\.$/, "")}.` : "Work is in progress." });
+    // A document built on an older spec, flows or contract: its owner reruns the step or confirms it.
+    out.push(...recheckActions(me, project, f));
   }
   return [...out.filter((a) => a.bad), ...out.filter((a) => !a.bad)];
 }
@@ -234,6 +237,7 @@ export function Home() {
   // Teams that wait for another team, counted once per feature: the step stays running, the wait is still a cost.
   const waiting = open.reduce((n, f) => n + waitingTeams(f).length, 0);
   const urgent = acts.filter((a) => a.bad).length;
+  const rechecks = open.reduce((n, f) => n + f.rechecks.length, 0);
   return (
     <>
       <div class="ph">
@@ -261,9 +265,9 @@ export function Home() {
           </div>
           <div class="card statgroup" id="stats-attention">
             <h3>What needs attention</h3>
-            {sign + stuck + waiting + bugs === 0 ? (
+            {sign + stuck + waiting + bugs + rechecks === 0 ? (
               <p class="calm" id="nothing-needs-attention">
-                <Pill kind="ok">All clear</Pill> No sign-off waits, nothing is blocked or missed, no team waits for another, and no bug blocks a release.
+                <Pill kind="ok">All clear</Pill> No sign-off waits, nothing is blocked or missed, no team waits for another, no document to recheck, and no bug blocks a release.
               </p>
             ) : (
             <div class="kpis two">
@@ -271,6 +275,7 @@ export function Home() {
               <Kpi value={String(stuck)} label="Blocked or missed" tone={stuck ? "bad" : "ok"} />
               <Kpi value={String(waiting)} label="Blocked by another team" tone={waiting ? "bad" : "ok"} onClick={() => go("/features", { filter: "waiting" })} />
               <Kpi value={String(bugs)} label="Blocking bugs" tone={bugs ? "bad" : "ok"} />
+              {rechecks > 0 && <Kpi value={String(rechecks)} label="Documents to recheck after a change" tone="warn" onClick={() => go("/features", { filter: "recheck" })} />}
             </div>
             )}
           </div>

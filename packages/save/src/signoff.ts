@@ -34,8 +34,9 @@ class Refused extends Error {
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 
 export async function saveSignoff(i: SignoffInput): Promise<SaveOutcome> {
-  if (typeof i.slug !== "string" || !SLUG.test(i.slug) || typeof i.step !== "string" || (i.decision !== "pass" && i.decision !== "return"))
-    return { ok: false, code: "bad-input", error: "Give slug, step and decision (pass or return)" };
+  if (typeof i.slug !== "string" || !SLUG.test(i.slug) || typeof i.step !== "string" || (i.decision !== "pass" && i.decision !== "return" && i.decision !== "confirm"))
+    return { ok: false, code: "bad-input", error: "Give slug, step and decision (pass, return or confirm)" };
+  if (i.decision === "confirm") return saveConfirm(i, i.slug, i.step);
   const reason = typeof i.reason === "string" ? i.reason.trim() : "";
   if (i.decision === "return" && !reason) return { ok: false, code: "bad-input", error: "A return needs a reason" };
   const { slug, step } = { slug: i.slug, step: i.step };
@@ -59,6 +60,25 @@ export async function saveSignoff(i: SignoffInput): Promise<SaveOutcome> {
     label: `${action.decision === "pass" ? "signoff" : "return"}-${step}-${slug}`,
     title: `${action.decision === "pass" ? "Sign off" : "Return"} ${step} of ${slug}`,
     meta: { kind: "signoff", slug, step, decision: action.decision },
+    build: (main, p) => signoffChange(p, main, slug, i.user, action, i.at),
+    fallback: i.project,
+  });
+}
+
+/** "No change needed": the owner checked their step against what changed under it. The guard checks the owner. */
+async function saveConfirm(i: SignoffInput, slug: string, step: string): Promise<SaveOutcome> {
+  const state = i.state(slug);
+  if (!state) return { ok: false, code: "no-feature", error: `There is no feature ${slug}` };
+  const team = i.project.roles.people.find((p) => p.user === i.user)?.team;
+  const r = state.rechecks.find((x) => x.step === step && (x.team === undefined || x.team === team));
+  if (!r) return { ok: false, code: "not-waiting", error: `Nothing ${step} of ${slug} is built on changed since it landed` };
+  if (i.saver.refresh().some((x) => x.state === "pending" && x.user === i.user && x.meta?.["kind"] === "signoff" && x.meta?.["slug"] === slug && x.meta?.["step"] === step))
+    return { ok: false, code: "pending", error: `Your save for ${step} of ${slug} is still waiting to merge` };
+  const action: SignoffAction = { decision: "confirm", step, file: r.because[0]!.file };
+  return checkedSave(i.saver, i.user, {
+    label: `confirm-${step}-${slug}`,
+    title: `Confirm ${step} of ${slug} still holds`,
+    meta: { kind: "signoff", slug, step, decision: "confirm" },
     build: (main, p) => signoffChange(p, main, slug, i.user, action, i.at),
     fallback: i.project,
   });

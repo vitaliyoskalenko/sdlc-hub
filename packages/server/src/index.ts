@@ -478,6 +478,8 @@ function summary(slug: string, s: FeatureState, opened: OpenedProject) {
     waits: s.waits.filter((w) => !w.done).length,
     blockingBugs: s.blockingBugs,
     watch: s.watch ?? null,
+    /** Documents built on an older version of what they depend on, for Home and the owner's next actions. */
+    rechecks: s.rechecks,
     cycle: s.cycle,
     warnings: s.warnings.length,
     /** The status of every step, in flow order, for the Features graph. */

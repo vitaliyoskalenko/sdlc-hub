@@ -102,12 +102,41 @@ describe("git calls", () => {
     const p = openProject(root, { now: f.now });
     for (const slug of listFeatures(p.view.specs)) detectFeature(p.project!, p.view, slug);
     const calls = gitCalls();
-    // main, hub-state and the one team clone with files: at most one `git log` each.
-    expect(calls.log ?? 0).toBeLessThanOrEqual(3);
+    // main, hub-state and the one team clone with files: at most one `git log` each, and one more for main's history.
+    expect(calls.log ?? 0).toBeLessThanOrEqual(4);
     // One events.jsonl in the demo.
     expect(calls.blame ?? 0).toBeLessThanOrEqual(1);
-    // hub-state files are read in one batch.
-    expect(calls.show ?? 0).toBe(0);
+    // hub-state files are read in one batch; `git show` only for the one older spec a recheck compares with.
+    expect(calls.show ?? 0).toBeLessThanOrEqual(1);
     expect(calls["cat-file"] ?? 0).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("the history of main, for documents built on an older version", () => {
+  it("dates a change by its merge, and reads a file as it was at a time", async () => {
+    const { historyOf } = await import("../src/index.ts");
+    const dir = mkdtempSync(join(tmpdir(), "hub-hist-"));
+    temp.push(dir);
+    const { writeFileSync, mkdirSync } = await import("node:fs");
+    const at = (iso: string) => ({ ...process.env, GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@x", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@x", GIT_CONFIG_GLOBAL: "/dev/null" });
+    const run = (iso: string, ...args: string[]) => execFileSync("git", args, { cwd: dir, env: at(iso), stdio: "pipe" });
+    const f = "docs/features/n/spec.md";
+    mkdirSync(join(dir, "docs/features/n"), { recursive: true });
+    run("2026-10-01T09:00:00Z", "init", "-q", "-b", "main");
+    writeFileSync(join(dir, f), "one\n");
+    run("2026-10-01T09:00:00Z", "add", ".");
+    run("2026-10-01T09:00:00Z", "commit", "-qm", "one");
+    // Committed on a branch on the 2nd, merged on the 4th: main has it from the 4th.
+    run("2026-10-02T09:00:00Z", "checkout", "-qb", "change");
+    writeFileSync(join(dir, f), "two\n");
+    run("2026-10-02T09:00:00Z", "commit", "-qam", "two");
+    run("2026-10-04T09:00:00Z", "checkout", "-q", "main");
+    run("2026-10-04T09:00:00Z", "merge", "-q", "--no-ff", "-m", "merge", "change");
+    const h = historyOf(dir);
+    expect(h.changedAt(f)).toBe("2026-10-04T09:00:00.000Z");
+    expect(h.changedAt("docs/features/n")).toBe("2026-10-04T09:00:00.000Z");
+    expect(h.readAt(f, "2026-10-03T00:00:00.000Z")).toBe("one\n");
+    expect(h.readAt(f, "2026-10-04T09:00:00.000Z")).toBe("two\n");
+    expect(h.readAt(f, "2026-09-30T00:00:00.000Z")).toBeUndefined();
   });
 });

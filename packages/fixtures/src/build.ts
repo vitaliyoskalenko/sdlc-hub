@@ -34,6 +34,8 @@ export interface Fixture {
   teams?: Record<string, Files>;
   /** Git authors: "main/<path>", "hub-state/<path>" or "hub-state/<path>#L<n>". */
   authors?: Record<string, string>;
+  /** Commits on main after the files above, each at its own time: a spec changed after the steps built on it. */
+  later?: { at: string; author: string; message: string; files: Files }[];
   /** Slugs listFeatures must find, when given. */
   features?: string[];
   expected: Record<string, Expected>;

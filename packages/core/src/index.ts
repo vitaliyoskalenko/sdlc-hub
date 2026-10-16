@@ -22,6 +22,7 @@ export * from "./source.ts";
 export * from "./sdd.ts";
 export * from "./detect.ts";
 export * from "./documents.ts";
+export * from "./recheck.ts";
 export * from "./guard.ts";
 export * from "./saves.ts";
 export * from "./signoff.ts";
