@@ -1,7 +1,7 @@
 // A step whose document was built on an older version of what it depends on: whose it is to recheck, what changed,
 // and the owner's two ways out, running the step again or confirming that nothing needs to change.
 
-import type { Person, ProjectInfo, Recheck, Summary } from "./api.ts";
+import type { Person, ProjectInfo, Recheck, SpecChange, Summary } from "./api.ts";
 import { PendingList, useAction, usePending } from "./saves.tsx";
 import { hubCmd, roleOf } from "./text.ts";
 import { Cmd, Info, Link, personName, teamName, useApp } from "./ui.tsx";
@@ -64,6 +64,39 @@ export function recheckActions(me: Person, project: ProjectInfo, f: Summary) {
   });
 }
 
+/** Each changed story or criterion once, from the rechecks of a feature: what the spec said and says now. */
+export function specChanges(rs: Recheck[]): SpecChange[] {
+  const seen = new Map<string, SpecChange>();
+  for (const r of rs) for (const c of r.because) for (const t of c.texts ?? []) if (!seen.has(t.id)) seen.set(t.id, t);
+  return [...seen.values()];
+}
+
+/** Before and after, per id: what a person reads to tell a new meaning from new words. */
+export function SpecDiff({ changes, open }: { changes: SpecChange[]; open?: boolean }) {
+  if (!changes.length) return null;
+  return (
+    <details class="more specdiff" open={open}>
+      <summary>What changed in the spec ({changes.length})</summary>
+      {changes.map((c) => (
+        <div class="sd-change" key={c.id} data-change={c.id}>
+          <code>{c.id}</code>
+          {c.before === undefined ? <span class="pill plain ok">added</span> : c.after === undefined ? <span class="pill plain bad">removed</span> : null}
+          {c.before !== undefined && (
+            <p class="sd-was">
+              <span class="k">Was</span> {c.before}
+            </p>
+          )}
+          {c.after !== undefined && (
+            <p class="sd-now">
+              <span class="k">Now</span> {c.after}
+            </p>
+          )}
+        </div>
+      ))}
+    </details>
+  );
+}
+
 /** On the step's panel and the task page: what changed, the command, and "No change needed". */
 export function RecheckCard({ slug, r }: { slug: string; r: Recheck }) {
   const { me, project, assistant, savesEnabled, savesWhy } = useApp();
@@ -84,6 +117,7 @@ export function RecheckCard({ slug, r }: { slug: string; r: Recheck }) {
         </Info>
       </span>
       <p>{sentence(causeText(project, slug, r))}</p>
+      <SpecDiff changes={specChanges([r])} />
       {who === "owner" ? (
         <>
           <Cmd text={hubCmd(assistant, "run", `${r.step} ${slug}`)} />

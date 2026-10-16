@@ -41,6 +41,8 @@ ${job("hub-report", opts.stage, "always", "passed")}`;
   variables:
     HUB_SPECS: "${opts.specs}"
     HUB_TEAM: "${opts.team}"
+    # Enough history to date the last change of each feature's tasks.json; without it the hub dates them otherwise.
+    GIT_DEPTH: "200"
   # One literal block: a line such as "Authorization: Basic" would otherwise be read as a YAML key.
   before_script:
     - |

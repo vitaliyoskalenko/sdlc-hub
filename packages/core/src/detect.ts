@@ -578,7 +578,9 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
           done: new Set(states.filter((x) => x.status === "done").map((x) => x.id)),
           signoffs,
           teams: teams.map((t) => {
-            const finished = tasksFinishedBy(t.id);
+            // The later of when its tasks.json last changed (hub-report reads its history) and when its people last
+            // finished the tasks stage: a rerun that left the tasks as they were also counts.
+            const finished = [t.snapshot?.tasks_changed_at ?? undefined, tasksFinishedBy(t.id)].filter((v): v is string => !!v).sort().at(-1);
             return { id: t.id, acs: t.snapshot?.tasks ? t.snapshot.tasks.flatMap((x) => x.acs) : null, ...(finished ? { finished } : {}) };
           }),
           ...(contractId ? { contractTeam: contractId } : {}),

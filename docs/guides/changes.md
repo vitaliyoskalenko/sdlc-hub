@@ -44,7 +44,7 @@ flowchart LR
 
 Nobody marks anything by hand. The hub reads the history of `main`:
 
-- **When your document landed.** A merged merge request counts at its merge. For a team's tasks, which live in the team's repository, it is the last time someone of the team finished the tasks stage, or else when the tasks stage finished or was signed off.
+- **When your document landed.** A merged merge request counts at its merge. A team's tasks live in the team's repository: they count from when the team's `tasks.json` last changed there (hub-report reads it from the repository's history) or when someone of the team last finished the tasks stage, whichever is later; with neither, from when the tasks stage finished or was signed off.
 - **What the spec said then, and what it says now, by id.** A heading or a list item that starts with an id owns the text up to the next one: `### AC-04 …`, `- **US-02** …`. An id named inside a sentence is a reference.
 - **Which ids your document names.** A changed criterion marks the documents that name it. An added or removed story or criterion marks every document, because each may need to cover it. A document that names no id, such as `sad.md`, is marked only for an added or removed one.
 - **The other files as a whole.** A change of the flows marks the screens; of the data model, the contract; of the screens, every team's tasks; of the contract, the client teams' tasks.
@@ -108,7 +108,9 @@ To check every marked document at once, the PO or a lead runs `/hub:validate <sl
 
 ### The PO only reworded the spec
 
-The hub cannot tell a reworded criterion from a changed one. When no criterion changed in meaning, the PO chooses **Only the wording changed** on the feature's Documents, or confirms it after `/hub:validate`. Every mark this spec change caused goes at once. A later change of the spec counts again.
+The hub compares the text under each id, so it cannot tell a reworded criterion from a changed one by itself. It keeps both versions: every recheck card has **What changed in the spec**, with each criterion as it was and as it is now, and the PO sees it open on the feature's Documents. `/hub:validate` also says, for each changed criterion, whether its meaning changed or only its words.
+
+When no criterion changed in meaning, the PO chooses **Only the wording changed** on Documents, or confirms it after `/hub:validate`. Every mark this spec change caused goes at once. A later change of the spec counts again. The assistant's reading never clears a mark on its own: a person confirms.
 
 ### The designer changes the screens
 

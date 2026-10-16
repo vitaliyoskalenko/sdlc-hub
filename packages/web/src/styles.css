@@ -535,3 +535,10 @@ svg.look-status .node.recheck rect.b{fill:color-mix(in srgb,var(--warn) 12%,var(
 /* A guide's diagram: drawn on light paper, which also reads in the dark theme. */
 .md figure.diagram{margin:14px 0;padding:14px;background:#fff;color:#17212B;border:1px solid var(--line);border-radius:10px;overflow-x:auto;text-align:center}
 .md figure.diagram svg{max-width:100%;height:auto}
+.specdiff{margin:6px 0 10px}
+.specdiff .sd-change{display:flex;flex-direction:column;gap:3px;padding:8px 0;border-top:1px solid var(--line)}
+.specdiff .sd-change:first-of-type{border-top:0}
+.specdiff .sd-change>code{align-self:flex-start}
+.specdiff p{margin:0;font-size:.86rem;line-height:1.45}
+.specdiff .sd-was{color:var(--muted);text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--bad) 55%,transparent)}
+.specdiff .sd-was .k,.specdiff .sd-now .k{text-decoration:none;display:inline-block;min-width:3em}

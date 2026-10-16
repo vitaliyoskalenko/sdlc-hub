@@ -26,8 +26,8 @@ One feature (`order-notes`, size M, standard route, a backend and a web team) we
 
 ## Documents built on an older spec
 
-- **A team's tasks without its own event.** A team's tasks count from the last tasks event of one of its people; with none (tasks written without the plugin), from when anyone finished or signed the tasks stage.
-- **Wording or meaning is the PO's call.** The hub compares the text under each id with spacing ignored, so a reworded criterion counts as changed until the PO chooses Only the wording changed.
+- **Teams installed before revision 72 have no `GIT_DEPTH` for hub-report.** GitLab's default shallow clone may not reach a feature's last change of `tasks.json`; the snapshot then carries no `tasks_changed_at` and the hub dates the tasks by the events. Setup run again proposes the new job to each team repository.
+- **Meaning or wording stays the PO's call.** The hub shows each changed criterion before and after, and `/hub:validate` gives its reading, but the site never clears a mark on the assistant's word alone: the PO or the owner confirms.
 
 ## Claims to verify
 

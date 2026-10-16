@@ -48,6 +48,8 @@ describe("hub_status", () => {
     const { text } = hubStatus(demo("daria.l").ctx, "bulk-order-export");
     expect(text).toContain("To recheck: screens (AC-04 in spec.md changed on 2026-10-06) — yours: run /hub:run screens bulk-order-export again, or hub_confirm if nothing needs to change.");
     expect(text).toContain("To recheck: web's tasks (AC-04 in spec.md changed on 2026-10-06).");
+    // What the spec said and says, for telling a new meaning from new words.
+    expect(text).toContain('Spec change AC-04: was "AC-04 The download link works for 24 hours.", now "AC-04 The download link works for 7 days, and the staff member can renew it.".');
     expect(hubStatus(demo("daria.l").ctx).text).toContain("To recheck by you, after a change under them: bulk-order-export (screens).");
   });
   it("names the features when the slug is wrong", () => {

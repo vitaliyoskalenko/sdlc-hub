@@ -155,6 +155,8 @@ export const teamSnapshotSchema = z.strictObject({
   /** `target_surfaces` from the front matter of the team's sad.md, when it has one. */
   target_surfaces: z.array(z.string()).nullable().optional(),
   tasks: z.array(sddTaskSchema).nullable(),
+  /** When tasks.json last changed on the reported branch, from its git history: the time the team's tasks count from. */
+  tasks_changed_at: isoTime.nullable().optional(),
   tracker: z.array(trackerRowSchema).nullable(),
   review: z.strictObject({ file: z.string(), verdict: z.enum(["PASS", "CHANGES REQUESTED"]) }).nullable(),
   mr: z

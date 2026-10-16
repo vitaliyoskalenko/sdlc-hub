@@ -7,7 +7,7 @@ import { PendingList, useAction, usePending } from "./saves.tsx";
 import { hubCmd } from "./text.ts";
 import { Cmd, Info, useApp } from "./ui.tsx";
 import type { Recheck } from "./api.ts";
-import { recheckList } from "./recheck.tsx";
+import { recheckList, SpecDiff, specChanges } from "./recheck.tsx";
 
 export function ValidateCard({ slug, rechecks }: { slug: string; rechecks: Recheck[] }) {
   const { me, project, assistant, session, savesEnabled, savesWhy } = useApp();
@@ -50,6 +50,8 @@ export function ValidateCard({ slug, rechecks }: { slug: string; rechecks: Reche
         {docs ? `The spec changed after ${rechecks.length === 1 ? "this document was" : `${rechecks.length} documents were`} built on it: ${docs}. Check that they still agree; it edits nothing.` : "After you change the spec: check that the other documents still agree. It edits nothing."}
       </p>
       <Cmd text={hubCmd(assistant, "validate", slug)} />
+      {/* The PO reads what changed before saying that only the wording did. */}
+      {fromSpec > 0 && <SpecDiff changes={specChanges(rechecks)} open={me.roles.includes("po")} />}
       {me.roles.includes("po") && fromSpec > 0 && (
         <div class="row">
           <button type="button" class="btn" id="validate-wording" disabled={!savesEnabled || wording.busy || wordingPending.length > 0} onClick={() => void wording.run("signoff", { slug, step: "clarify", decision: "confirm" })}>

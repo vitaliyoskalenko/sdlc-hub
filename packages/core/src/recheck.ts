@@ -24,6 +24,8 @@ export interface RecheckCause {
   /** When the change landed on main, and who made it. */
   at: string;
   by?: string;
+  /** For the spec: each id's text before and after (absent when added or removed), to tell a new meaning from new words. */
+  texts?: { id: string; before?: string; after?: string }[];
 }
 
 const ID = String.raw`(?:AC|US|SCR|FR|NFR)-\d+[a-z]?`;
@@ -62,6 +64,14 @@ export function changedIds(before: string, after: string): { changed: string[]; 
     removed: [...a.keys()].filter((id) => !b.has(id)),
   };
 }
+
+/** A definition as a person reads it: without the heading marks, the list mark and the bold. */
+export const plainBlock = (block: string): string =>
+  block
+    .replace(/^#{1,6}\s+/, "")
+    .replace(/^\s*(?:[-*+]|\d+\.)\s+/, "")
+    .replace(/\*\*|__/g, "")
+    .trim();
 
 /** Every id a text names. */
 export const idsIn = (text: string): Set<string> => new Set(text.match(ID_ANY) ?? []);
@@ -129,11 +139,14 @@ export function rechecksFor(x: RecheckInput): Recheck[] {
       const cause = (ids: string[]): RecheckCause[] => [{ file: path, ids, at, ...(who ? { by: who } : {}) }];
       if (by === "file") return then.replace(/\s+/g, " ").trim() === now.replace(/\s+/g, " ").trim() ? [] : cause([]);
       const d = changedIds(then, now);
+      const was = idBlocks(then), is = idBlocks(now);
       // A new or removed story or criterion counts for every document; a changed one for those that name it (all of
       // them when the document's references are not known, as for tasks nobody published).
       const named = d.changed.filter((id) => !refs || refs.has(id));
       const ids = [...d.added, ...d.removed, ...named];
-      return ids.length ? cause(ids) : [];
+      if (!ids.length) return [];
+      const texts = ids.map((id) => ({ id, ...(was.has(id) ? { before: plainBlock(was.get(id)!) } : {}), ...(is.has(id) ? { after: plainBlock(is.get(id)!) } : {}) }));
+      return [{ ...cause(ids)[0]!, texts }];
     });
 
   /** A folder changed since a time: a file in it now reads otherwise than then; nothing to compare if none existed. */

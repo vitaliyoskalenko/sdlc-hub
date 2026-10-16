@@ -108,12 +108,19 @@ export interface StepState {
   recheck?: boolean;
 }
 
+/** A story or criterion before and after a change of the spec; one side is absent when it was added or removed. */
+export interface SpecChange {
+  id: string;
+  before?: string;
+  after?: string;
+}
+
 export interface Recheck {
   step: string;
   /** The document's repository path, or the team for one team's tasks. */
   file: string;
   team?: string;
-  because: { file: string; ids: string[]; at: string; by?: string }[];
+  because: { file: string; ids: string[]; at: string; by?: string; texts?: SpecChange[] }[];
 }
 
 export interface TrackerRow {

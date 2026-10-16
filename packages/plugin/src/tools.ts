@@ -142,6 +142,11 @@ export function hubStatus(ctx: ToolContext, slug?: string): ToolResult {
     for (const w of s.waits.filter((x) => !x.done)) lines.push(`${w.team}:${w.task} waits for ${w.on}.`);
     if (s.blockingBugs.length) lines.push(`Blocking bugs: ${s.blockingBugs.join(", ")}.`);
     // Steps built on an older spec, flows or contract: the owner reruns the step or confirms it (hub_confirm).
+    // The spec's changed stories and criteria, before and after, for telling a new meaning from new words.
+    const changed = new Map<string, { before?: string; after?: string }>();
+    for (const r of s.rechecks) for (const c of r.because) for (const t of c.texts ?? []) if (!changed.has(t.id)) changed.set(t.id, t);
+    for (const [id, t] of changed)
+      lines.push(`Spec change ${id}: ${t.before === undefined ? "added" : `was "${t.before}"`}${t.after === undefined ? ", removed" : `${t.before === undefined ? "" : ","} now "${t.after}"`}.`);
     for (const r of s.rechecks) {
       const who = recheckRole(l.project, r, l.user);
       const what = r.because.map((c) => `${c.ids.length ? `${c.ids.join(", ")} in ` : ""}${c.file.split("/").pop()} changed on ${c.at.slice(0, 10)}`).join("; ");

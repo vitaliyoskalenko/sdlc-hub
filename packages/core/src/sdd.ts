@@ -184,6 +184,7 @@ export function buildTeamSnapshot(input: SnapshotInput): Result<TeamSnapshot> {
   }
 
   const sad = input.source.read(`${dir}/sad.md`);
+  const tasksChanged = tasks ? input.source.history?.changedAt(`${dir}/tasks.json`) : undefined;
 
   return {
     value: {
@@ -195,6 +196,7 @@ export function buildTeamSnapshot(input: SnapshotInput): Result<TeamSnapshot> {
       files,
       target_surfaces: sad === undefined ? null : (readTargetSurfaces(sad) ?? null),
       tasks,
+      ...(tasksChanged ? { tasks_changed_at: tasksChanged } : {}),
       tracker,
       review,
       mr: input.mr ?? null,

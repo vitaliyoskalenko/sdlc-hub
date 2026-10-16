@@ -194,7 +194,8 @@ const SKILLS: Skill[] = [
       "3. For each document, check every reference to a story, criterion or screen against the spec: missing, changed or no longer existing.",
       "4. Answer with the report only, in Markdown: a `## <file>` heading per document, then `Consistent.` or a list of `- Conflict: <what> Proposed fix: <how>`.",
       "5. In an interactive session, ask whether to save the report; if the person says yes, call `hub_validation` with it. In a headless run, end with the report.",
-      "6. In an interactive session, call `hub_status` with the slug. For each line `To recheck: … yours` whose document the report found consistent, offer No change needed; for the PO, when every document is consistent, offer instead that only the wording of the spec changed (step clarify). " + CONFIRM + " each one, then call `hub_confirm` with the step and the slug.",
+      "6. Call `hub_status` with the slug. For each `Spec change` line, say whether its meaning changed or only its words, in one sentence: compare what was asked, the values and the conditions, not the phrasing. Put this before the report, under `## What changed in the spec`.",
+      "7. In an interactive session: for each line `To recheck: … yours` whose document the report found consistent, offer No change needed. For the PO, when every spec change kept its meaning, offer instead that only the wording of the spec changed (step clarify), which clears every document it marked. " + CONFIRM + " each one, then call `hub_confirm` with the step and the slug.",
     ].join("\n"),
   },
   {

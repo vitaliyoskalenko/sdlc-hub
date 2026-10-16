@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   buildTeamSnapshot,
   latestReviewFile,
+  memoryHistory,
   memorySource,
   parseTasksJson,
+  parseTeamSnapshot,
   parseTracker,
   readReviewVerdict,
   readRoute,
@@ -132,6 +134,19 @@ describe("buildTeamSnapshot", () => {
       pipeline: null,
     });
     expect(r.value?.tracker?.[1]?.blocked_by).toEqual(["T1", "backend:T2"]);
+  });
+
+  it("dates the tasks by the last change of tasks.json, when the repository's history is known", () => {
+    const history = memoryHistory([
+      { at: "2026-10-02T09:00:00Z", files: { [`${F}/tasks.json`]: "{}" } },
+      { at: "2026-10-05T14:00:00Z", files: { [`${F}/tasks.json`]: source.read(`${F}/tasks.json`)!, [`${F}/tasks/tracker.md`]: TRACKER } },
+      { at: "2026-10-06T08:00:00Z", files: { [`${F}/tasks/tracker.md`]: TRACKER } },
+    ]);
+    const r = buildTeamSnapshot({ team: "web", slug: "tasks-issues", source: { ...source, history }, commit: "abc", now: "2026-10-07T10:00:00Z" });
+    // The tracker changes as tasks get done; the tasks themselves last changed on the 5th.
+    expect(r.value?.tasks_changed_at).toBe("2026-10-05T14:00:00Z");
+    expect(parseTeamSnapshot(JSON.stringify(r.value), "s").value?.tasks_changed_at).toBe("2026-10-05T14:00:00Z");
+    expect(buildTeamSnapshot({ team: "web", slug: "tasks-issues", source, commit: "abc", now: "2026-10-07T10:00:00Z" }).value).not.toHaveProperty("tasks_changed_at");
   });
 
   it("is empty but valid for a team that has not started", () => {

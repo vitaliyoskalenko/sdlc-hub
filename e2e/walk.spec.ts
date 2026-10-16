@@ -475,6 +475,10 @@ test("after the spec changed, each owner of a step built on it is told: on Home,
   await page.goto("/features/bulk-order-export/documents?as=olena.k");
   await ready(page);
   await expect(page.locator("#validate")).toContainText("The spec changed after 7 documents were built on it");
+  // The PO reads what the criterion said and says before choosing Only the wording changed.
+  const ac = page.locator('#validate .specdiff [data-change="AC-04"]');
+  await expect(ac.locator(".sd-was")).toContainText("The download link works for 24 hours.");
+  await expect(ac.locator(".sd-now")).toContainText("works for 7 days, and the staff member can renew it.");
   await expect(page.locator('.docbtn[data-doc="screens.md"]')).toContainText("needs validation");
   // Someone who neither validates nor owns a step built on it sees no validation card.
   await page.goto("/features/bulk-order-export/documents?as=bohdan.r");

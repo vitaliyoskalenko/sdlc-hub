@@ -4,6 +4,11 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
 
 ## 2026-10-16: Documents built on an older spec are rechecked
 
+### Each team's tasks dated by its tasks.json, and the spec's changes shown before and after
+- **Decision:** hub-report puts `tasks_changed_at` in the team snapshot: when `tasks.json` last changed on the reported branch, from the team repository's history (the job fetches 200 commits). A team's tasks count from the later of that and its people's last tasks event. A recheck caused by the spec carries each changed story's or criterion's text before and after: the recheck card and the PO's validation card show them, `hub_status` lists them, and `/hub:validate` says for each whether its meaning changed or only its words, before its report.
+- **Why:** The two open items of the first version: a team that wrote its tasks without the plugin was dated by another team's event, and the PO had to judge "only the wording" without seeing what changed. The assistant reads the change; a person still confirms.
+- **By:** Owner ("Зроби ці зміни"); proposed (the details).
+
 ### The rechecks have a guide, with diagrams the site carries as pictures
 - **Decision:** `docs/guides/changes.md`, for everyone, says what depends on what, how the hub finds a change, where it shows, the answers and each variant, with mermaid diagrams. GitHub and GitLab draw the blocks; for the site, `npm run diagrams` draws each one ahead of time as plain SVG (no HTML, no script) in `docs/guides/diagrams/`, named by a hash of its text, and the guide page shows the picture. A test fails while a block has no picture of its current text. mermaid is a development dependency only (11.17.2).
 - **Why:** The logic was in no guide. The hub is one file that works offline and does not carry mermaid, which is larger than the whole site.

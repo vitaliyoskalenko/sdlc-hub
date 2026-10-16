@@ -58,8 +58,13 @@ const input = (over: Partial<RecheckInput> = {}): RecheckInput => ({
 });
 
 describe("documents built on an older spec", () => {
-  it("names the document that refers to a criterion changed after it landed, with who changed it", () => {
-    expect(rechecksFor(input())).toEqual([{ step: "plan-tests", file: `${dir}/test-plan.md`, because: [{ file: `${dir}/spec.md`, ids: ["AC-02"], at: T2, by: "olena.k" }] }]);
+  const AC02 = {
+    id: "AC-02",
+    before: "AC-02 (US-01) — error Given an empty text Then it is refused.",
+    after: "AC-02 (US-01) — error Given an empty text Then it is refused with a message.",
+  };
+  it("names the document that refers to a criterion changed after it landed, with who changed it and the text before and after", () => {
+    expect(rechecksFor(input())).toEqual([{ step: "plan-tests", file: `${dir}/test-plan.md`, because: [{ file: `${dir}/spec.md`, ids: ["AC-02"], at: T2, by: "olena.k", texts: [AC02] }] }]);
   });
 
   it("leaves a step that is not done, and a source without history", () => {
@@ -89,7 +94,7 @@ describe("documents built on an older spec", () => {
 
   it("names each team whose tasks refer to a changed criterion, after the tasks stage finished", () => {
     const r = rechecksFor(input({ done: new Set(["tasks"]), tasksFinished: T1, teams: [{ id: "backend", acs: ["AC-02"] }, { id: "web", acs: ["AC-01"] }], contractTeam: "backend" }));
-    expect(r).toEqual([{ step: "tasks", file: "backend", team: "backend", because: [{ file: `${dir}/spec.md`, ids: ["AC-02"], at: T2, by: "olena.k" }] }]);
+    expect(r).toEqual([{ step: "tasks", file: "backend", team: "backend", because: [{ file: `${dir}/spec.md`, ids: ["AC-02"], at: T2, by: "olena.k", texts: [AC02] }] }]);
     // A lead confirms for their own team only.
     const confirm = { step: "tasks", user: "petro.v", at: "2026-10-03T10:00:00Z", decision: "confirm" as const, file: `${dir}/spec.md`, hash: "sha256:00" };
     expect(rechecksFor(input({ done: new Set(["tasks"]), tasksFinished: T1, teams: [{ id: "backend", acs: ["AC-02"] }], signoffs: [confirm], teamOf: (u) => (u === "petro.v" ? "web" : undefined) }))).toHaveLength(1);
