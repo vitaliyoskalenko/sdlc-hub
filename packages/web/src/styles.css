@@ -518,3 +518,9 @@ svg.look-path .node.here:is(.st-running,.st-ready) rect.b{stroke:var(--accent);s
 .lanetip .muted{font-size:.76rem}
 .stale{opacity:.45;transition:opacity .15s}
 .tabbody{display:flex;flex-direction:column;gap:16px;min-height:100vh;min-width:0}
+.info{display:inline-flex;vertical-align:middle;white-space:nowrap}
+.infobtn{display:inline-grid;place-items:center;width:17px;height:17px;padding:0;border-radius:50%;border:1.5px solid var(--muted);background:var(--surface);color:var(--muted);font:700 .68rem/1 var(--f-body);font-style:italic;cursor:help;flex:none}
+.infobtn:hover,.infobtn[aria-expanded="true"]{border-color:var(--ink);color:var(--ink)}
+.infotip{position:fixed;z-index:40;display:flex;flex-direction:column;gap:5px;padding:10px 12px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 22px rgba(16,22,30,.18);font-size:.83rem;font-weight:400;line-height:1.45;text-align:left;white-space:normal}
+.infotip .muted{font-size:.78rem}
+.watchtext .info{margin-left:3px;vertical-align:-3px}

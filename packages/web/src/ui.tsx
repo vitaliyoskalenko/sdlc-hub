@@ -1,7 +1,7 @@
 // Shared pieces: the app context, navigation, pills, role chips and command boxes.
 
 import { createContext, type ComponentChildren } from "preact";
-import { useContext } from "preact/hooks";
+import { useContext, useEffect, useRef, useState } from "preact/hooks";
 import type { Assistant, Person, ProjectInfo, Save, Session, StepStatus, Summary } from "./api.ts";
 import type { Seen } from "./attention.tsx";
 import type { Action } from "./home.tsx";
@@ -72,6 +72,75 @@ export function Link(props: { to: string; params?: Record<string, string | undef
     >
       {props.children}
     </a>
+  );
+}
+
+/**
+ * An "i" that opens a longer explanation beside a short text: on hover or focus, and on a tap on a touch screen.
+ * The popup is placed on the screen, not in its box, so a table or a scrolled map does not cut it; scrolling closes it.
+ */
+export function Info({ label, id, children }: { label: string; id?: string; children: ComponentChildren }) {
+  const [at, setAt] = useState<{ left: number; top: number; width: number; up: boolean } | null>(null);
+  const pinned = useRef(false);
+  const btn = useRef<HTMLButtonElement>(null);
+  const open = () => {
+    const r = btn.current?.getBoundingClientRect();
+    if (!r) return;
+    const width = Math.min(320, innerWidth - 32);
+    // Above the "i" when there is no room for it below.
+    const up = innerHeight - r.bottom < 260 && r.top > 260;
+    setAt({ left: Math.min(Math.max(16, r.left - 12), innerWidth - 16 - width), top: up ? r.top - 6 : r.bottom + 6, width, up });
+  };
+  const close = () => ((pinned.current = false), setAt(null));
+  useEffect(() => {
+    if (!at) return;
+    addEventListener("scroll", close, { passive: true, capture: true });
+    return () => removeEventListener("scroll", close, { capture: true });
+  }, [!!at]);
+  return (
+    // Inside a row that opens a feature, the "i" and its popup open nothing else.
+    <span class="info" onMouseEnter={open} onMouseLeave={() => !pinned.current && setAt(null)} onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        ref={btn}
+        class="infobtn"
+        aria-label={label}
+        aria-expanded={!!at}
+        aria-describedby={at ? id : undefined}
+        onClick={() => (pinned.current ? close() : ((pinned.current = true), open()))}
+        onFocus={open}
+        onBlur={close}
+        onKeyDown={(e) => e.key === "Escape" && close()}
+      >
+        i
+      </button>
+      {at && (
+        <span class="infotip" role="tooltip" id={id} style={{ left: `${at.left}px`, top: `${at.top}px`, width: `${at.width}px`, ...(at.up ? { transform: "translateY(-100%)" } : {}) }}>
+          {children}
+        </span>
+      )}
+    </span>
+  );
+}
+
+const daysLeft = (n: number) => `${n} day${n === 1 ? "" : "s"} left`;
+
+/** The watch period after the rollout, in a few words, with what it means in the popup. */
+export function WatchText({ w, short }: { w: NonNullable<Summary["watch"]>; short?: boolean }) {
+  return (
+    <span class="watchtext">
+      {short ? daysLeft(w.left) : `Live for everyone \u00B7 Ops watches until ${w.until} \u00B7 ${daysLeft(w.left)}`}{" "}
+      <Info label="What the watch period means" id="watch-info">
+        <b>The watch period</b>
+        <span>
+          The rollout reached everyone on {w.from}. For {w.days} days Ops watches production: errors, metrics and what users report. If something breaks, Ops can roll back and a bug is filed as usual.
+        </span>
+        <span>On {w.until} the feature becomes Released by itself: nobody needs to do anything.</span>
+        <span class="muted">
+          The length is <code>release.watch_days</code> in <code>.hub/flow.yaml</code>.
+        </span>
+      </Info>
+    </span>
   );
 }
 

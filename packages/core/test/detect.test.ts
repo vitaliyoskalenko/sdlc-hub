@@ -198,7 +198,8 @@ describe("the watch period after the rollout", () => {
     const f = fixtures["released-and-watching"]!;
     const view = viewOf(f);
     const project = loadProject(view.specs).value!;
-    expect(detectFeature(project, view, "in-watch").watchUntil).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(detectFeature(project, view, "shipped-out").watchUntil).toBeUndefined();
+    // Watched from 2026-10-05 for 7 days; the fixture's now is 2026-10-07 12:00, so 4.5 days are left: 5 days.
+    expect(detectFeature(project, view, "in-watch").watch).toEqual({ from: "2026-10-05", until: "2026-10-12", days: 7, left: 5 });
+    expect(detectFeature(project, view, "shipped-out").watch).toBeUndefined();
   });
 });

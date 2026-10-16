@@ -11,7 +11,7 @@ import { QA } from "./qa.tsx";
 import { ValidateCard } from "./validate.tsx";
 import { Release } from "./release.tsx";
 import { PendingList, SignoffBox, useAction, usePending } from "./saves.tsx";
-import { Cmd, CopyButton, jiraKey, Link, names, Pill, personName, RoleChip, StatusPill, teamName, useApp, waitText } from "./ui.tsx";
+import { Cmd, CopyButton, jiraKey, Link, names, Pill, personName, RoleChip, StatusPill, teamName, useApp, waitText, WatchText } from "./ui.tsx";
 
 
 /** Steps recorded on the QA or Release screen. */
@@ -188,14 +188,14 @@ function NowStrip({ f, detail, tab }: { f: Summary; detail: FeatureDetail; tab: 
         </div>
       </div>
     );
-  if (f.watchUntil)
+  if (f.watch)
     return (
       <div class="now" id="now-watch">
         <div class="now-m">
           <span class="k">Now</span>
           <span class="row">
             <Pill kind="info">Watching</Pill>
-            <span>Rolled out to everyone. Ops watches it until {f.watchUntil}; then it counts as released.</span>
+            <WatchText w={f.watch} />
           </span>
         </div>
         <span class="muted">Nothing for you to do here now</span>
@@ -487,7 +487,7 @@ export function StepPanel({ detail, id }: { detail: FeatureDetail; id: string })
   const gateOwner = s.gate && s.gate.role !== "auto" && (st.waitingOn ?? []).includes(me.user);
   const time = detail.state.times.find((t) => t.step === id);
   // The rollout is over and Ops watches it: the step is not running any more, nor done yet.
-  const watching = id === "release" && detail.summary.watchUntil ? detail.summary.watchUntil : null;
+  const watching = id === "release" ? detail.summary.watch : null;
   return (
     <>
       <div class={`sd role-${roleOf(s.role).css}`}>
@@ -522,7 +522,9 @@ export function StepPanel({ detail, id }: { detail: FeatureDetail; id: string })
         {watching && (
           <>
             <span class="k">Watch ends</span>
-            <span id="watch-ends">{watching}; then the feature counts as released</span>
+            <span id="watch-ends">
+              {watching.until}, in {watching.left} day{watching.left === 1 ? "" : "s"}; then it becomes Released by itself
+            </span>
           </>
         )}
         {st.by && (

@@ -86,7 +86,8 @@ export interface Summary {
   waits: number;
   blockingBugs: string[];
   /** While the rollout is watched: the day the watch period ends. */
-  watchUntil: string | null;
+  /** While the rollout is watched: from, until (YYYY-MM-DD), its length and the days left. */
+  watch: { from: string; until: string; days: number; left: number } | null;
   cycle: number;
   warnings: number;
   statuses: StepStatus[];

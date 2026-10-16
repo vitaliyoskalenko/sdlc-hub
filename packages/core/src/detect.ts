@@ -85,8 +85,8 @@ export interface FeatureState {
   /** Every bug of the feature, by id. */
   bugs: BugFront[];
   blockingBugs: string[];
-  /** While the rollout is watched: the day the watch period ends (YYYY-MM-DD). */
-  watchUntil?: string;
+  /** While the rollout is watched: the day it started and the day it ends (YYYY-MM-DD), its length and the days left. */
+  watch?: { from: string; until: string; days: number; left: number };
   warnings: string[];
   issues: Issue[];
   /** From the stage events: each step's first start and last finish. */
@@ -558,7 +558,10 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
 
   const lead = featureTime(events, view.now, released ? release?.watch?.started : undefined);
   const watchEnd = release?.watch ? new Date(Date.parse(release.watch.started) + release.watch.days * 86_400_000) : undefined;
-  const watchUntil = watchEnd && new Date(view.now) < watchEnd ? watchEnd.toISOString().slice(0, 10) : undefined;
+  const watch =
+    release?.watch && watchEnd && new Date(view.now) < watchEnd
+      ? { from: String(release.watch.started).slice(0, 10), until: watchEnd.toISOString().slice(0, 10), days: release.watch.days, left: Math.ceil((watchEnd.getTime() - Date.parse(view.now)) / 86_400_000) }
+      : undefined;
   return {
     slug,
     ...(feature?.title ? { title: feature.title } : {}),
@@ -569,7 +572,7 @@ export function detectFeature(project: Project, view: ProjectView, slug: string)
     current,
     cycle,
     contractTeam: contractId,
-    ...(watchUntil ? { watchUntil } : {}),
+    ...(watch ? { watch } : {}),
     teams,
     waits,
     testRuns,

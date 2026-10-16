@@ -4,7 +4,7 @@ import type { Person, ProjectInfo, Summary } from "./api.ts";
 import { NotifyToggle } from "./attention.tsx";
 import { YourSaves } from "./saves.tsx";
 import { roleOf, STEP } from "./text.ts";
-import { Kpi, Link, listOf, names, personName, Pill, Progress, RoleChip, roleLabel, StatusPill, taskLabel, teamName, useApp, waitingTeams, waitText } from "./ui.tsx";
+import { Kpi, Link, listOf, names, personName, Pill, Progress, RoleChip, roleLabel, StatusPill, taskLabel, teamName, useApp, waitingTeams, waitText, WatchText } from "./ui.tsx";
 
 export interface Action {
   slug: string;
@@ -106,7 +106,7 @@ function numbersFor(role: string, features: Summary[]): [string, string, string?
 function NextMove({ f }: { f: Summary }) {
   const { project } = useApp();
   const doing: Partial<Record<string, string>> = { signoff: "to sign off", returned: "to rework it", ready: "to start it", running: "working on it", blocked: "blocked", missed: "missed" };
-  if (f.watchUntil) return <span class="muted">Ops watches it until {f.watchUntil}</span>;
+  if (f.watch) return <span class="muted">Ops watches until {f.watch.until}</span>;
   const people = f.waitingOn.length ? f.waitingOn : f.status === "running" && f.by ? [f.by] : [];
   return (
     <div class="nextmove">
@@ -188,12 +188,14 @@ export function FeatureTable({ list }: { list: Summary[] }) {
                 <td>
                   {f.released || !step ? (
                     <Pill kind="ok">Released</Pill>
-                  ) : f.watchUntil ? (
+                  ) : f.watch ? (
                     <div class="stepcell">
-                      <b>Watching after the rollout</b>
-                      <span class="muted">until {f.watchUntil}</span>
+                      <b>Live for everyone</b>
                       <span class="row">
                         <Pill kind="info">Watching</Pill>
+                        <span class="muted">
+                          <WatchText w={f.watch} short />
+                        </span>
                       </span>
                     </div>
                   ) : (

@@ -4,6 +4,11 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
 
 ## 2026-10-16: The flow map uses colour for one thing at a time
 
+### The watch period in a few words, with the rest a tap away
+- **Decision:** A feature in its watch period reads "Live for everyone · Ops watches until <day> · <n> days left". An "i" beside it opens what the watch period is, what Ops does in it, that the feature becomes Released by itself on that day, and where its length is set. Home shows "Live for everyone", Watching and the days left, with the same "i". Detection gives the watch's start, end, length and days left (`watch`), counted from the time detection runs at.
+- **Why:** "Rolled out to everyone. Ops watches it until …; then it counts as released." did not say that nobody needs to act, nor how long is left.
+- **By:** Owner.
+
 ### The page stays where the person is
 - **Decision:** Only a new page opens at its top. A feature's tabs, a step on the map, a document, a filter or a view of the same page keep the scroll. A feature's tab area is at least a screen tall, and a document stays on the page, dimmed, while the next one loads.
 - **Why:** Every click in the site scrolled to the top, so selecting a step or a tab made the page jump; a shorter tab or a document briefly replaced by "Loading…" pulled the page up too.

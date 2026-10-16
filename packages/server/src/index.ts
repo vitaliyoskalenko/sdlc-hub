@@ -477,7 +477,7 @@ function summary(slug: string, s: FeatureState, opened: OpenedProject) {
     progress: released ? 100 : Math.round((done / Math.max(1, counted.length)) * 100),
     waits: s.waits.filter((w) => !w.done).length,
     blockingBugs: s.blockingBugs,
-    watchUntil: s.watchUntil ?? null,
+    watch: s.watch ?? null,
     cycle: s.cycle,
     warnings: s.warnings.length,
     /** The status of every step, in flow order, for the Features graph. */
