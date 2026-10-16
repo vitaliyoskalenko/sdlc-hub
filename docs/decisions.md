@@ -4,6 +4,11 @@ A dated log of what was decided about SDLC Hub and why. The newest entries come 
 
 ## 2026-10-16: Documents built on an older spec are rechecked
 
+### The rechecks have a guide, with diagrams the site carries as pictures
+- **Decision:** `docs/guides/changes.md`, for everyone, says what depends on what, how the hub finds a change, where it shows, the answers and each variant, with mermaid diagrams. GitHub and GitLab draw the blocks; for the site, `npm run diagrams` draws each one ahead of time as plain SVG (no HTML, no script) in `docs/guides/diagrams/`, named by a hash of its text, and the guide page shows the picture. A test fails while a block has no picture of its current text. mermaid is a development dependency only (11.17.2).
+- **Why:** The logic was in no guide. The hub is one file that works offline and does not carry mermaid, which is larger than the whole site.
+- **By:** Owner (the guide and the diagrams); proposed (drawing them ahead of time).
+
 ### The answers to a recheck, from the site and the assistant
 - **Decision:** `hub_confirm` records No change needed from the assistant, and `/hub:validate` offers it for each document its report found consistent; `hub_status` lists the steps to recheck and says which are the person's. The PO's Only the wording changed (Documents, or `hub_confirm` with clarify) is a `confirm` entry for clarify with `spec.md`: the spec's changes up to then count for no document. Each team's tasks count from the last tasks event of one of its people (the event line's git author), not one time for every team.
 - **Why:** These were the open items of the first version: the assistant could not answer a recheck, a reworded criterion could only be confirmed document by document, and a team that wrote its tasks later than another was told about a change it already had.

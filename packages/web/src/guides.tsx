@@ -7,6 +7,8 @@ import github from "../../../docs/guides/github.md?raw";
 import gitlab from "../../../docs/guides/gitlab.md?raw";
 import people from "../../../docs/guides/people.md?raw";
 import settings from "../../../docs/guides/settings.md?raw";
+import changes from "../../../docs/guides/changes.md?raw";
+import { diagramSvg } from "./diagrams.ts";
 import { Fragment } from "preact";
 import { Glossary } from "./guide.tsx";
 import { COMMANDS, hubCmd, roleOf, STATUS, STEP } from "./text.ts";
@@ -18,6 +20,7 @@ export const GUIDES: Record<string, { title: string; text: string }> = {
   github: { title: "Install on GitHub", text: github },
   people: { title: "People", text: people },
   settings: { title: "Settings", text: settings },
+  changes: { title: "When something changes under your step", text: changes },
 };
 
 /** Heading ids as GitHub makes them, so links such as gitlab.md#what-each-person-needs-on-gitlab work here too. */
@@ -38,8 +41,16 @@ md.renderer.rules["link_open"] = (tokens, i, opts, env, self) => {
   return self.renderToken(tokens, i, opts);
 };
 
+// A mermaid block is its drawn picture, made in the repository from the guide itself (scripts/diagrams.mjs).
+const fence = md.renderer.rules["fence"]!;
+md.renderer.rules["fence"] = (tokens, i, opts, env, self) => {
+  const t = tokens[i]!;
+  const svg = t.info.trim() === "mermaid" ? diagramSvg(t.content) : undefined;
+  return svg ? `<figure class="diagram">${svg}</figure>` : fence(tokens, i, opts, env, self);
+};
+
 /** A link to another guide (people.md#x) becomes a page of the site (/guides/people#x). */
-const local = (text: string) => text.replace(/\]\((gitlab|github|people|settings)\.md(#[^)]*)?\)/g, "](/guides/$1$2)");
+const local = (text: string) => text.replace(/\]\((gitlab|github|people|settings|changes)\.md(#[^)]*)?\)/g, "](/guides/$1$2)");
 
 export function GuideDoc({ name }: { name: string }) {
   const { go } = useApp();
@@ -72,7 +83,7 @@ export function GuideDoc({ name }: { name: string }) {
       <article
         class="card md guide"
         id="guide"
-        // Raw HTML is off in the renderer, so a guide cannot put markup on the page.
+        // Raw HTML is off in the renderer, so a guide cannot put markup on the page; only its drawn diagrams are SVG.
         dangerouslySetInnerHTML={{ __html: md.render(local(g.text)) }}
         onClick={(e) => {
           const a = (e.target as HTMLElement).closest("a");
@@ -124,6 +135,10 @@ export function Help() {
             <li>
               <Link to="/guides/people#every-day">Every day</Link>
               <span class="muted">start the site, sync, and check your setup</span>
+            </li>
+            <li>
+              <Link to="/guides/changes">When something changes under your step</Link>
+              <span class="muted">why a step shows recheck, and your two answers, with diagrams</span>
             </li>
           </ul>
         </div>

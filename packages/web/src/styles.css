@@ -147,18 +147,18 @@ svg.flow{display:block;width:100%;min-width:430px;max-width:620px;height:auto;ma
 .wire{fill:none;stroke:var(--wire);stroke-width:1.2}
 .wire.done{stroke:var(--ink);stroke-width:1.5}
 .loopw{fill:none;stroke:var(--bad);stroke-width:1.3;stroke-dasharray:4 3}
-.node{cursor:pointer}
-.node rect.b{fill:var(--surface);stroke:var(--rc);stroke-width:1.5}
-.node text{fill:var(--ink);font:500 11.5px var(--f-mono)}
-.node.st-done rect.b{fill:color-mix(in srgb,var(--rc) 20%,var(--surface))}
-.node.st-running rect.b{fill:var(--rc)} .node.st-running text{fill:var(--on);font-weight:600}
-.node.st-signoff rect.b{stroke:var(--warn);stroke-dasharray:4 2.5;stroke-width:2;fill:color-mix(in srgb,var(--warn) 14%,var(--surface))}
-.node.st-blocked rect.b{stroke:var(--bad);stroke-width:2;fill:color-mix(in srgb,var(--bad) 14%,var(--surface))}
-.node.st-ready rect.b{stroke-width:2.2}
-.node.st-todo rect.b{stroke:var(--line)} .node.st-todo text{fill:var(--muted)}
-.node.st-skipped rect.b{stroke:var(--line);stroke-dasharray:2 3} .node.st-skipped text{fill:var(--muted);text-decoration:line-through}
-.node rect.sel{fill:none;stroke:var(--ink);stroke-width:2}
-.node:focus{outline:none} .node:focus-visible rect.b{stroke:var(--ink);stroke-width:3}
+svg.flow .node{cursor:pointer}
+svg.flow .node rect.b{fill:var(--surface);stroke:var(--rc);stroke-width:1.5}
+svg.flow .node text{fill:var(--ink);font:500 11.5px var(--f-mono)}
+svg.flow .node.st-done rect.b{fill:color-mix(in srgb,var(--rc) 20%,var(--surface))}
+svg.flow .node.st-running rect.b{fill:var(--rc)} svg.flow .node.st-running text{fill:var(--on);font-weight:600}
+svg.flow .node.st-signoff rect.b{stroke:var(--warn);stroke-dasharray:4 2.5;stroke-width:2;fill:color-mix(in srgb,var(--warn) 14%,var(--surface))}
+svg.flow .node.st-blocked rect.b{stroke:var(--bad);stroke-width:2;fill:color-mix(in srgb,var(--bad) 14%,var(--surface))}
+svg.flow .node.st-ready rect.b{stroke-width:2.2}
+svg.flow .node.st-todo rect.b{stroke:var(--line)} svg.flow .node.st-todo text{fill:var(--muted)}
+svg.flow .node.st-skipped rect.b{stroke:var(--line);stroke-dasharray:2 3} svg.flow .node.st-skipped text{fill:var(--muted);text-decoration:line-through}
+svg.flow .node rect.sel{fill:none;stroke:var(--ink);stroke-width:2}
+svg.flow .node:focus{outline:none} svg.flow .node:focus-visible rect.b{stroke:var(--ink);stroke-width:3}
 .legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:.8rem;color:var(--muted)}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .lg{width:20px;height:12px;border-radius:3px;border:1.5px solid var(--dev);background:var(--surface);flex:none}
@@ -352,8 +352,8 @@ body{min-height:100vh}
 img{max-width:100%}
 svg.dag{max-width:none} /* the task graph keeps its size and scrolls inside its card */
 .role-designer{--rc:var(--des)}
-.node.st-returned rect.b{stroke:var(--bad);stroke-width:2;stroke-dasharray:6 2;fill:color-mix(in srgb,var(--bad) 8%,var(--surface))}
-.node.st-missed rect.b{stroke:var(--bad);stroke-dasharray:2 2;fill:var(--surface)} .node.st-missed text{fill:var(--bad)}
+svg.flow .node.st-returned rect.b{stroke:var(--bad);stroke-width:2;stroke-dasharray:6 2;fill:color-mix(in srgb,var(--bad) 8%,var(--surface))}
+svg.flow .node.st-missed rect.b{stroke:var(--bad);stroke-dasharray:2 2;fill:var(--surface)} svg.flow .node.st-missed text{fill:var(--bad)}
 .lg.returned{border-color:var(--bad);border-style:dashed;background:color-mix(in srgb,var(--bad) 8%,var(--surface))} .lg.missed{border-color:var(--bad);border-style:dotted}
 .lg.ready{border-width:2.2px}
 .fm.m-returned circle{fill:var(--surface);stroke:var(--bad);stroke-width:3}
@@ -473,7 +473,7 @@ kbd{font:500 .8rem var(--f-mono);border:1px solid var(--line);border-bottom-widt
 .seg.sm button{padding:3px 12px;font-size:.82rem}
 svg.flow .node text.ic{font:700 11px var(--f-body)}
 .nowmark rect{fill:var(--ink)} .nowmark path{fill:var(--ink)} .nowmark text{fill:var(--bg);font:600 10px var(--f-body);letter-spacing:.02em}
-.node rect.pulse{fill:none;stroke:var(--accent);stroke-width:2;opacity:0}
+svg.flow .node rect.pulse{fill:none;stroke:var(--accent);stroke-width:2;opacity:0}
 @media (prefers-reduced-motion:no-preference){.node rect.pulse{animation:flowpulse 1.8s ease-out infinite}}
 @keyframes flowpulse{0%{opacity:.7;stroke-width:1}100%{opacity:0;stroke-width:9}}
 .legend .lgi{font-variant-numeric:tabular-nums}
@@ -532,3 +532,6 @@ svg.look-status .node.recheck rect.b{fill:color-mix(in srgb,var(--warn) 12%,var(
 .recheckline{color:var(--warn);font-size:.86rem;font-weight:500}
 .card.recheck{border-color:color-mix(in srgb,var(--warn) 55%,var(--line));background:color-mix(in srgb,var(--warn) 5%,var(--surface))}
 #validate.compact{padding-block:12px} #validate.compact p{margin:4px 0 8px}
+/* A guide's diagram: drawn on light paper, which also reads in the dark theme. */
+.md figure.diagram{margin:14px 0;padding:14px;background:#fff;color:#17212B;border:1px solid var(--line);border-radius:10px;overflow-x:auto;text-align:center}
+.md figure.diagram svg{max-width:100%;height:auto}

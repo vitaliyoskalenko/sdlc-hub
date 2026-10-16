@@ -4,7 +4,7 @@
 import type { Person, ProjectInfo, Recheck, Summary } from "./api.ts";
 import { PendingList, useAction, usePending } from "./saves.tsx";
 import { hubCmd, roleOf } from "./text.ts";
-import { Cmd, Info, personName, teamName, useApp } from "./ui.tsx";
+import { Cmd, Info, Link, personName, teamName, useApp } from "./ui.tsx";
 
 /** "owner" may rerun or confirm the step; "team" is told, because their lead does it. */
 export function recheckFor(me: Person, project: ProjectInfo, r: Recheck): "owner" | "team" | null {
@@ -97,6 +97,9 @@ export function RecheckCard({ slug, r }: { slug: string; r: Recheck }) {
       ) : (
         <p class="muted">{who === "team" ? `Your lead runs the step again or confirms it; your tasks may change.` : `${owner[0]!.toUpperCase()}${owner.slice(1)} runs the step again or confirms that nothing needs to change.`}</p>
       )}
+      <p class="muted">
+        <Link to="/guides/changes">How rechecks work</Link>
+      </p>
       <PendingList saves={pending} />
       {problem}
     </div>

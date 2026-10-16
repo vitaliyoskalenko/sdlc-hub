@@ -481,3 +481,16 @@ test("after the spec changed, each owner of a step built on it is told: on Home,
   await ready(page);
   await expect(page.locator("#validate")).toHaveCount(0);
 });
+
+test("the guide on rechecks opens from Help and from a recheck, with its diagrams drawn", async ({ page }) => {
+  await page.goto("/help?as=petro.v");
+  await ready(page);
+  await page.click('#help-everyone a[href*="/guides/changes"]');
+  await expect(page.locator("#guide h1")).toHaveText("When something changes under your step");
+  await expect(page.locator("#guide figure.diagram svg")).toHaveCount(5);
+  await expect(page.locator("#guide pre code.language-mermaid")).toHaveCount(0);
+  await page.goto("/features/bulk-order-export?as=daria.l&step=screens");
+  await ready(page);
+  await page.click('#recheck-screens a[href*="/guides/changes"]');
+  await expect(page.locator("#guide h1")).toHaveText("When something changes under your step");
+});

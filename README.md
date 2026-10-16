@@ -127,6 +127,7 @@ Then the admin adds people on the Team page and sends each person a setup script
 | [Install on GitHub](docs/guides/github.md) | The admin: the organization settings, the fine-grained token and its permissions, the plan, what Install creates (the deploy key and `HUB_STATE_KEY`, the ruleset, the workflows). |
 | [People](docs/guides/people.md) | The admin adds a person and sends a setup script, and the person runs it. What each machine needs, and the everyday commands. |
 | [Settings](docs/guides/settings.md) | How strict `hub-guard` is (enforce or advisory, and the checks that can be switched off), assistants, headless runs, links, and `hub usage rekey`. |
+| [When something changes under your step](docs/guides/changes.md) | Everyone: why a step shows ↻ recheck after the spec, the flows or the contract changed, who answers, and the two answers (run the step again, or No change needed; the PO's Only the wording changed). With diagrams of each flow. |
 
 The same guides are on the site's Help page.
 
@@ -177,7 +178,7 @@ Yes. Saves made offline wait on your machine and go out with the next `node hub/
 - [docs/specification.md](docs/specification.md): the specification, the source of truth.
 - [docs/decisions.md](docs/decisions.md): what was decided and why, by date.
 - [docs/open-items.md](docs/open-items.md): what is not done or not verified yet.
-- [docs/guides/](docs/guides/): installing on GitLab and GitHub, people, and settings.
+- [docs/guides/](docs/guides/): installing on GitLab and GitHub, people, settings, and what happens when something changes under a step.
 - [docs/sample/index.html](docs/sample/index.html): the static sample of the site.
 - [prototypes/](prototypes/): the clickable prototypes from the design phase.
 
@@ -190,6 +191,7 @@ npm test            # unit and integration tests (Vitest)
 npm run typecheck
 npm run e2e         # build, then walk every page as every person at 1366px and 390px (Playwright)
 npm run sample      # rebuild docs/sample/index.html and docs/screenshots/ from the demo
+npm run diagrams    # draw the guides' mermaid blocks as SVG for the site, after changing one
 ```
 
 Run `npx playwright install chromium` once before the first `npm run e2e`.
